@@ -1,0 +1,183 @@
+
+####################################################################################################################################################################################################
+
+!ifndef version
+version = Release
+!endif
+
+####################################################################################################################################################################################################
+
+#ADI_DSP = "C:\Program Files (x86)\Analog Devices\VisualDSP 5.1"
+
+curdir = $+ $(%cdrive):$(%cwd) $-
+#hdir = cpp
+libdir = $(curdir)\..\..\..\G_LIBS_BF592
+#bindir = $(ADI_DSP)
+#incdir = $(ADI_DSP)\Blackfin\include
+
+!ifeq version Debug
+
+debug_compiler_options = -O0 -D __DEBUG
+debug_linker_options = 
+libsuffix=d
+
+!else ifeq version Win32_Debug
+
+debug_compiler_options = -Od
+debug_linker_options = 
+libsuffix=Win32
+
+!else
+
+debug_compiler_options = -Oa
+debug_linker_options = 
+libsuffix=r
+
+!endif
+
+####################################################################################################################################################################################################
+
+target_name = G26X.1.BOOT
+
+##################################################################################################
+
+!ifeq buildtool CCES
+
+libname = $(libdir)\G_LIBS_BF592_$(libsuffix)_CCES.dlb
+linktool = ccblkfn
+initsuffix = _CCES
+
+!else
+
+libname = $(libdir)\G_LIBS_BF592_$(libsuffix).dlb
+linktool = linker
+initsuffix =
+
+!endif
+
+####################################################################################################################################################################################################
+
+initcode_name = $(libdir)\initcode$(initsuffix)_osc25.dxe
+
+####################################################################################################################################################################################################
+
+startup_obj = $(objdir)\startup_BF592A.doj
+
+####################################################################################################################################################################################################
+
+.ERASE
+.EXTENSIONS:
+.EXTENSIONS: .dxe .doj .cpp .h .s .d
+
+####################################################################################################################################################################################################
+
+.cpp:	$(cppdir)
+.doj:	$(objdir)
+.dxe:	$(objdir)
+.h:		$(hdir)
+.s: 	$(cppdir);$(libdir)\cpp
+.d:		$(objdir)
+
+####################################################################################################################################################################################################
+
+.BEFORE
+	@if NOT EXIST $(objdir) @md $(objdir) >nul
+	@call echo Building $(version) version ...
+	@call buildnum.bat
+
+####################################################################################################################################################################################################
+
+asm_options = -proc ADSP-BF592-A -g -si-revision 0.2 -DADI_$(buildtool)
+
+####################################################################################################################################################################################################
+
+!ifeq buildtool CCES
+
+compiler_options = $(debug_compiler_options) -c -c++ -g -structs-do-not-overlap -no-multiline &
+	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -Wterse -I$(libdir)\cpp
+#-file-attr ProjectName="$(target_name)" -flags-compiler --no_wrap_diagnostics  -DCORE0 -D_DEBUG -no-const-strings -MD  
+
+!else
+
+compiler_options = $(debug_compiler_options) -c -c++ -g -structs-do-not-overlap -no-multiline &
+	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -Wterse -I$(libdir)\cpp
+
+
+!endif
+####################################################################################################################################################################################################
+
+!ifeq buildtool CCES
+
+link_options = -proc ADSP-BF592-A -si-revision 0.2 -T $(libdir)\BF592A.ldf -no-mem -flags-link -e,-MDNO_UTILITY_ROM,-MDADI_CCES -add-debug-libpaths -flags-link @$(objdir)\link_input.txt
+
+!else
+
+link_options = -T $(libdir)\BF592A.ldf -e -proc ADSP-BF592-A -si-revision 0.2 -MDNO_UTILITY_ROM @$(objdir)\link_input.txt
+
+!endif
+  
+####################################################################################################################################################################################################
+
+!include $(objdir)\mkoutcpp
+!include $(objdir)\mkoutobj
+
+####################################################################################################################################################################################################
+#
+#	$$ 	represents the character "$"
+#	$# 	represents the character "#"
+#	$@ 	full file name of the target
+#	$* 	target with the extension removed
+#	$< 	list of all dependents
+#	$? 	list of dependents that are younger than the target
+#	
+#	a:\dir\target.ext : b:\dir1\dep1.ex1 c:\dir2\dep2.ex2
+#	
+#	$^@ 	a:\dir\target.ext
+#	$^* 	a:\dir\target
+#	$^& 	target
+#	$^. 	target.ext
+#	$^: 	a:\dir\
+#		
+#	$[@ 	b:\dir1\dep1.ex1
+#	$[* 	b:\dir1\dep1
+#	$[& 	dep1
+#	$[. 	dep1.ex1
+#	$[: 	b:\dir1\
+#		
+#	$]@ 	c:\dir2\dep2.ex2
+#	$]* 	c:\dir2\dep2
+#	$]& 	dep2
+#	$]. 	dep2.ex2
+#	$]: 	c:\dir2\
+#
+####################################################################################################################################################################################################
+
+$(objdir)\$(target_name)_$(buildtool).ldr : $(target_name).dxe $(initcode_name)
+	@elfloader -proc ADSP-BF592-A -v -init $(initcode_name) -f binary -b SPI  -si-revision 0.2 -o "$^@" -dmawidth 8 -width 8 $(objdir)\$(target_name).dxe 
+
+####################################################################################################################################################################################################
+#-Map "$(objdir)\$^&.xml"
+
+$(target_name).dxe : $(startup_obj) $(modules_obj) $(libname)
+	@echo Linking ...
+	@echo -Map "$(objdir)\$^&_$(buildtool).xml" > $(objdir)\link_input.txt
+	@$(linktool) $(link_options) -o "$(objdir)\$^." $< 
+
+####################################################################################################################################################################################################
+
+!include $(objdir)\mkoutdep
+
+####################################################################################################################################################################################################
+
+.cpp.doj: .AUTODEPEND
+	@echo Compiling $[. ...
+	@ccblkfn $(compiler_options) -MD -Mo="$(objdir)\$^&.d" -o "$(objdir)\$^." $[@
+
+####################################################################################################################################################################################################
+
+.s.doj:
+	@echo Assembling $[. ...
+	@easmblkfn $(asm_options) -l $(objdir)\$^&.lst  -o $(objdir)\$^. $[@	
+
+####################################################################################################################################################################################################
+

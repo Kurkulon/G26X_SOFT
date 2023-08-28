@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="8,00"
+	Name="G26X.1.BOOT"
+	ProjectGUID="{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}"
+	RootNamespace="G26X.1.BOOT"
+	>
+	<Platforms>
+		<Platform
+			Name="Win32"
+		/>
+	</Platforms>
+	<ToolFiles>
+	</ToolFiles>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="0"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make -h version=Debug"
+				ReBuildCommandLine="make -h -a version=Debug"
+				CleanCommandLine="@del /Q .\Debug\*.*"
+				Output="$(OutDir)\G26X.1.BOOT.dxe"
+				PreprocessorDefinitions="__DEBUG;"
+				IncludeSearchPath="..\..\..\G_LIBS_BF592\cpp;c:\Program Files (x86)\Analog Devices\VisualDSP 5.1.2\Blackfin\include;"
+				ForcedIncludes=""
+				AssemblySearchPath=""
+				ForcedUsingAssemblies=""
+				CompileAsManaged=""
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="0"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make -h version=Release"
+				ReBuildCommandLine="make -h -a version=Release"
+				CleanCommandLine="@del /Q .\Release\*.*"
+				Output="$(OutDir)\G26X.1.BOOT.dxe"
+				PreprocessorDefinitions="_LANGUAGE_C"
+				IncludeSearchPath="..\..\..\G_LIBS_BF592\cpp;c:\Program Files (x86)\Analog Devices\VisualDSP 5.1.2\Blackfin\include;"
+				ForcedIncludes=""
+				AssemblySearchPath=""
+				ForcedUsingAssemblies=""
+				CompileAsManaged=""
+			/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
+			>
+			<File
+				RelativePath=".\cpp\com.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\cpp\flash.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\cpp\hardware.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\cpp\main.cpp"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
+			>
+			<File
+				RelativePath=".\cpp\hardware.h"
+				>
+			</File>
+			<File
+				RelativePath=".\cpp\hw_conf.h"
+				>
+			</File>
+		</Filter>
+		<File
+			RelativePath=".\makeobj"
+			>
+		</File>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
