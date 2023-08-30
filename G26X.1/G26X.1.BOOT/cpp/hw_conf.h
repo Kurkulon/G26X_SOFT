@@ -149,6 +149,8 @@
 #define BOOT_MAN_REQ_WORD		0xAD00
 #define BOOT_MAN_REQ_MASK 		0xFF00
 
+#define BOOT_HW_UPDATE 			UpdateHardware
+
 #define PIO_RTS					HW::PIOF
 #define PIN_RTS					10
 #define MASK_RTS				(1UL<<PIN_RTS)
