@@ -1,0 +1,6 @@
+SWDSelect
+speed 2000
+r
+exec device = ATSAME53N19
+loadbin obj\G26X.2.BOOT.bin,0x00000000
+exit

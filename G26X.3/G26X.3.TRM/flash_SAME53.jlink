@@ -1,0 +1,6 @@
+SWDSelect
+speed 2000
+r
+exec device = ATSAME53J18
+loadbin obj\G26X.3.TRM.bin,0x00004000
+exit

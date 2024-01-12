@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "G26X.3.TRM", "G26X.3.TRM.vcproj", "{B714AF8F-1374-43D4-8707-4BCD54E9D858}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "G_LIBS_ARM", "..\..\..\G_LIBS_ARM\G_LIBS_ARM.vcproj", "{8B729F3B-7753-473F-8A91-F876530202FD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		SAME53_Debug|Win32 = SAME53_Debug|Win32
+		SAME53_Release|Win32 = SAME53_Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B714AF8F-1374-43D4-8707-4BCD54E9D858}.SAME53_Debug|Win32.ActiveCfg = SAME53_Debug|Win32
+		{B714AF8F-1374-43D4-8707-4BCD54E9D858}.SAME53_Debug|Win32.Build.0 = SAME53_Debug|Win32
+		{B714AF8F-1374-43D4-8707-4BCD54E9D858}.SAME53_Release|Win32.ActiveCfg = SAME53_Release|Win32
+		{B714AF8F-1374-43D4-8707-4BCD54E9D858}.SAME53_Release|Win32.Build.0 = SAME53_Release|Win32
+		{8B729F3B-7753-473F-8A91-F876530202FD}.SAME53_Debug|Win32.ActiveCfg = SAME53_Debug|Win32
+		{8B729F3B-7753-473F-8A91-F876530202FD}.SAME53_Debug|Win32.Build.0 = SAME53_Debug|Win32
+		{8B729F3B-7753-473F-8A91-F876530202FD}.SAME53_Release|Win32.ActiveCfg = SAME53_Release|Win32
+		{8B729F3B-7753-473F-8A91-F876530202FD}.SAME53_Release|Win32.Build.0 = SAME53_Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

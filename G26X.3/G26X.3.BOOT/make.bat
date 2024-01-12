@@ -1,0 +1,2 @@
+@call buildnum
+@call wmake %*

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="8,00"
+	Name="G26X.3.BOOT"
+	ProjectGUID="{B714AF8F-1374-43D4-8707-4BCD54E9D858}"
+	RootNamespace="G26X.3.BOOT"
+	>
+	<Platforms>
+		<Platform
+			Name="Win32"
+		/>
+	</Platforms>
+	<ToolFiles>
+	</ToolFiles>
+	<Configurations>
+		<Configuration
+			Name="SAME53_Debug|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="0"
+			>
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make -h version=Debug targetcpu=SAME53"
+				ReBuildCommandLine="make -h -a version=Debug targetcpu=SAME53"
+				CleanCommandLine="@del /Q $(OutDir)\*.*"
+				Output="$(OutDir)\G26X.3.BOOT.axf"
+				PreprocessorDefinitions="_DEBUG,__softfp=,__CC_ARM,CPU_SAME53,BOOTLOADER"
+				IncludeSearchPath="$(ProjectDir)..\..\..\G_LIBS_ARM\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;"
+				ForcedIncludes=""
+				AssemblySearchPath=""
+				ForcedUsingAssemblies=""
+				CompileAsManaged=""
+			/>
+		</Configuration>
+		<Configuration
+			Name="SAME53_Release|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="0"
+			>
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make -h version=Release targetcpu=SAME53"
+				ReBuildCommandLine="make -h -a version=Release targetcpu=SAME53"
+				CleanCommandLine="@del /Q $(OutDir)\*.*"
+				Output="$(OutDir)\G26X.3.BOOT.axf"
+				PreprocessorDefinitions="__softfp=,__CC_ARM,CPU_SAME53,BOOTLOADER"
+				IncludeSearchPath="$(ProjectDir)..\..\..\G_LIBS_ARM\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;"
+				ForcedIncludes=""
+				AssemblySearchPath=""
+				ForcedUsingAssemblies=""
+				CompileAsManaged=""
+			/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			>
+			<File
+				RelativePath=".\cpp\main.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\cpp\system.cpp"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="Global Include"
+			>
+			<File
+				RelativePath="..\Include\G26X_3_HW_CONF.H"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Include\G_TRM.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			>
+		</Filter>
+		<File
+			RelativePath=".\makeobj"
+			>
+		</File>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
