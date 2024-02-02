@@ -63,6 +63,9 @@ static byte svCount = 0;
 
 static Rsp20 *curRsp20 = 0;
 
+u16 fireAmp = 0;
+u16 fireFreq = 3000;
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 void SaveMainParams()
@@ -901,7 +904,7 @@ int main()
 		{
 			fps = fc; fc = 0; 
 
-			//PrepareFire(3000, 1000, false);
+			PrepareFire(0, fireFreq, fireAmp, true);
 		};
 	}; // while (1)
 }
