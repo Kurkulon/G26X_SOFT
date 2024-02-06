@@ -3,10 +3,12 @@
 
 #pragma once
 
-#include "ComPort.h"
+#include <RequestQuery.h>
+#include <ComPort.h>
 
-#include "list.h"
-#include "flash.h"
+#include <list.h>
+#include <flash.h>
+#include <boot_req.h>
 
 #include "G_TRM.h"
 #include "G_RCV.h"
@@ -227,12 +229,27 @@ __packed struct  ReqDsp07	// перезагрузить блэкфин
 
 union ReqUnion
 {
-	ReqDsp01 	dsp01;	
+	ReqRcv01 	rcv01;
+	ReqRcv02	rcv02;
+	ReqRcv03	rcv03;
+	ReqRcv04	rcv04;
 	ReqDsp05 	dsp05;	
 	ReqDsp06 	dsp06;	
 	ReqDsp07 	dsp07;	
-	ReqMoto		moto;	
-	ReqBootMoto bootMoto;
+	ReqTrm01	trm01;	
+	ReqTrm02	trm02;
+	ReqTrm03	trm03;
+	BootReqMes	bootTrm;
+};
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+__packed struct RspMan60
+{
+	u16 rw; 
+	u32 cnt; 
+	u16 maxAmp[96]; 
+	u16 power[96];
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -338,78 +355,78 @@ union ReqUnion
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-struct REQ : public PtrItem<REQ>
-{
-	PTR_LIST_FRIENDS(REQ);
-
-	bool	ready;
-	bool	crcOK;
-	bool	checkCRC;
-	bool	updateCRC;
-
-	typedef void tRsp(Ptr<REQ> &q);
-
-	u16		tryCount;
-	
-	//REQ *next;
-
-	tRsp		*CallBack;
-	Ptr<MB>	rsp;
-
-	ComPort::WriteBuffer wb;
-	ComPort::ReadBuffer rb;
-
-	u32		preTimeOut, postTimeOut;
-
-	byte	reqData[(sizeof(ReqUnion)+64) & ~3];
-
-protected:
-
-	virtual void _FreeCallBack() { rsp.Free(); }
-
-public:
-
-	//void	Free() { if (this != 0) rsp.Free(), PtrItem<REQ>::Free(); }
-
-	REQ() : tryCount(0) { }
-};
+//struct REQ : public PtrItem<REQ>
+//{
+//	PTR_LIST_FRIENDS(REQ);
+//
+//	bool	ready;
+//	bool	crcOK;
+//	bool	checkCRC;
+//	bool	updateCRC;
+//
+//	typedef void tRsp(Ptr<REQ> &q);
+//
+//	u16		tryCount;
+//	
+//	//REQ *next;
+//
+//	tRsp		*CallBack;
+//	Ptr<MB>	rsp;
+//
+//	ComPort::WriteBuffer wb;
+//	ComPort::ReadBuffer rb;
+//
+//	u32		preTimeOut, postTimeOut;
+//
+//	byte	reqData[(sizeof(ReqUnion)+64) & ~3];
+//
+//protected:
+//
+//	virtual void _FreeCallBack() { rsp.Free(); }
+//
+//public:
+//
+//	//void	Free() { if (this != 0) rsp.Free(), PtrItem<REQ>::Free(); }
+//
+//	REQ() : tryCount(0) { }
+//};
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-class RequestQuery
-{
-	//REQ*			_first;
-	//REQ*			_last;
-	Ptr<REQ>		_req;
-
-	ListPtr<REQ>	reqList;
-	
-	byte			_state;
-
-	u16				_crc;
-	u16 			_crcLen;
-
-	byte*			_crcPtr;
-
-
-	ComPort			*com;
-
-	//u32			count;
-
-	bool			_run;
-
-public:
-
-				RequestQuery(ComPort *p) : _state(0), com(p), _run(true) {}
-	void		Add(const Ptr<REQ>& req)	{ reqList.Add(req); }
-	Ptr<REQ>	Get()						{ return reqList.Get(); }
-	//bool Empty() { return reqList.Empty(); }
-	//bool Idle() { return (_first == 0) && (_req == 0); }
-	bool Stoped() { return !_req.Valid(); }
-	void Update();
-	void Stop() { _run = false; }
-	void Start() { _run = true; }
-};
+//class RequestQuery
+//{
+//	//REQ*			_first;
+//	//REQ*			_last;
+//	Ptr<REQ>		_req;
+//
+//	ListPtr<REQ>	reqList;
+//	
+//	byte			_state;
+//
+//	u16				_crc;
+//	u16 			_crcLen;
+//
+//	byte*			_crcPtr;
+//
+//
+//	ComPort			*com;
+//
+//	//u32			count;
+//
+//	bool			_run;
+//
+//public:
+//
+//				RequestQuery(ComPort *p) : _state(0), com(p), _run(true) {}
+//	void		Add(const Ptr<REQ>& req)	{ reqList.Add(req); }
+//	Ptr<REQ>	Get()						{ return reqList.Get(); }
+//	//bool Empty() { return reqList.Empty(); }
+//	//bool Idle() { return (_first == 0) && (_req == 0); }
+//	bool Stoped() { return !_req.Valid(); }
+//	void Update();
+//	void Stop() { _run = false; }
+//	void Start() { _run = true; }
+//};
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

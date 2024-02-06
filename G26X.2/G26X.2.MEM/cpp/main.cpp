@@ -71,16 +71,12 @@ __packed struct MainVars // NonVolatileVars
 	u16 numDevice;
 	u16 numMemDevice;
 
-	SENS	sens1;
-	SENS	sens2;
-	SENS	refSens;
+	Transmiter	trans[TRANSMITER_NUM];
 
-	u16 cmSPR;
-	u16 imSPR;
-	u16 fireVoltage;
-	u16 motoLimCur;
-	u16 motoMaxCur;
-	u16 sensMask;
+	u16 trmVoltage;
+	u16 disableFireNoVibration;
+	u16 levelNoVibration;
+	u16 firePeriod;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -88,6 +84,9 @@ __packed struct MainVars // NonVolatileVars
 static MainVars mv;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool runMainMode = false;
+static u16 vibration;
 
 u32 req40_count1 = 0;
 u32 req40_count2 = 0;
@@ -98,17 +97,6 @@ i16 tempClock = 0;
 i16 cpu_temp = 0;
 u32 i2cResetCount = 0;
 
-//inline u16 ReverseWord(u16 v) { __asm	{ rev16 v, v };	return v; }
-
-//static void* eepromData = 0;
-//static u16 eepromWriteLen = 0;
-//static u16 eepromReadLen = 0;
-//static u16 eepromStartAdr = 0;
-
-//static MTB mtb;
-
-//static u16 manBuf[16];
-
 u16 manRcvData[10];
 u16 manTrmData[50];
 static u16 manTrmBaud = 0;
@@ -116,14 +104,8 @@ static u16 memTrmBaud = 0;
 
 u16 txbuf[128 + 512 + 16];
 
-//static ComPort comdsp;
-//static ComPort comTrm;
-
 static RequestQuery qTrm(&comTrm);
 static RequestQuery qRcv(&comRcv);
-//static RequestQuery qmem(&commem);
-
-//static R01 r02[8];
 
 static Ptr<MB> manVec40[SENS_NUM];
 
@@ -131,42 +113,10 @@ static Ptr<MB> curManVec40;
 static Ptr<MB> manVec50[SENS_NUM-1];
 static Ptr<MB> curManVec50;
 
-//static RspMan60 rspMan60;
-
-//static byte curRcv[3] = {0};
-//static byte curVec[3] = {0};
-
-//static List<R01> freeR01;
-//static List<R01> readyR01;
 static ListPtr<MB> readyR01;
 
-//static RMEM rmem[4];
-//static List<RMEM> lstRmem;
-//static List<RMEM> freeRmem;
-
-//static byte fireType = 0;
-
-//static u16 gain = 0;
-//static u16 sampleTime = 5;
-//static u16 sampleLen = 1024;
-//static u16 sampleDelay = 200;
-//static u16 deadTime = 400;
-//static u16 descriminant = 400;
-//static u16 freq = 500;
-
-//static u16 gainRef = 0;
-//static u16 sampleTimeRef = 5;
-//static u16 sampleLenRef = 1024;
-//static u16 sampleDelayRef = 200;
-//static u16 deadTimeRef = 400;
-//static u16 descriminantRef = 400;
-//static u16 refFreq = 500;
-//static u16 filtrType = 0;
-//static u16 packType = 0;
-//static u16 vavesPerRoundCM = 100;	
-//static u16 vavesPerRoundIM = 100;
-
 static u16 mode = 0;
+static RspMan60 rspMan60;
 
 static TM32 imModeTimeout;
 
@@ -208,6 +158,7 @@ static u16 verMemDevice = 0x100;
 //static u32 fireCounter = 0;
 
 static byte mainModeState = 0;
+static byte fireType = 0;
 static byte dspStatus = 0;
 
 static bool cmdWriteStart_00 = false;
@@ -220,6 +171,13 @@ static u16 dspRcvCount = 0;
 static u32 dspRcvErr = 0;
 static u16 dspNotRcv = 0;
 
+static u16 rcvStatus = 0;
+static u32 crcErr02[13] = {0};
+static u32 crcErr03 = 0;
+static u32 crcErr04 = 0;
+
+static u32 notRcv02[13] = {0};
+static u32 lenErr02[13] = {0};
 
 //static u32 rcvCRCER = 0;
 
@@ -230,7 +188,7 @@ static u16 dspNotRcv = 0;
 static u32 crcErr06 = 0;
 static u32 wrtErr06 = 0;
 
-static u32 notRcv02 = 0;
+//static u32 notRcv02 = 0;
 //static u32 lenErr02 = 0;
 
 static i16 ax = 0, ay = 0, az = 0, at = 0;
@@ -339,70 +297,75 @@ static void SetModeIM()
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void CallBackDspReq01(Ptr<REQ> &q)
+static Ptr<REQ> CreateRcvReqFire(byte n, u16 fc)
 {
-	RspDsp01 &rsp = *((RspDsp01*)q->rb.data);
+	Ptr<REQ> rq(AllocREQ());
+	
+	//rq.Alloc();
+
+	if (!rq.Valid()) return rq;
+
+	ReqRcv01* *req = ((ReqRcv01**)rq->reqData);
+
+	REQ &q = *rq;
+
+	q.CallBack = 0;
+	q.ready = false;
+	q.tryCount = 0;
+	q.checkCRC = false;
+	q.updateCRC = false;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+
+	q.rb.data = 0;
+	q.rb.maxLen = 0;
+
+	req[2]->len		= req[1]->len	= req[0]->len	= sizeof(ReqRcv01) - 1;
+	req[2]->adr		= req[1]->adr	= req[0]->adr	= 0;
+	req[2]->func	= req[1]->func	= req[0]->func	= 1;
+	req[2]->n		= req[1]->n		= req[0]->n		= n;
+	req[2]->fc		= req[1]->fc	= req[0]->fc	= fc;
+	req[2]->crc		= req[1]->crc	= req[0]->crc	= GetCRC16(&req[0]->adr, sizeof(ReqRcv01)-3);
+
+	return &q;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool CallBackRcvReq02(Ptr<REQ> &q)
+{
+	ReqRcv02 &req = *((ReqRcv02*)q->wb.data);
+	RspRcv02 &rsp = *((RspRcv02*)q->rb.data);
 	 
-	if (q->rb.recieved)
+	bool crcOK = q->crcOK;
+
+	if (crcOK)
 	{
-		if (rsp.CM.hdr.rw == (dspReqWord|0x40))
-		{
-			if (rsp.CM.hdr.packType == 0)
-			{
-				q->crcOK = (q->rb.len == (rsp.CM.hdr.sl*2 + sizeof(rsp.CM.hdr)+2)) && (GetCRC16(&rsp.CM.hdr, sizeof(rsp.CM.hdr)) == rsp.CM.data[rsp.CM.hdr.sl]);
-			}
-			else
-			{
-				q->crcOK = (q->rb.len == (rsp.CM.hdr.packLen*2 + sizeof(rsp.CM.hdr) + 2)) && (GetCRC16(&rsp.CM.hdr, sizeof(rsp.CM.hdr)) == rsp.CM.data[rsp.CM.hdr.packLen]);
-			};
-
-			q->rsp->len = q->rb.len;
-
-			dspStatus |= 1;
-			dspRcv40++;
-			dspRcvCount++;
-			
-			//dspMMSEC	= rsp.CM.hdr.time;
-			//shaftMMSEC	= rsp.CM.hdr.hallTime;
-		}
-		else if (rsp.IM.hdr.rw == (dspReqWord|0x50))
-		{
-			q->crcOK = (q->rb.len == (rsp.IM.hdr.dataLen*4 + sizeof(rsp.IM.hdr) + 2)) && (GetCRC16(&rsp.IM.hdr, sizeof(rsp.IM.hdr)) == rsp.IM.data[rsp.IM.hdr.dataLen*2]);
-			q->rsp->len = q->rb.len;
-
-			dspStatus |= 1;
-			dspRcv50++;
-			dspRcvCount++;
-
-			//dspMMSEC = rsp.IM.hdr.time;
-			//shaftMMSEC = rsp.IM.hdr.hallTime;
-		}
-		else
-		{
-			q->crcOK = GetCRC16(q->rb.data, q->rb.len) == 0;
-
-			if (q->crcOK && rsp.v01.rw == (dspReqWord|1))
-			{
-				curFireVoltage = rsp.v01.fireVoltage;
-				//motoVoltage = rsp.v01.motoVoltage;
-				
-				dspStatus |= 1;
-				dspRcvCount++;
-
-				q->rsp->len = 0;
-				q->crcOK = false;
-				q->tryCount = 0;
-			};
-		};
+		rcvStatus |= 1 << (rsp.rw & 7);
+		
+		q->rsp->len = q->rb.len;
 	}
 	else
 	{
-		q->crcOK = false;
-		notRcv02++;
-	};
+		byte a = (req.adr-1) & 7;
 
-	if (!q->crcOK)
-	{
+		if (q->rb.recieved)
+		{
+			if ((rsp.rw & manReqMask) != manReqWord || (rsp.len*8+16) != q->rb.len)
+			{
+				lenErr02[a]++;
+			}
+			else
+			{
+				crcErr02[a]++;
+			};
+		}
+		else
+		{
+			notRcv02[a]++;
+		};
+
 		if (q->tryCount > 0)
 		{
 			q->tryCount--;
@@ -410,51 +373,41 @@ void CallBackDspReq01(Ptr<REQ> &q)
 		}
 		else
 		{
-			dspStatus &= ~1; 
-
-			//q.Free();
+			rcvStatus &= ~(1 << (a)); 
 		};
 	};
+
+	return true;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Ptr<REQ> CreateDspReq01(u16 tryCount)
+static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 {
-	Ptr<REQ> rq;
+	Ptr<REQ> rq(AllocREQ());
 	
-	rq.Alloc();//= REQ::Alloc();
+	if (!rq.Valid()) return rq;
 
-	if (!rq.Valid()) 
-	{
-		rq.Free();
-		return rq;
-	};
+	rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv02)+2);
 
-	rq->rsp = AllocFlashWriteBuffer(sizeof(RspDsp01)+2);
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	if (!rq->rsp.Valid())
-	{ 
-		rq.Free();
-		return rq; 
-	};
+	ReqRcv02 **req = ((ReqRcv02**)rq->reqData);
+	RspRcv02 &rsp = *((RspRcv02*)(rq->rsp->GetDataPtr()));
 
-	ReqDsp01 &req = *((ReqDsp01*)rq->reqData);
-	RspDsp01 &rsp = *((RspDsp01*)(rq->rsp->GetDataPtr()));
+	adr = (adr-1)&7; 
+	chnl &= 3; n %= 3;
 
 	rq->rsp->len = 0;
 	
 	REQ &q = *rq;
 
-	q.CallBack = CallBackDspReq01;
-	//q.rb = &rb;
-	//q.wb = &wb;
+	q.CallBack = CallBackRcvReq02;
 	q.preTimeOut = MS2COM(1);
 	q.postTimeOut = US2COM(100);
 	q.ready = false;
 	q.tryCount = tryCount;
-	//q.ptr = &r;
-	q.checkCRC = false;
+	q.checkCRC = true;
 	q.updateCRC = false;
 	
 	q.wb.data = &req;
@@ -463,67 +416,222 @@ Ptr<REQ> CreateDspReq01(u16 tryCount)
 	q.rb.data = &rsp;
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 	q.rb.recieved = false;
-	
-	req.rw				= dspReqWord|1;
-	req.len				= sizeof(req);
-	req.version			= req.VERSION;
-	req.mode 			= mode;
-	req.ax				= ax;
-	req.ay				= ay;
-	req.az				= az;
-	req.at				= at;
-	req.sens[0]			= mv.sens1;
-	req.sens[1]			= mv.sens2;
-	req.sens[2]			= mv.refSens;
-	req.wavesPerRoundCM = mv.cmSPR;
-	req.wavesPerRoundIM = mv.imSPR;
-	req.fireVoltage		= mv.fireVoltage;
-	req.sensMask		= mv.sensMask;
 
-	req.crc	= GetCRC16(&req, sizeof(ReqDsp01)-2);
+	ReqRcv02 &req0 = *(req[0]);
+	ReqRcv02 &req1 = *(req[1]);
+	
+	req1.len	= req0.len	= sizeof(req0) - 1;
+	req1.adr	= req0.adr	= adr+1;
+	req1.func	= req0.func	= 2;
+	req1.n		= req0.n	= n;
+	req1.chnl	= req0.chnl	= chnl;
+	req1.crc	= req0.crc	= GetCRC16(&req0.adr, sizeof(req0)-3);
 
 	return rq;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Ptr<MB> CreateTestDspReq01()
+static bool CallBackRcvReq03(Ptr<REQ> &q)
+{
+	if (!q->crcOK) 
+	{
+		crcErr03++;
+
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qRcv.Add(q);
+		};
+	};
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
+{
+	Ptr<REQ> rq(AllocREQ());
+	
+	if (!rq.Valid()) return rq;
+
+	rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv02)+2);
+
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+
+	ReqRcv03 **req = ((ReqRcv03**)rq->reqData);
+	RspRcv03 &rsp = *((RspRcv03*)(rq->rsp->GetDataPtr()));
+
+	REQ &q = *rq;
+
+	q.CallBack = CallBackRcvReq03;
+	q.preTimeOut = US2COM(500);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	q.crcType = REQ::CRC16;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+
+	q.rb.data = &rsp;
+	q.rb.maxLen = rq->rsp->GetDataMaxLen();
+	q.rb.recieved = false;
+
+	ReqRcv03 &req0 = *(req[0]);
+	ReqRcv03 &req1 = *(req[1]);
+
+	req1.len	= req0.len	= sizeof(req0) - 1;
+	req1.adr	= req0.adr	= adr;
+	req1.func	= req0.func	= 3;
+
+	req1.st[0] 	= req0.st[0] = mv.trans[0].st;
+	req1.st[1] 	= req0.st[1] = mv.trans[1].st;
+	req1.st[2] 	= req0.st[2] = mv.trans[2].st;
+		   
+	req1.sl[0] 	= req0.sl[0] = mv.trans[0].sl;
+	req1.sl[1] 	= req0.sl[1] = mv.trans[1].sl;
+	req1.sl[2] 	= req0.sl[2] = mv.trans[2].sl;
+		   
+	req1.sd[0] 	= req0.sd[0] = mv.trans[0].sd;
+	req1.sd[1] 	= req0.sd[1] = mv.trans[1].sd;
+	req1.sd[2] 	= req0.sd[2] = mv.trans[2].sd;
+
+	req1.crc = req0.crc = GetCRC16(&req0.adr, sizeof(req0)-3);
+	
+	return &q;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool CallBackRcvReq04(Ptr<REQ> &q)
+{
+	if (!q->crcOK) 
+	{
+		crcErr04++;
+
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qRcv.Add(q);
+		};
+	}
+	else
+	{
+		RspRcv04 &rsp = *((RspRcv04*)q->rb.data);
+
+		u16 i = rsp.adr - 1;
+
+		if (fireType <= 2 && i <= 7)
+		{
+			i = fireType*32 + i*4;
+
+			rspMan60.maxAmp[i + 0] = rsp.maxAmp[0];
+			rspMan60.maxAmp[i + 1] = rsp.maxAmp[1];
+			rspMan60.maxAmp[i + 2] = rsp.maxAmp[2];
+			rspMan60.maxAmp[i + 3] = rsp.maxAmp[3];
+
+			rspMan60.power[i + 0] = rsp.power[0];
+			rspMan60.power[i + 1] = rsp.power[1];
+			rspMan60.power[i + 2] = rsp.power[2];
+			rspMan60.power[i + 3] = rsp.power[3];
+		};
+	};
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateRcvReq04(byte adr, byte ka[], u16 tryCount)
+{
+	Ptr<REQ> rq(AllocREQ());
+	
+	if (!rq.Valid()) return rq;
+
+	rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv02)+2);
+
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+
+	ReqRcv04 **req = ((ReqRcv04**)rq->reqData);
+	RspRcv04 &rsp = *((RspRcv04*)(rq->rsp->GetDataPtr()));
+
+	REQ &q = *rq;
+
+	q.CallBack = CallBackRcvReq04;
+	q.preTimeOut = US2COM(500);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	q.crcType = REQ::CRC16;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+
+	q.rb.data = &rsp;
+	q.rb.maxLen = rq->rsp->GetDataMaxLen();
+	q.rb.recieved = false;
+
+	ReqRcv04 &req0 = *(req[0]);
+	ReqRcv04 &req1 = *(req[1]);
+
+	req1.len	= req0.len	= sizeof(req0) - 1;
+	req1.adr	= req0.adr	= adr;
+	req1.func	= req0.func	= 4;
+
+	req1.ka[0] = req0.ka[0] = ka[0];
+	req1.ka[1] = req0.ka[1] = ka[1];
+	req1.ka[2] = req0.ka[2] = ka[2];
+
+	req1.crc = req0.crc = GetCRC16(&req0.adr, sizeof(req0)-3);
+
+	return &q;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<MB> CreateTestDspReq01()
 {
 	Ptr<MB> rq;
 	
-	rq = AllocFlashWriteBuffer(sizeof(RspDsp01));
+	//rq = AllocFlashWriteBuffer(sizeof(RspDsp01));
 
-	if (!rq.Valid()) { return rq; };
+	//if (!rq.Valid()) { return rq; };
 
-	RspDsp01 &rsp = *((RspDsp01*)(rq->GetDataPtr()));
+	//RspDsp01 &rsp = *((RspDsp01*)(rq->GetDataPtr()));
 
-	rsp.CM.hdr.rw = manReqWord|0x40;
-	rsp.CM.hdr.time = 1;
-	rsp.CM.hdr.hallTime = 2;
-	rsp.CM.hdr.motoCount = 3;
-	rsp.CM.hdr.headCount = 4;
-	rsp.CM.hdr.ax = 5;
-	rsp.CM.hdr.ay = 6;
-	rsp.CM.hdr.az = 7;
-	rsp.CM.hdr.at = 8;
-	rsp.CM.hdr.sensType = 0;
-	rsp.CM.hdr.angle = 9;
-	rsp.CM.hdr.maxAmp = 10;
-	rsp.CM.hdr.fi_amp = 11;
-	rsp.CM.hdr.fi_time = 12;
-	rsp.CM.hdr.gain = 13;
-	rsp.CM.hdr.st = 14;
-	rsp.CM.hdr.sl = ArraySize(rsp.CM.data);
-	rsp.CM.hdr.sd = 0;
-	rsp.CM.hdr.packType = 0;
-	rsp.CM.hdr.packLen = 0;
+	//rsp.CM.hdr.rw = manReqWord|0x40;
+	//rsp.CM.hdr.time = 1;
+	//rsp.CM.hdr.hallTime = 2;
+	//rsp.CM.hdr.motoCount = 3;
+	//rsp.CM.hdr.headCount = 4;
+	//rsp.CM.hdr.ax = 5;
+	//rsp.CM.hdr.ay = 6;
+	//rsp.CM.hdr.az = 7;
+	//rsp.CM.hdr.at = 8;
+	//rsp.CM.hdr.sensType = 0;
+	//rsp.CM.hdr.angle = 9;
+	//rsp.CM.hdr.maxAmp = 10;
+	//rsp.CM.hdr.fi_amp = 11;
+	//rsp.CM.hdr.fi_time = 12;
+	//rsp.CM.hdr.gain = 13;
+	//rsp.CM.hdr.st = 14;
+	//rsp.CM.hdr.sl = ArraySize(rsp.CM.data);
+	//rsp.CM.hdr.sd = 0;
+	//rsp.CM.hdr.packType = 0;
+	//rsp.CM.hdr.packLen = 0;
 
-	for (u32 i = 0; i < rsp.CM.hdr.sl; i++)
-	{
-		rsp.CM.data[i] = 0;
-	};
+	//for (u32 i = 0; i < rsp.CM.hdr.sl; i++)
+	//{
+	//	rsp.CM.data[i] = 0;
+	//};
 
-	rq->len = sizeof(rsp.CM);
+	//rq->len = sizeof(rsp.CM);
 	
 	return rq;
 }
@@ -531,7 +639,7 @@ Ptr<MB> CreateTestDspReq01()
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void CallBackDspReq05(Ptr<REQ> &q)
+static bool CallBackDspReq05(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
@@ -539,17 +647,21 @@ void CallBackDspReq05(Ptr<REQ> &q)
 		{
 			q->tryCount--;
 			qRcv.Add(q);
+
+			return false;
 		};
 	};
+
+	return true;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Ptr<REQ> CreateDspReq05(u16 tryCount)
+static Ptr<REQ> CreateDspReq05(u16 tryCount)
 {
-	Ptr<REQ> rq;
+	Ptr<REQ> rq(AllocREQ());
 	
-	rq.Alloc();//= REQ::Alloc();
+	//rq.Alloc();//= REQ::Alloc();
 
 	if (!rq.Valid()) return rq;
 
@@ -586,7 +698,7 @@ Ptr<REQ> CreateDspReq05(u16 tryCount)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void CallBackDspReq06(Ptr<REQ> &q)
+static bool CallBackDspReq06(Ptr<REQ> &q)
 {
 	bool retry = false;
 
@@ -607,17 +719,20 @@ void CallBackDspReq06(Ptr<REQ> &q)
 	{
 		q->tryCount--;
 		qRcv.Add(q);
+
+		return false;
 	};
 
+	return true;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Ptr<REQ> CreateDspReq06(u16 stAdr, u16 count, void* data, u16 count2, void* data2, u16 tryCount)
+static Ptr<REQ> CreateDspReq06(u16 stAdr, u16 count, void* data, u16 count2, void* data2, u16 tryCount)
 {
-	Ptr<REQ> rq;
+	Ptr<REQ> rq(AllocREQ());
 	
-	rq.Alloc();//= REQ::Alloc();
+	//rq.Alloc();//= REQ::Alloc();
 
 	if (!rq.Valid()) return rq;
 
@@ -695,11 +810,11 @@ Ptr<REQ> CreateDspReq06(u16 stAdr, u16 count, void* data, u16 count2, void* data
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Ptr<REQ> CreateDspReq07()
+static Ptr<REQ> CreateDspReq07()
 {
-	Ptr<REQ> rq;
+	Ptr<REQ> rq(AllocREQ());
 	
-	rq.Alloc();//= REQ::Alloc();
+	//rq.Alloc();//= REQ::Alloc();
 
 	if (!rq.Valid()) return rq;
 
@@ -744,80 +859,80 @@ Ptr<REQ> CreateDspReq07()
 
 static void CallBackMotoReq(Ptr<REQ> &q)
 {
-	if (!q->crcOK) 
-	{
-		if (q->tryCount > 0)
-		{
-			q->tryCount--;
-			qTrm.Add(q);
-		};
-	}
-	else
-	{
-		RspMoto &rsp = *((RspMoto*)q->rb.data);
+	//if (!q->crcOK) 
+	//{
+	//	if (q->tryCount > 0)
+	//	{
+	//		q->tryCount--;
+	//		qTrm.Add(q);
+	//	};
+	//}
+	//else
+	//{
+	//	RspMoto &rsp = *((RspMoto*)q->rb.data);
 
-		if (rsp.rw == 0x101)
-		{
-			motoRPS		= rsp.rpm;
-			motoCur		= rsp.current;
-			motoCurLow	= rsp.currentLow;
-			motoStat	= rsp.mororStatus;
-			motoCounter = rsp.motoCounter;
-			auxVoltage	= rsp.auxVoltage;
-			motoVoltage	= rsp.motoVoltage;
-			motoRcvCount++;
-		};
-	};
+	//	if (rsp.rw == 0x101)
+	//	{
+	//		motoRPS		= rsp.rpm;
+	//		motoCur		= rsp.current;
+	//		motoCurLow	= rsp.currentLow;
+	//		motoStat	= rsp.mororStatus;
+	//		motoCounter = rsp.motoCounter;
+	//		auxVoltage	= rsp.auxVoltage;
+	//		motoVoltage	= rsp.motoVoltage;
+	//		motoRcvCount++;
+	//	};
+	//};
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static Ptr<REQ> CreateMotoReq()
 {
-	Ptr<REQ> rq;
+	Ptr<REQ> rq(AllocREQ());
 	
-	rq.Alloc();
+	//rq.Alloc();
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(RspMoto));
+	//rq->rsp = AllocMemBuffer(sizeof(RspMoto));
 
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqMoto &req = *((ReqMoto*)rq->reqData);
-	RspMoto &rsp = *((RspMoto*)(rq->rsp->GetDataPtr()));
-	
-	REQ &q = *rq;
+	//ReqMoto &req = *((ReqMoto*)rq->reqData);
+	//RspMoto &rsp = *((RspMoto*)(rq->rsp->GetDataPtr()));
+	//
+	//REQ &q = *rq;
 
-	q.CallBack = CallBackMotoReq;
-	//q.rb = &rb;
-	//q.wb = &wb;
-	q.preTimeOut = MS2COM(1);
-	q.postTimeOut = US2COM(100);
-	q.ready = false;
-	q.checkCRC = true;
-	q.updateCRC = false;
-	q.tryCount = 1;
-	
-	q.wb.data = &req;
-	q.wb.len = sizeof(req);
+	//q.CallBack = CallBackMotoReq;
+	////q.rb = &rb;
+	////q.wb = &wb;
+	//q.preTimeOut = MS2COM(1);
+	//q.postTimeOut = US2COM(100);
+	//q.ready = false;
+	//q.checkCRC = true;
+	//q.updateCRC = false;
+	//q.tryCount = 1;
+	//
+	//q.wb.data = &req;
+	//q.wb.len = sizeof(req);
 
-	q.rb.data = &rsp;
-	q.rb.maxLen = sizeof(rsp);
-	
-	req.rw = 0x101;
-	req.enableMotor	= 1;
-	req.tRPM = motoTargetRPS;
-	req.limCurrent = mv.motoLimCur;
-	req.maxCurrent = mv.motoMaxCur;
-	req.crc	= GetCRC16(&req, sizeof(req)-2);
+	//q.rb.data = &rsp;
+	//q.rb.maxLen = sizeof(rsp);
+	//
+	//req.rw = 0x101;
+	//req.enableMotor	= 1;
+	//req.tRPM = motoTargetRPS;
+	//req.limCurrent = mv.motoLimCur;
+	//req.maxCurrent = mv.motoMaxCur;
+	//req.crc	= GetCRC16(&req, sizeof(req)-2);
 
-	return &q;
+	return rq;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void CallBackBootMotoReq01(Ptr<REQ> &q)
+static void CallBackBootMotoReq01(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
@@ -831,51 +946,51 @@ void CallBackBootMotoReq01(Ptr<REQ> &q)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Ptr<REQ> CreateBootMotoReq01(u16 flashLen, u16 tryCount)
+static Ptr<REQ> CreateBootMotoReq01(u16 flashLen, u16 tryCount)
 {
-	Ptr<REQ> rq;
+	Ptr<REQ> rq(AllocREQ());
 	
-	rq.Alloc();
+	//rq.Alloc();
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
+	//rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
 
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
-	RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
-	
-	REQ &q = *rq;
+	//ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
+	//RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
+	//
+	//REQ &q = *rq;
 
-	q.CallBack = CallBackBootMotoReq01;
-	q.preTimeOut = MS2COM(10);
-	q.postTimeOut = US2COM(100);
-	//q.rb = &rb;
-	//q.wb = &wb;
-	q.ready = false;
-	q.tryCount = tryCount;
-	q.checkCRC = true;
-	q.updateCRC = false;
-	
-	q.wb.data = &req;
-	q.wb.len = sizeof(req.F1);
-	
-	q.rb.data = &rsp;
-	q.rb.maxLen = sizeof(rsp);
+	//q.CallBack = CallBackBootMotoReq01;
+	//q.preTimeOut = MS2COM(10);
+	//q.postTimeOut = US2COM(100);
+	////q.rb = &rb;
+	////q.wb = &wb;
+	//q.ready = false;
+	//q.tryCount = tryCount;
+	//q.checkCRC = true;
+	//q.updateCRC = false;
+	//
+	//q.wb.data = &req;
+	//q.wb.len = sizeof(req.F1);
+	//
+	//q.rb.data = &rsp;
+	//q.rb.maxLen = sizeof(rsp);
 
-	req.F1.func = 1;
-	req.F1.len = flashLen;
-	req.F1.align = ~flashLen;
+	//req.F1.func = 1;
+	//req.F1.len = flashLen;
+	//req.F1.align = ~flashLen;
 
-	req.F1.crc	= GetCRC16(&req, sizeof(req.F1) - sizeof(req.F1.crc));
+	//req.F1.crc	= GetCRC16(&req, sizeof(req.F1) - sizeof(req.F1.crc));
 
 	return rq;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void CallBackBootMotoReq03(Ptr<REQ> &q)
+static void CallBackBootMotoReq03(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
@@ -889,115 +1004,115 @@ void CallBackBootMotoReq03(Ptr<REQ> &q)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Ptr<REQ> CreateBootMotoReq03(u16 stAdr, u16 count, const u32* data, u16 tryCount)
+static Ptr<REQ> CreateBootMotoReq03(u16 stAdr, u16 count, const u32* data, u16 tryCount)
 {
-	Ptr<REQ> rq;
+	Ptr<REQ> rq(AllocREQ());
 	
-	rq.Alloc();
+	//rq.Alloc();
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
+	//rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
 
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
-	RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
-	
-	REQ &q = *rq;
+	//ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
+	//RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
+	//
+	//REQ &q = *rq;
 
-	q.CallBack = CallBackBootMotoReq03;
-	q.preTimeOut = MS2COM(300);
-	q.postTimeOut = US2COM(100);
-	//q.rb = &rb;
-	//q.wb = &wb;
-	q.ready = false;
-	q.tryCount = tryCount;
-	q.checkCRC = true;
-	q.updateCRC = false;
-	
-	q.rb.data = &rsp;
-	q.rb.maxLen = sizeof(rsp);
+	//q.CallBack = CallBackBootMotoReq03;
+	//q.preTimeOut = MS2COM(300);
+	//q.postTimeOut = US2COM(100);
+	////q.rb = &rb;
+	////q.wb = &wb;
+	//q.ready = false;
+	//q.tryCount = tryCount;
+	//q.checkCRC = true;
+	//q.updateCRC = false;
+	//
+	//q.rb.data = &rsp;
+	//q.rb.maxLen = sizeof(rsp);
 
-	req.F3.func = 3;
+	//req.F3.func = 3;
 
-	u16 max = ArraySize(req.F3.pdata);
+	//u16 max = ArraySize(req.F3.pdata);
 
-	if (count > max)
-	{
-		count = max;
-	};
+	//if (count > max)
+	//{
+	//	count = max;
+	//};
 
-	u32 count2 = max - count;
+	//u32 count2 = max - count;
 
-	req.F3.padr = stAdr;
+	//req.F3.padr = stAdr;
 
-	u32 *d = req.F3.pdata;
+	//u32 *d = req.F3.pdata;
 
-	while(count > 0)
-	{
-		*d++ = *data++;
-		count--;
-	};
+	//while(count > 0)
+	//{
+	//	*d++ = *data++;
+	//	count--;
+	//};
 
-	if (count2 > 0)
-	{
-		*d++ = ~0;
-		count2--;
-	};
+	//if (count2 > 0)
+	//{
+	//	*d++ = ~0;
+	//	count2--;
+	//};
 
-	u16 len = sizeof(req.F3) - sizeof(req.F3.crc);
+	//u16 len = sizeof(req.F3) - sizeof(req.F3.crc);
 
-	req.F3.align = 0xAAAA;
-	req.F3.crc = GetCRC16(&req, len);
+	//req.F3.align = 0xAAAA;
+	//req.F3.crc = GetCRC16(&req, len);
 
-	q.wb.data = &req;
-	q.wb.len = len+sizeof(req.F3.crc);
+	//q.wb.data = &req;
+	//q.wb.len = len+sizeof(req.F3.crc);
 
 	return rq;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Ptr<REQ> CreateBootMotoReq02()
+static Ptr<REQ> CreateBootMotoReq02()
 {
-	Ptr<REQ> rq;
+	Ptr<REQ> rq(AllocREQ());
 	
-	rq.Alloc();
+	//rq.Alloc();
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
+	//rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
 
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
-	RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
-	
-	REQ &q = *rq;
+	//ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
+	//RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
+	//
+	//REQ &q = *rq;
 
-	q.CallBack = 0;
-	q.preTimeOut = MS2COM(10);
-	q.postTimeOut = US2COM(100);
-	//q.rb = &rb;
-	//q.wb = &wb;
-	q.ready = false;
-	q.tryCount = 1;
-	q.checkCRC = true;
-	q.updateCRC = false;
-	
-	q.rb.data = &rsp;
-	q.rb.maxLen = sizeof(rsp);
-	
-	req.F2.func = 2;
-	req.F2.align += 1; 
+	//q.CallBack = 0;
+	//q.preTimeOut = MS2COM(10);
+	//q.postTimeOut = US2COM(100);
+	////q.rb = &rb;
+	////q.wb = &wb;
+	//q.ready = false;
+	//q.tryCount = 1;
+	//q.checkCRC = true;
+	//q.updateCRC = false;
+	//
+	//q.rb.data = &rsp;
+	//q.rb.maxLen = sizeof(rsp);
+	//
+	//req.F2.func = 2;
+	//req.F2.align += 1; 
 
-	u16 len = sizeof(req.F2) - sizeof(req.F2.crc);
+	//u16 len = sizeof(req.F2) - sizeof(req.F2.crc);
 
-	req.F2.crc = GetCRC16(&req, len);
+	//req.F2.crc = GetCRC16(&req, len);
 
-	q.wb.data = &req;
-	q.wb.len = len + sizeof(req.F2.crc);
+	//q.wb.data = &req;
+	//q.wb.len = len + sizeof(req.F2.crc);
 
 	return rq;
 }
@@ -1058,20 +1173,20 @@ static u32 InitRspMan_10(__packed u16 *data)
 {
 	__packed u16 *start = data;
 
-	union { __packed u16 *d; SENS *s; } u;
+	union { __packed u16 *d; /*SENS *s;*/ } u;
 
 	u.d = data;
 
-	*(u.d++)	= (manReqWord & manReqMask) | 0x10;		//	1. Ответное слово
-	*(u.s++)	= mv.sens1;								//	2. КУ (измерительный датчик 1)
-	*(u.s++)	= mv.sens2;								//	13. КУ (измерительный датчик 2)
-	*(u.s++)	= mv.refSens;							//	24. КУ (опорный датчик)
-	*(u.d++)	= mv.cmSPR;								//	35. Количество волновых картин на оборот головки в режиме цементомера
-	*(u.d++)	= mv.imSPR;								//	36. Количество точек на оборот головки в режиме имиджера
-	*(u.d++)	= mv.fireVoltage;						//	37. Напряжение излучателя (В)
-	*(u.d++)	= mv.motoLimCur;						//	38. Ограничение тока двигателя (мА)
-	*(u.d++)	= mv.motoMaxCur;						//	39. Аварийный ток двигателя (мА)
-	*(u.d++)	= mv.sensMask;							//	40. Выбор измерительного датчика (бит 0 - измерительный датчик 1, бит 1 - измерительный датчик 2), допустимые значения 1,2,3
+	//*(u.d++)	= (manReqWord & manReqMask) | 0x10;		//	1. Ответное слово
+	//*(u.s++)	= mv.sens1;								//	2. КУ (измерительный датчик 1)
+	//*(u.s++)	= mv.sens2;								//	13. КУ (измерительный датчик 2)
+	//*(u.s++)	= mv.refSens;							//	24. КУ (опорный датчик)
+	//*(u.d++)	= mv.cmSPR;								//	35. Количество волновых картин на оборот головки в режиме цементомера
+	//*(u.d++)	= mv.imSPR;								//	36. Количество точек на оборот головки в режиме имиджера
+	//*(u.d++)	= mv.fireVoltage;						//	37. Напряжение излучателя (В)
+	//*(u.d++)	= mv.motoLimCur;						//	38. Ограничение тока двигателя (мА)
+	//*(u.d++)	= mv.motoMaxCur;						//	39. Аварийный ток двигателя (мА)
+	//*(u.d++)	= mv.sensMask;							//	40. Выбор измерительного датчика (бит 0 - измерительный датчик 1, бит 1 - измерительный датчик 2), допустимые значения 1,2,3
 	
 	return u.d - start;
 }
@@ -1196,115 +1311,106 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 
 static bool RequestMan_40(u16 *data, u16 reqlen, MTB* mtb)
 {
-	__packed struct Req { u16 rw; u16 off; u16 len; };
+	//__packed struct Req { u16 rw; u16 off; u16 len; };
 
-	Req &req = *((Req*)data);
+	//Req &req = *((Req*)data);
 
-	if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
+	//if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
 
-	//byte nf = ((req.rw>>4)-3)&3;
-	//byte nr = req.rw & 7;
+	//struct Rsp { u16 rw; };
+	//
+	//static Rsp rsp; 
+	//
+	//static u16 prevOff = 0;
+	//static u16 prevLen = 0;
+	//static u16 maxLen = 200;
 
-//	curRcv[nf] = nr;
+	//static byte sensInd = 0;
 
-	struct Rsp { u16 rw; };
-	
-	static Rsp rsp; 
-	
-	static u16 prevOff = 0;
-	static u16 prevLen = 0;
-	static u16 maxLen = 200;
+	//rsp.rw = req.rw;
 
-	static byte sensInd = 0;
+	//mtb->data1 = (u16*)&rsp;
+	//mtb->len1 = sizeof(rsp)/2;
+	//mtb->data2 = 0;
+	//mtb->len2 = 0;
 
-	rsp.rw = req.rw;
+	//if (reqlen == 1 || (reqlen >= 2 && data[1] == 0))
+	//{
+	//	curManVec40 = manVec40[sensInd];
 
-	mtb->data1 = (u16*)&rsp;
-	mtb->len1 = sizeof(rsp)/2;
-	mtb->data2 = 0;
-	mtb->len2 = 0;
+	//	manVec40[sensInd].Free();
 
-	//Ptr<MB> &r01 = curManVec40;
-	
-	//u16 sz = 18 + r01->rsp.CM.sl;
+	//	if (!curManVec40.Valid())
+	//	{
+	//		sensInd += 1; if (sensInd >= SENS_NUM) sensInd = 0;
 
-	if (reqlen == 1 || (reqlen >= 2 && data[1] == 0))
-	{
-		curManVec40 = manVec40[sensInd];
+	//		curManVec40 = manVec40[sensInd];
 
-		manVec40[sensInd].Free();
+	//		manVec40[sensInd].Free();
+	//	};
 
-		if (!curManVec40.Valid())
-		{
-			sensInd += 1; if (sensInd >= SENS_NUM) sensInd = 0;
+	//	if (curManVec40.Valid())
+	//	{
+	//		RspDsp01 &rsp = *((RspDsp01*)(curManVec40->GetDataPtr()));
 
-			curManVec40 = manVec40[sensInd];
+	//		u16 sz = (sizeof(rsp.CM.hdr)-sizeof(rsp.CM.hdr.rw))/2 + ((rsp.CM.hdr.packType == 0) ? rsp.CM.hdr.sl : rsp.CM.hdr.packLen);
 
-			manVec40[sensInd].Free();
-		};
+	//		mtb->data2 = ((u16*)&rsp)+1;
 
-		if (curManVec40.Valid())
-		{
-			RspDsp01 &rsp = *((RspDsp01*)(curManVec40->GetDataPtr()));
+	//		prevOff = 0;
 
-			u16 sz = (sizeof(rsp.CM.hdr)-sizeof(rsp.CM.hdr.rw))/2 + ((rsp.CM.hdr.packType == 0) ? rsp.CM.hdr.sl : rsp.CM.hdr.packLen);
+	//		if (reqlen == 1)
+	//		{
+	//			mtb->len2 = sz;
+	//			prevLen = sz;
+	//		}
+	//		else 
+	//		{
+	//			req40_count1++;
 
-			mtb->data2 = ((u16*)&rsp)+1;
+	//			if (reqlen == 3) maxLen = data[2];
 
-			prevOff = 0;
+	//			u16 len = maxLen;
 
-			if (reqlen == 1)
-			{
-				mtb->len2 = sz;
-				prevLen = sz;
-			}
-			else 
-			{
-				req40_count1++;
+	//			if (len > sz) len = sz;
 
-				if (reqlen == 3) maxLen = data[2];
+	//			mtb->len2 = len;
 
-				u16 len = maxLen;
+	//			prevLen = len;
+	//		};
+	//	};
 
-				if (len > sz) len = sz;
+	//	sensInd += 1; if (sensInd >= SENS_NUM) sensInd = 0;
+	//}
+	//else if (curManVec40.Valid())
+	//{
+	//	RspDsp01 &rsp = *((RspDsp01*)(curManVec40->GetDataPtr()));
 
-				mtb->len2 = len;
+	//	req40_count2++;
 
-				prevLen = len;
-			};
-		};
+	//	u16 off = prevOff + prevLen;
+	//	u16 len = prevLen;
 
-		sensInd += 1; if (sensInd >= SENS_NUM) sensInd = 0;
-	}
-	else if (curManVec40.Valid())
-	{
-		RspDsp01 &rsp = *((RspDsp01*)(curManVec40->GetDataPtr()));
+	//	if (reqlen == 3)
+	//	{
+	//		off = data[1];
+	//		len = data[2];
+	//	};
 
-		req40_count2++;
+	//	u16 sz = (sizeof(rsp.CM.hdr)-sizeof(rsp.CM.hdr.rw))/2 + ((rsp.CM.hdr.packType == 0) ? rsp.CM.hdr.sl : rsp.CM.hdr.packLen);
 
-		u16 off = prevOff + prevLen;
-		u16 len = prevLen;
+	//	if (sz >= off)
+	//	{
+	//		req40_count3++;
 
-		if (reqlen == 3)
-		{
-			off = data[1];
-			len = data[2];
-		};
+	//		u16 ml = sz - off;
 
-		u16 sz = (sizeof(rsp.CM.hdr)-sizeof(rsp.CM.hdr.rw))/2 + ((rsp.CM.hdr.packType == 0) ? rsp.CM.hdr.sl : rsp.CM.hdr.packLen);
+	//		if (len > ml) len = ml;
 
-		if (sz >= off)
-		{
-			req40_count3++;
-
-			u16 ml = sz - off;
-
-			if (len > ml) len = ml;
-
-			mtb->data2 = (u16*)&rsp + data[1]+1;
-			mtb->len2 = len;
-		};
-	};
+	//		mtb->data2 = (u16*)&rsp + data[1]+1;
+	//		mtb->len2 = len;
+	//	};
+	//};
 
 	return true;
 }
@@ -1335,106 +1441,101 @@ static bool RequestMan_30(u16 *data, u16 len, MTB* mtb)
 
 static bool RequestMan_50(u16 *data, u16 reqlen, MTB* mtb)
 {
-	__packed struct Req { u16 rw; u16 off; u16 len; };
+	//__packed struct Req { u16 rw; u16 off; u16 len; };
 
-	Req &req = *((Req*)data);
+	//Req &req = *((Req*)data);
 
-	if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
+	//if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
 
-	//byte nf = ((req.rw>>4)-3)&3;
-	//byte nr = req.rw & 7;
+	//struct Rsp { u16 rw; };
+	//
+	//static Rsp rsp; 
+	//
+	//static u16 prevOff = 0;
+	//static u16 prevLen = 0;
+	//static u16 maxLen = 200;
 
-//	curRcv[nf] = nr;
+	//static byte sensInd = 0;
 
-	struct Rsp { u16 rw; };
-	
-	static Rsp rsp; 
-	
-	static u16 prevOff = 0;
-	static u16 prevLen = 0;
-	static u16 maxLen = 200;
+	//SetModeIM();
 
-	static byte sensInd = 0;
+	//rsp.rw = req.rw;
 
-	SetModeIM();
+	//mtb->data1 = (u16*)&rsp;
+	//mtb->len1 = sizeof(rsp)/2;
+	//mtb->data2 = 0;
+	//mtb->len2 = 0;
 
-	rsp.rw = req.rw;
+	//if (reqlen == 1 || (reqlen >= 2 && data[1] == 0))
+	//{
+	//	curManVec50 = manVec50[sensInd];
 
-	mtb->data1 = (u16*)&rsp;
-	mtb->len1 = sizeof(rsp)/2;
-	mtb->data2 = 0;
-	mtb->len2 = 0;
+	//	manVec50[sensInd].Free();
 
-	if (reqlen == 1 || (reqlen >= 2 && data[1] == 0))
-	{
-		curManVec50 = manVec50[sensInd];
+	//	if (!curManVec50.Valid())
+	//	{
+	//		sensInd += 1; if (sensInd >= (SENS_NUM-1)) sensInd = 0;
 
-		manVec50[sensInd].Free();
+	//		curManVec50 = manVec50[sensInd];
 
-		if (!curManVec50.Valid())
-		{
-			sensInd += 1; if (sensInd >= (SENS_NUM-1)) sensInd = 0;
+	//		manVec50[sensInd].Free();
+	//	};
 
-			curManVec50 = manVec50[sensInd];
+	//	if (curManVec50.Valid())
+	//	{
+	//		RspDsp01 &rsp = *((RspDsp01*)curManVec50->GetDataPtr());
 
-			manVec50[sensInd].Free();
-		};
+	//		mtb->data2 = ((u16*)&rsp)+1;
 
-		if (curManVec50.Valid())
-		{
-			RspDsp01 &rsp = *((RspDsp01*)curManVec50->GetDataPtr());
+	//		prevOff = 0;
 
-			mtb->data2 = ((u16*)&rsp)+1;
+	//		u16 sz = (sizeof(rsp.IM.hdr)-sizeof(rsp.IM.hdr.rw))/2 + rsp.IM.hdr.dataLen*2;
 
-			prevOff = 0;
+	//		if (reqlen == 1)
+	//		{
+	//			mtb->len2 = sz;
+	//			prevLen = sz;
+	//		}
+	//		else 
+	//		{
+	//			if (reqlen == 3) maxLen = data[2];
 
-			u16 sz = (sizeof(rsp.IM.hdr)-sizeof(rsp.IM.hdr.rw))/2 + rsp.IM.hdr.dataLen*2;
+	//			u16 len = maxLen;
 
-			if (reqlen == 1)
-			{
-				mtb->len2 = sz;
-				prevLen = sz;
-			}
-			else 
-			{
-				if (reqlen == 3) maxLen = data[2];
+	//			if (len > sz) len = sz;
 
-				u16 len = maxLen;
+	//			mtb->len2 = len;
 
-				if (len > sz) len = sz;
+	//			prevLen = len;
+	//		};
+	//	};
 
-				mtb->len2 = len;
+	//	sensInd += 1; if (sensInd >= (SENS_NUM-1)) sensInd = 0;
+	//}
+	//else if (curManVec50.Valid())
+	//{
+	//	RspDsp01 &rsp = *((RspDsp01*)curManVec50->GetDataPtr());
 
-				prevLen = len;
-			};
-		};
+	//	u16 off = prevOff + prevLen;
+	//	u16 len = prevLen;
+	//	u16 sz = (sizeof(rsp.IM.hdr)-sizeof(rsp.IM.hdr.rw))/2 + rsp.IM.hdr.dataLen*2;
 
-		sensInd += 1; if (sensInd >= (SENS_NUM-1)) sensInd = 0;
-	}
-	else if (curManVec50.Valid())
-	{
-		RspDsp01 &rsp = *((RspDsp01*)curManVec50->GetDataPtr());
+	//	if (reqlen == 3)
+	//	{
+	//		off = data[1];
+	//		len = data[2];
+	//	};
 
-		u16 off = prevOff + prevLen;
-		u16 len = prevLen;
-		u16 sz = (sizeof(rsp.IM.hdr)-sizeof(rsp.IM.hdr.rw))/2 + rsp.IM.hdr.dataLen*2;
+	//	if (sz >= off)
+	//	{
+	//		u16 ml = sz - off;
 
-		if (reqlen == 3)
-		{
-			off = data[1];
-			len = data[2];
-		};
+	//		if (len > ml) len = ml;
 
-		if (sz >= off)
-		{
-			u16 ml = sz - off;
-
-			if (len > ml) len = ml;
-
-			mtb->data2 = (u16*)&rsp + data[1]+1;
-			mtb->len2 = len;
-		};
-	};
+	//		mtb->data2 = (u16*)&rsp + data[1]+1;
+	//		mtb->len2 = len;
+	//	};
+	//};
 
 	return true;
 }
@@ -1480,56 +1581,56 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 
 	switch(data[1])
 	{
-		case 0x1:	mv.sens1.gain			= data[2];			break;
-		case 0x2:	mv.sens1.st				= data[2];			break;
-		case 0x3:	mv.sens1.sl				= data[2];			break;
-		case 0x4:	mv.sens1.sd			 	= data[2];			break;
-		case 0x5:	mv.sens1.deadTime		= data[2];			break;
-		case 0x6:	mv.sens1.descriminant	= data[2];			break;
-		case 0x7:	mv.sens1.freq			= data[2];			break;
-		case 0x8:	mv.sens1.filtrType		= data[2];			break;
-		case 0x9:	mv.sens1.packType		= data[2];			break;
-		case 0xA:	mv.sens1.fi_Type		= data[2];			break;
-		case 0xB:	mv.sens1.fragLen		= data[2];			break;
+		//case 0x1:	mv.sens1.gain			= data[2];			break;
+		//case 0x2:	mv.sens1.st				= data[2];			break;
+		//case 0x3:	mv.sens1.sl				= data[2];			break;
+		//case 0x4:	mv.sens1.sd			 	= data[2];			break;
+		//case 0x5:	mv.sens1.deadTime		= data[2];			break;
+		//case 0x6:	mv.sens1.descriminant	= data[2];			break;
+		//case 0x7:	mv.sens1.freq			= data[2];			break;
+		//case 0x8:	mv.sens1.filtrType		= data[2];			break;
+		//case 0x9:	mv.sens1.packType		= data[2];			break;
+		//case 0xA:	mv.sens1.fi_Type		= data[2];			break;
+		//case 0xB:	mv.sens1.fragLen		= data[2];			break;
 
 
-		case 0x11:	mv.sens2.gain			= data[2];			break;
-		case 0x12:	mv.sens2.st				= data[2];			break;
-		case 0x13:	mv.sens2.sl				= data[2];			break;
-		case 0x14:	mv.sens2.sd 			= data[2];			break;
-		case 0x15:	mv.sens2.deadTime		= data[2];			break;
-		case 0x16:	mv.sens2.descriminant	= data[2];			break;
-		case 0x17:	mv.sens2.freq			= data[2];			break;
-		case 0x18:	mv.sens2.filtrType		= data[2];			break;
-		case 0x19:	mv.sens2.packType		= data[2];			break;
-		case 0x1A:	mv.sens2.fi_Type		= data[2];			break;
-		case 0x1B:	mv.sens2.fragLen		= data[2];			break;
+		//case 0x11:	mv.sens2.gain			= data[2];			break;
+		//case 0x12:	mv.sens2.st				= data[2];			break;
+		//case 0x13:	mv.sens2.sl				= data[2];			break;
+		//case 0x14:	mv.sens2.sd 			= data[2];			break;
+		//case 0x15:	mv.sens2.deadTime		= data[2];			break;
+		//case 0x16:	mv.sens2.descriminant	= data[2];			break;
+		//case 0x17:	mv.sens2.freq			= data[2];			break;
+		//case 0x18:	mv.sens2.filtrType		= data[2];			break;
+		//case 0x19:	mv.sens2.packType		= data[2];			break;
+		//case 0x1A:	mv.sens2.fi_Type		= data[2];			break;
+		//case 0x1B:	mv.sens2.fragLen		= data[2];			break;
 
-		case 0x21:	mv.refSens.gain			= data[2];			break;
-		case 0x22:	mv.refSens.st			= data[2];			break;
-		case 0x23:	mv.refSens.sl			= data[2];			break;
-		case 0x24:	mv.refSens.sd 			= data[2];			break;
-		case 0x25:	mv.refSens.deadTime		= data[2];			break;
-		case 0x26:	mv.refSens.descriminant	= data[2];			break;
-		case 0x27:	mv.refSens.freq			= data[2];			break;
-		case 0x28:	mv.refSens.filtrType	= data[2];			break;
-		case 0x29:	mv.refSens.packType		= data[2];			break;
-		case 0x2A:	mv.refSens.fi_Type		= data[2];			break;
-		case 0x2B:	mv.refSens.fragLen		= data[2];			break;
+		//case 0x21:	mv.refSens.gain			= data[2];			break;
+		//case 0x22:	mv.refSens.st			= data[2];			break;
+		//case 0x23:	mv.refSens.sl			= data[2];			break;
+		//case 0x24:	mv.refSens.sd 			= data[2];			break;
+		//case 0x25:	mv.refSens.deadTime		= data[2];			break;
+		//case 0x26:	mv.refSens.descriminant	= data[2];			break;
+		//case 0x27:	mv.refSens.freq			= data[2];			break;
+		//case 0x28:	mv.refSens.filtrType	= data[2];			break;
+		//case 0x29:	mv.refSens.packType		= data[2];			break;
+		//case 0x2A:	mv.refSens.fi_Type		= data[2];			break;
+		//case 0x2B:	mv.refSens.fragLen		= data[2];			break;
 
-		case 0x30:	mv.cmSPR 				= data[2]; Update_RPS_SPR();	break;
-		case 0x31:	mv.imSPR 				= data[2]; Update_RPS_SPR();	break;
+		//case 0x30:	mv.cmSPR 				= data[2]; Update_RPS_SPR();	break;
+		//case 0x31:	mv.imSPR 				= data[2]; Update_RPS_SPR();	break;
 
-		case 0x40:	mv.fireVoltage			= data[2];			break;
+		//case 0x40:	mv.fireVoltage			= data[2];			break;
 
-		case 0x51:	mv.motoLimCur			= data[2];			break;
-		case 0x52:	mv.motoMaxCur			= data[2];			break;
+		//case 0x51:	mv.motoLimCur			= data[2];			break;
+		//case 0x52:	mv.motoMaxCur			= data[2];			break;
 
-		case 0x60:	mv.sensMask				= data[2];			break;
+		//case 0x60:	mv.sensMask				= data[2];			break;
 
-		default:
+		//default:
 
-			return false;
+		//	return false;
 	};
 
 	manTrmData[0] = (manReqWord & manReqMask) | 0x90;
@@ -1911,116 +2012,319 @@ static void UpdateMan()
 
 static void MainMode()
 {
-	static Ptr<MB> mb;
-	//static Ptr<MB> flwb;
-	static TM32 tm;
-	static RspDsp01 *rsp = 0;
+	//fireType
+
+	static byte rcv = 0;
+	static byte chnl = 0;
+	//static REQ *req = 0;
+	//static R02 *r02 = 0;
+	static TM32 rt;
+	static TM32 rt2;
+
+//	REQ *rm = 0;
 
 	switch (mainModeState)
 	{
 		case 0:
 
-			mb = readyR01.Get();
-
-			if (mb.Valid())
+			if (runMainMode && (mv.disableFireNoVibration == 0 || vibration > mv.levelNoVibration))
 			{
-				rsp = (RspDsp01*)(mb->GetDataPtr());
+				req = CreateRcvReq03(0, sampleTime, sampleLen, sampleDelay, 0);
 
-				RequestFlashWrite(mb, rsp->CM.hdr.rw, true);
+				if (req != 0)
+				{
+					qrcv.Add(req);
 
-				mainModeState++;
+					mainModeState++;
+				};
 			};
 
 			break;
 
 		case 1:
 
-			if ((rsp->CM.hdr.rw & 0xFF) == 0x40)
+			if (req->ready)
 			{
-				byte n = rsp->CM.hdr.sensType;
-
-				if (n < SENS_NUM)
-				{
-					manVec40[n] = mb;
-
-					AmpTimeMinMax& mm = sensMinMaxTemp[n];
-
-					u16 amp		= rsp->CM.hdr.maxAmp;
-					u16 time	= rsp->CM.hdr.fi_time;
-
-					if (amp > mm.ampMax)	mm.ampMax = amp;
-					if (amp < mm.ampMin)	mm.ampMin = amp;
-					if (time > mm.timeMax)	mm.timeMax = time;
-					if (time < mm.timeMin)	mm.timeMin = time;
-
-					mm.valid = true;
-				};
-			}
-			else if ((rsp->IM.hdr.rw & 0xFF) == 0x50)
-			{
-				byte n = rsp->IM.hdr.sensType;
-
-				if (n < (SENS_NUM-1))
-				{
-					manVec50[n] = mb;
-				};
+				startFire = true;
+				
+				mainModeState++;
 			};
-
-			if (imModeTimeout.Check(10000))
-			{
-				SetModeCM();
-			};
-
-			mb.Free();
-
-			mainModeState++;
 
 			break;
 
 		case 2:
 
-			if (cmdWriteStart_00)
+			if (!startFire)
 			{
-				Ptr<MB> b; b = AllocFlashWriteBuffer(6);
+				rcv = 1; chnl = 0;
 
-				if (b.Valid())
-				{
-					RequestFlashWrite_00(b);
-
-					cmdWriteStart_00 = false;
-				};
-			}
-			else if (cmdWriteStart_10)
-			{
-				Ptr<MB> b; b = AllocFlashWriteBuffer(44);
-
-				if (b.Valid())
-				{
-					RequestFlashWrite_10(b);
-
-					cmdWriteStart_10 = false;
-				};
-			}
-			else if (cmdWriteStart_20)
-			{
-				Ptr<MB> b; b = AllocFlashWriteBuffer(60);
-
-				if (b.Valid())
-				{
-					RequestFlashWrite_20(b);
-
-					cmdWriteStart_20 = false;
-				};
-			}
-			else if (tm.Check(1001))
-			{
-				cmdWriteStart_20 = true;
+				mainModeState++;
 			};
 
-			mainModeState = 0;
+			break;
+
+		case 3:
+
+			r02 = CreateRcvReq02(rcv, fireType, chnl, 1);
+
+			if (r02 != 0)
+			{
+				qrcv.Add(&r02->q);
+
+				mainModeState++;
+			};
+
+			break;
+
+		case 4:
+
+			if (r02->q.ready)
+			{
+				if (r02->q.crcOK)
+				{
+					bool crc = false;
+					//bool free = true;
+
+					u16 rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
+					
+					if (r02->rsp.rw != rw || r02->rsp.cnt != fireCounter)
+					{
+						r02->rsp.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
+						r02->rsp.cnt = fireCounter;
+						crc = true;
+					};
+
+					//u16 *p = (u16*)&r02->rsp;
+
+					//u16 n = fireType;
+
+					//if (curRcv[fireType] == (rcv-1))
+					//{
+					//	if (manVec[n] != 0)
+					//	{
+					//		freeR02.Add(manVec[n]);
+					//	};
+
+					//	manVec[n] = r02;
+
+					//	free = false;
+					//};
+
+					CreateMemReq02(*r02, crc);
+
+					//freeR02.Add(r02);
+
+					manCounter++;
+				};
+
+				if (rcv < numStations)
+				{
+					rcv += 1;
+					chnl = 0;
+
+					mainModeState++;
+				}
+				else
+				{
+					rcv = 1;
+					mainModeState = 6;
+				};
+
+				rt.Reset();
+			};
+
+			break;
+
+		case 5:
+
+			if (rt.Check(MS2RT(1)))
+			{
+				mainModeState = 3;
+			};
+
+			break;
+
+		case 6:
+
+			req = CreateRcvReq04(rcv, gain[rcv-1], 2);
+
+			if (req != 0)
+			{
+				qrcv.Add(req);
+
+				mainModeState++;
+			};
+
+			break;
+
+		case 7:
+
+			if (req->ready)
+			{
+				if (rcv < numStations)
+				{
+					rcv++;
+
+					mainModeState -= 1;
+				}
+				else
+				{
+					mainModeState++;
+				};
+			};
+
+			break;
+
+		case 8:
+
+			if (rt.Check(MS2RT(firePeriod/16)))
+			{
+				fireType = (fireType+1) % 3; 
+
+				fireCounter += 1;
+
+				if (fireType == 0)
+				{
+					mainModeState = 10;
+
+					CreateMemReq_20();
+				}
+				else
+				{
+					mainModeState = 9;
+				};
+			};
+
+			break;
+
+		case 9:
+
+			if (/*voltage >= reqVoltage ||*/ rt.Check(MS2RT(firePeriod/4)))
+			{
+				mainModeState = 0;
+			};
+
+			break;
+
+		case 10:
+
+			if (rt2.Check(firePeriod))
+			{
+				mainModeState = 0;
+			};
 
 			break;
 	};
+
+	//static Ptr<MB> mb;
+	//static TM32 tm;
+	//static RspDsp01 *rsp = 0;
+
+	//switch (mainModeState)
+	//{
+	//	case 0:
+
+	//		mb = readyR01.Get();
+
+	//		if (mb.Valid())
+	//		{
+	//			rsp = (RspDsp01*)(mb->GetDataPtr());
+
+	//			RequestFlashWrite(mb, rsp->CM.hdr.rw, true);
+
+	//			mainModeState++;
+	//		};
+
+	//		break;
+
+	//	case 1:
+
+	//		if ((rsp->CM.hdr.rw & 0xFF) == 0x40)
+	//		{
+	//			byte n = rsp->CM.hdr.sensType;
+
+	//			if (n < SENS_NUM)
+	//			{
+	//				manVec40[n] = mb;
+
+	//				AmpTimeMinMax& mm = sensMinMaxTemp[n];
+
+	//				u16 amp		= rsp->CM.hdr.maxAmp;
+	//				u16 time	= rsp->CM.hdr.fi_time;
+
+	//				if (amp > mm.ampMax)	mm.ampMax = amp;
+	//				if (amp < mm.ampMin)	mm.ampMin = amp;
+	//				if (time > mm.timeMax)	mm.timeMax = time;
+	//				if (time < mm.timeMin)	mm.timeMin = time;
+
+	//				mm.valid = true;
+	//			};
+	//		}
+	//		else if ((rsp->IM.hdr.rw & 0xFF) == 0x50)
+	//		{
+	//			byte n = rsp->IM.hdr.sensType;
+
+	//			if (n < (SENS_NUM-1))
+	//			{
+	//				manVec50[n] = mb;
+	//			};
+	//		};
+
+	//		if (imModeTimeout.Check(10000))
+	//		{
+	//			SetModeCM();
+	//		};
+
+	//		mb.Free();
+
+	//		mainModeState++;
+
+	//		break;
+
+	//	case 2:
+
+	if (cmdWriteStart_00)
+	{
+		Ptr<MB> b(AllocFlashWriteBuffer(6));
+
+		if (b.Valid())
+		{
+			RequestFlashWrite_00(b);
+
+			cmdWriteStart_00 = false;
+		};
+	}
+	else if (cmdWriteStart_10)
+	{
+		Ptr<MB> b(AllocFlashWriteBuffer(44));
+
+		if (b.Valid())
+		{
+			RequestFlashWrite_10(b);
+
+			cmdWriteStart_10 = false;
+		};
+	}
+	else if (cmdWriteStart_20)
+	{
+		Ptr<MB> b(AllocFlashWriteBuffer(60));
+
+		if (b.Valid())
+		{
+			RequestFlashWrite_20(b);
+
+			cmdWriteStart_20 = false;
+		};
+	}
+	else if (tm.Check(1001))
+	{
+		cmdWriteStart_20 = true;
+	};
+
+	//		mainModeState = 0;
+
+	//		break;
+	//};
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2452,75 +2756,75 @@ static void UpdateMoto()
 
 static void UpdateTestFlashWrite()
 {
-	static Ptr<MB> ptr;
-	static u32 count = 0;
-
-	static CTM32 rtm;
-
-	if (rtm.Check(MS2CTM(1)))
-	{
-		testDspReqCount++;
-
-		count = 1000;
-	};
-
-//	if (count != 0)
-	{
-		ptr = CreateTestDspReq01();
-
-		if (ptr.Valid())
-		{
-			count--;
-
-			RspDsp01 *rsp = (RspDsp01*)(ptr->GetDataPtr());
-			RequestFlashWrite(ptr, rsp->CM.hdr.rw, true);
-
-		};
-	};
+//	static Ptr<MB> ptr;
+//	static u32 count = 0;
+//
+//	static CTM32 rtm;
+//
+//	if (rtm.Check(MS2CTM(1)))
+//	{
+//		testDspReqCount++;
+//
+//		count = 1000;
+//	};
+//
+////	if (count != 0)
+//	{
+//		ptr = CreateTestDspReq01();
+//
+//		if (ptr.Valid())
+//		{
+//			count--;
+//
+//			RspDsp01 *rsp = (RspDsp01*)(ptr->GetDataPtr());
+//			RequestFlashWrite(ptr, rsp->CM.hdr.rw, true);
+//
+//		};
+//	};
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static void UpdateDSP_Com()
 {
-	static Ptr<REQ> rq;
-
-	static byte i = 0;
-//	static TM32 tm;
-
-	switch (i)
-	{
-		case 0:
-
-			if ((mv.fireVoltage == 0 && motoTargetRPS == 1500) || __WIN32__)
-			{
-				if (FLASH_Status() != 0) UpdateTestFlashWrite();
-			}
-			else
-			{
-				rq = CreateDspReq01(1);
-
-				if (rq.Valid())	qRcv.Add(rq), i++;
-			};
-
-			break;
-
-		case 1:
-
-			if (rq->ready)
-			{
-				if (rq->crcOK)
-				{
-					readyR01.Add(rq->rsp);
-				};
-				
-				i = 0;
-
-				rq.Free();
-			};
-
-			break;
-	};
+//	static Ptr<REQ> rq;
+//
+//	static byte i = 0;
+////	static TM32 tm;
+//
+//	switch (i)
+//	{
+//		case 0:
+//
+//			if ((mv.fireVoltage == 0 && motoTargetRPS == 1500) || __WIN32__)
+//			{
+//				if (FLASH_Status() != 0) UpdateTestFlashWrite();
+//			}
+//			else
+//			{
+//				rq = CreateDspReq01(1);
+//
+//				if (rq.Valid())	qRcv.Add(rq), i++;
+//			};
+//
+//			break;
+//
+//		case 1:
+//
+//			if (rq->ready)
+//			{
+//				if (rq->crcOK)
+//				{
+//					readyR01.Add(rq->rsp);
+//				};
+//				
+//				i = 0;
+//
+//				rq.Free();
+//			};
+//
+//			break;
+//	};
 
 	qRcv.Update();
 }
@@ -2748,13 +3052,13 @@ u16 motoFlashCRC = 0;
 
 static void FlashMoto()
 {
-	static ReqBootMotoHS		reqHS;
-	static RspBootMotoHS		rspHS;
+	static BootReqHS	reqHS;
+	static BootRspHS	rspHS;
 	static ComPort::WriteBuffer wb;
 	static ComPort::ReadBuffer	rb;
 
-	const unsigned __int64 masterGUID = MGUID;
-	const unsigned __int64 slaveGUID = SGUID;
+	const unsigned __int64 masterGUID = TRM_BOOT_MGUID;
+	const unsigned __int64 slaveGUID = TRM_BOOT_SGUID;
 
 	CTM32 ctm;
 
@@ -2799,7 +3103,7 @@ static void FlashMoto()
 
 		if (req->crcOK)
 		{
-			RspBootMoto *rsp = (RspBootMoto*)req->rb.data;
+			BootRspMes *rsp = (BootRspMes*)req->rb.data;
 
 			if (rsp->F1.sCRC != motoFlashCRC || rsp->F1.len != motoFlashLen)
 			{
@@ -2817,7 +3121,7 @@ static void FlashMoto()
 
 						qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update(); };
 
-						RspBootMoto *rsp = (RspBootMoto*)req->rb.data;
+						BootRspMes *rsp = (BootRspMes*)req->rb.data;
 
 						if (req->crcOK && rsp->F3.status) { break;	}
 					};
@@ -2851,48 +3155,48 @@ static void InitMainVars()
 	mv.numDevice		= 11111;
 	mv.numMemDevice		= 11111;
 
-	mv.sens1.gain			= 0; 
-	mv.sens1.st				= NS2DSP(400); 
-	mv.sens1.sl				= 500; 
-	mv.sens1.sd 			= US2DSP(50); 
-	mv.sens1.deadTime		= US2DSP(50); 
-	mv.sens1.descriminant	= 400; 
-	mv.sens1.freq			= 500;
-	mv.sens1.filtrType		= 0;
-	mv.sens1.packType		= 0;
-	mv.sens1.fi_Type		= 0;
-	mv.sens1.fragLen		= 0;
+	//mv.sens1.gain			= 0; 
+	//mv.sens1.st				= NS2DSP(400); 
+	//mv.sens1.sl				= 500; 
+	//mv.sens1.sd 			= US2DSP(50); 
+	//mv.sens1.deadTime		= US2DSP(50); 
+	//mv.sens1.descriminant	= 400; 
+	//mv.sens1.freq			= 500;
+	//mv.sens1.filtrType		= 0;
+	//mv.sens1.packType		= 0;
+	//mv.sens1.fi_Type		= 0;
+	//mv.sens1.fragLen		= 0;
 
-	mv.sens2.gain			= 0; 
-	mv.sens2.st				= NS2DSP(400); 
-	mv.sens2.sl				= 500; 
-	mv.sens2.sd 			= US2DSP(50); 
-	mv.sens2.deadTime		= US2DSP(50); 
-	mv.sens2.descriminant	= 400; 
-	mv.sens2.freq			= 500; 
-	mv.sens2.filtrType		= 0;
-	mv.sens2.packType		= 0;
-	mv.sens2.fi_Type		= 0;
-	mv.sens2.fragLen		= 0;
+	//mv.sens2.gain			= 0; 
+	//mv.sens2.st				= NS2DSP(400); 
+	//mv.sens2.sl				= 500; 
+	//mv.sens2.sd 			= US2DSP(50); 
+	//mv.sens2.deadTime		= US2DSP(50); 
+	//mv.sens2.descriminant	= 400; 
+	//mv.sens2.freq			= 500; 
+	//mv.sens2.filtrType		= 0;
+	//mv.sens2.packType		= 0;
+	//mv.sens2.fi_Type		= 0;
+	//mv.sens2.fragLen		= 0;
 
-	mv.refSens.gain			= 0; 
-	mv.refSens.st			= NS2DSP(400); 
-	mv.refSens.sl			= 500; 
-	mv.refSens.sd 			= US2DSP(50); 
-	mv.refSens.deadTime		= US2DSP(50); 
-	mv.refSens.descriminant	= 400; 
-	mv.refSens.freq			= 500; 
-	mv.refSens.filtrType	= 0;
-	mv.refSens.packType		= 0;
-	mv.refSens.fi_Type		= 0;
-	mv.refSens.fragLen		= 0;
+	//mv.refSens.gain			= 0; 
+	//mv.refSens.st			= NS2DSP(400); 
+	//mv.refSens.sl			= 500; 
+	//mv.refSens.sd 			= US2DSP(50); 
+	//mv.refSens.deadTime		= US2DSP(50); 
+	//mv.refSens.descriminant	= 400; 
+	//mv.refSens.freq			= 500; 
+	//mv.refSens.filtrType	= 0;
+	//mv.refSens.packType		= 0;
+	//mv.refSens.fi_Type		= 0;
+	//mv.refSens.fragLen		= 0;
 
-	mv.cmSPR			= 36;
-	mv.imSPR			= 180;
-	mv.fireVoltage		= 500;
-	mv.motoLimCur		= 2000;
-	mv.motoMaxCur		= 3000;
-	mv.sensMask			= 1;
+	//mv.cmSPR			= 36;
+	//mv.imSPR			= 180;
+	//mv.fireVoltage		= 500;
+	//mv.motoLimCur		= 2000;
+	//mv.motoMaxCur		= 3000;
+	//mv.sensMask			= 1;
 
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_CYAN "Init Main Vars Vars ... OK\n");
 }
