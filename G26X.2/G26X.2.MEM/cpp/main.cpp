@@ -2061,6 +2061,8 @@ static void UpdateMan()
 
 static void StartTrmFire()
 {
+#ifndef WIN32
+
 	PIO_RTS4->BSET(PIN_RTS4);
 	PIO_RTS7->BSET(PIN_RTS7);
 
@@ -2069,17 +2071,23 @@ static void StartTrmFire()
 
 	HW::USART4->DATA = 0;
 	HW::USART7->DATA = 0;
+
+#endif
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static void StopTrmFire()
 {
+#ifndef WIN32
+
 	PIO_RTS4->BCLR(PIN_RTS4);
 	PIO_RTS7->BCLR(PIN_RTS7);
 
 	HW::USART4->CTRLB &= ~USART_TXEN;
 	HW::USART7->CTRLB &= ~USART_TXEN;
+
+#endif
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
