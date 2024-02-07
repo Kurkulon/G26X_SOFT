@@ -16,11 +16,11 @@
 #include <conio.h>
 //#include <stdio.h>
 
-static const bool __WIN32__ = true;
+//static const bool __WIN32__ = true;
 
 #else
 
-static const bool __WIN32__ = false;
+//static const bool __WIN32__ = false;
 
 //#pragma diag_suppress 546,550,177
 
@@ -28,7 +28,7 @@ static const bool __WIN32__ = false;
 
 #define __TEST__
 
-enum { VERSION = 0x201 };
+enum { VERSION = 0x105 };
 
 //#pragma O3
 //#pragma Otime
@@ -86,7 +86,12 @@ static MainVars mv;
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static bool runMainMode = false;
-static u16 vibration;
+static bool startFire = false;
+static u32 fireCounter = 0;
+static u32 manCounter = 0;
+static byte numStations = 0;
+static u16 resistValue = 0;
+static u16 voltage = 0;
 
 u32 req40_count1 = 0;
 u32 req40_count2 = 0;
@@ -142,7 +147,7 @@ static u16 curFireVoltage = 500;
 const u16 dspReqWord = 0xAD00;
 //const u16 dspReqMask = 0xFF00;
 
-static u16 manReqWord = 0xAD00;
+static u16 manReqWord = 0xAA00;
 static u16 manReqMask = 0xFF00;
 
 static u16 memReqWord = 0x3D00;
@@ -192,6 +197,8 @@ static u32 wrtErr06 = 0;
 //static u32 lenErr02 = 0;
 
 static i16 ax = 0, ay = 0, az = 0, at = 0;
+static u16 vibration;
+
 i16 temperature = 0;
 i16 cpuTemp = 0;
 i16 temp = 0;
@@ -199,10 +206,9 @@ i16 temp = 0;
 static byte svCount = 0;
 
 
-struct AmpTimeMinMax { bool valid; u16 ampMax, ampMin, timeMax, timeMin; };
-
-static AmpTimeMinMax sensMinMax[SENS_NUM]		= { {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0} };
-static AmpTimeMinMax sensMinMaxTemp[SENS_NUM]	= { {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0} };
+//struct AmpTimeMinMax { bool valid; u16 ampMax, ampMin, timeMax, timeMin; };
+//static AmpTimeMinMax sensMinMax[SENS_NUM]		= { {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0} };
+//static AmpTimeMinMax sensMinMaxTemp[SENS_NUM]	= { {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0} };
 
 static u32 testDspReqCount = 0;
 
@@ -490,15 +496,15 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 
 	req1.st[0] 	= req0.st[0] = mv.trans[0].st;
 	req1.st[1] 	= req0.st[1] = mv.trans[1].st;
-	req1.st[2] 	= req0.st[2] = mv.trans[2].st;
+	req1.st[2] 	= req0.st[2] = mv.trans[1].st;
 		   
 	req1.sl[0] 	= req0.sl[0] = mv.trans[0].sl;
 	req1.sl[1] 	= req0.sl[1] = mv.trans[1].sl;
-	req1.sl[2] 	= req0.sl[2] = mv.trans[2].sl;
+	req1.sl[2] 	= req0.sl[2] = mv.trans[1].sl;
 		   
 	req1.sd[0] 	= req0.sd[0] = mv.trans[0].sd;
 	req1.sd[1] 	= req0.sd[1] = mv.trans[1].sd;
-	req1.sd[2] 	= req0.sd[2] = mv.trans[2].sd;
+	req1.sd[2] 	= req0.sd[2] = mv.trans[1].sd;
 
 	req1.crc = req0.crc = GetCRC16(&req0.adr, sizeof(req0)-3);
 	
@@ -546,13 +552,13 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateRcvReq04(byte adr, byte ka[], u16 tryCount)
+static Ptr<REQ> CreateRcvReq04(byte adr, u16 tryCount)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv02)+2);
+	rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv04)+2);
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
@@ -584,11 +590,48 @@ static Ptr<REQ> CreateRcvReq04(byte adr, byte ka[], u16 tryCount)
 	req1.adr	= req0.adr	= adr;
 	req1.func	= req0.func	= 4;
 
-	req1.ka[0] = req0.ka[0] = ka[0];
-	req1.ka[1] = req0.ka[1] = ka[1];
-	req1.ka[2] = req0.ka[2] = ka[2];
+	req1.ka[0] = req0.ka[0] = mv.trans[0].gain;
+	req1.ka[1] = req0.ka[1] = mv.trans[1].gain;
+	req1.ka[2] = req0.ka[2] = mv.trans[1].gain;
 
 	req1.crc = req0.crc = GetCRC16(&req0.adr, sizeof(req0)-3);
+
+	return &q;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateTrmReqFire(byte n)
+{
+	Ptr<REQ> rq(AllocREQ());
+	
+	if (!rq.Valid()) return rq;
+
+	ReqTrm01 **req = ((ReqTrm01**)rq->reqData);
+
+	REQ &q = *rq;
+
+	const byte fn[3] = {3, 1, 2};
+
+	q.CallBack = 0;
+	q.ready = false;
+	q.checkCRC = false;
+	q.updateCRC = false;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+
+	q.rb.data = 0;
+	q.rb.maxLen = 0;
+
+	ReqTrm01 &req0 = *(req[0]);
+	ReqTrm01 &req1 = *(req[1]);
+	ReqTrm01 &req2 = *(req[2]);
+	
+	req2.len	= req1.len	= req0.len	= sizeof(req0) - 1;
+	req2.func	= req1.func	= req0.func	= 1;
+	req2.n		= req1.n	= req0.n	= fn[n];
+	req2.crc	= req1.crc	= req0.crc	= GetCRC16(&req0.func, sizeof(req0)-3);
 
 	return &q;
 }
@@ -1173,22 +1216,27 @@ static u32 InitRspMan_10(__packed u16 *data)
 {
 	__packed u16 *start = data;
 
-	union { __packed u16 *d; /*SENS *s;*/ } u;
+	*(data++)	= (manReqWord & manReqMask) | 0x10;		//	1.	Ответное слово		
+	*(data++)  	= mv.trmVoltage;						//	2.	Напряжение излучателей (0..1000 В)
+	*(data++)  	= mv.trans[0].pulseCount;				//	3.	Количество импульсов монополь (1..5)
+	*(data++)  	= mv.trans[1].pulseCount;				//	4.	Количество импульсов диполь (1..5)
+	*(data++)  	= mv.trans[0].freq;						//	5.	Монополь. Частота импульсов излучателя (1Гц)
+	*(data++)  	= mv.trans[1].freq;						//	6.	Диполь. Частота импульсов излучателя (1Гц)
+	*(data++)  	= mv.trans[0].duty;						//	7.	Монополь. Скважность импульсов излучателя (0.01%)
+	*(data++)  	= mv.trans[1].duty;						//	8.	Диполь. Скважность импульсов излучателя (0.01%)
+	*(data++)  	= mv.trans[0].gain;						//	9.	Монополь. КУ
+	*(data++)  	= mv.trans[0].st;						//	10.	Монополь. Шаг оцифровки
+	*(data++)  	= mv.trans[0].sl;						//	11.	Монополь. Длина оцифровки
+	*(data++)  	= mv.trans[0].sd;						//	12.	Монополь. Задержка оцифровки
+	*(data++)  	= mv.trans[1].gain;						//	13.	Диполь. КУ
+	*(data++)  	= mv.trans[1].st;						//	14.	Диполь. Шаг оцифровки
+	*(data++)  	= mv.trans[1].sl;						//	15.	Диполь. Длина оцифровки
+	*(data++)  	= mv.trans[1].sd;						//	16.	Диполь. Задержка оцифровки
+	*(data++)  	= mv.disableFireNoVibration;			//	17.	Отключение регистрации на стоянке(0 - нет, 1 - да)
+	*(data++)  	= mv.levelNoVibration;					//	18.	Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
+	*(data++)  	= mv.firePeriod;						//	19.	Период опроса(мс)(ushort)
 
-	u.d = data;
-
-	//*(u.d++)	= (manReqWord & manReqMask) | 0x10;		//	1. Ответное слово
-	//*(u.s++)	= mv.sens1;								//	2. КУ (измерительный датчик 1)
-	//*(u.s++)	= mv.sens2;								//	13. КУ (измерительный датчик 2)
-	//*(u.s++)	= mv.refSens;							//	24. КУ (опорный датчик)
-	//*(u.d++)	= mv.cmSPR;								//	35. Количество волновых картин на оборот головки в режиме цементомера
-	//*(u.d++)	= mv.imSPR;								//	36. Количество точек на оборот головки в режиме имиджера
-	//*(u.d++)	= mv.fireVoltage;						//	37. Напряжение излучателя (В)
-	//*(u.d++)	= mv.motoLimCur;						//	38. Ограничение тока двигателя (мА)
-	//*(u.d++)	= mv.motoMaxCur;						//	39. Аварийный ток двигателя (мА)
-	//*(u.d++)	= mv.sensMask;							//	40. Выбор измерительного датчика (бит 0 - измерительный датчик 1, бит 1 - измерительный датчик 2), допустимые значения 1,2,3
-	
-	return u.d - start;
+	return data - start;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1224,36 +1272,19 @@ static u32 InitRspMan_20(__packed u16 *data)
 {
 	__packed u16 *start = data;
 
-	*(data++)	= manReqWord|0x20;				//	1.	ответное слово
-	*(data++)  	= motoRPS;						//	2.	Частота вращения двигателя (0.01 об/сек)
-	*(data++)  	= motoCur;						//	3.	Ток двигателя (мА)
-	*(data++)  	= motoCounter;					//	4.	Счётчик оборотов двигателя (1/6 об)
-	*(data++)  	= 0;							//	5.	Частота вращения головки (0.01 об/сек)
-	*(data++)  	= 0;							//	6.	Счётчик оборотов головки (об)
-	*(data++)  	= ax;							//	7.	AX (уе)
-	*(data++)  	= ay;							//	8.	AY (уе)
-	*(data++)  	= az;							//	9.	AZ (уе)
-	*(data++)  	= at;							//	10.	AT (short 0.01 гр)
-	*(data++)	= temp;							//	11.	Температура в приборе (short)(0.1гр)
-	*(data++)	= sensMinMax[0].ampMax;			//	12.	Амплитуда измерительного датчика 1 максимум по всей волне (у.е)
-	*(data++)	= sensMinMax[0].ampMin;			//	13.	Амплитуда измерительного датчика 1 минимум по всей волне (у.е)
-	*(data++)	= sensMinMax[0].timeMax;		//	14.	Время измерительного датчика 1 максимум по первому вступлению (0.02 мкс)
-	*(data++)	= sensMinMax[0].timeMin;		//	15.	Время измерительного датчика 1 минимум по первому вступлению (0.02 мкс)
-	*(data++)	= sensMinMax[1].ampMax;			//	16.	Амплитуда измерительного датчика 2 максимум по всей волне (у.е)
-	*(data++)	= sensMinMax[1].ampMin;			//	17.	Амплитуда измерительного датчика 2 минимум по всей волне (у.е)
-	*(data++)	= sensMinMax[1].timeMax;		//	18.	Время измерительного датчика 2 максимум по первому вступлению (0.02 мкс)
-	*(data++)	= sensMinMax[1].timeMin;		//	19.	Время измерительного датчика 2 минимум по первому вступлению (0.02 мкс)
-	*(data++)	= sensMinMax[2].ampMax;			//	20.	Амплитуда опорного датчика максимум по всей волне (у.е)
-	*(data++)	= sensMinMax[2].ampMin;			//	21.	Амплитуда опорного датчика минимум по всей волне (у.е)
-	*(data++)	= sensMinMax[2].timeMax;		//	22.	Время опорного датчика максимум по первому вступлению (0.02 мкс)
-	*(data++)	= sensMinMax[2].timeMin;		//	23.	Время опорного датчика минимум по первому вступлению (0.02 мкс)
-	*(data++)	= 0;							//	24.	Состояние датчика Холла (0, 1)
-	*(data++)	= curFireVoltage;				//	25.	Напряжение излучателя (В)
-	*(data++)	= motoVoltage;					//	26.	Напряжение двигателя (В)
-	*(data++)	= auxVoltage;					//	27.	Напряжение 3-ей жилы (В)
-	*(data++)	= dspRcvCount;					//	28.	Счётчик запросов DSP
-	*(data++)	= motoRcvCount;					//	29.	Счётчик запросов двигателя
-	*(data++)	= GetRcvManQuality();			//	30.	Качество сигнала запроса телеметрии (%)
+	*(data++) = manReqWord|0x20;						//	1. 	ответное слово
+	*(data++) = GD(&fireCounter, u16, 0);				//	2. 	счётчик. младшие 2 байта
+	*(data++) = GD(&fireCounter, u16, 1);				//	3. 	счётчик. старшие 2 байта
+	*(data++) = voltage;								//	4. 	напряжение передатчика
+	*(data++) = numStations|(((u16)rcvStatus)<<8);		//	5. 	мл.байт - к-во приемников, ст.байт-статус приёмников
+	*(data++) = resistValue;							//	6. 	сопротивление IdLine
+	*(data++) = (temp+5)/10;							//	7. 	ТЕМПЕРАТУРА CPU
+	*(data++) = ax;										//	8. 	AX
+	*(data++) = ay;										//	9. 	AY
+	*(data++) = az;										//	10.	AZ
+	*(data++) = at;										//	11.	AT
+	*(data++) = temp;									//	12.	Температура в приборе (short)(0.1гр)
+	*(data++) = vibration;								//	13.	Вибрация (у.е)(ushort)
 
 	return data - start;
 }
@@ -1275,29 +1306,7 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
-	if (sensMinMaxTemp[0].valid) { sensMinMax[0] = sensMinMaxTemp[0]; };
-	if (sensMinMaxTemp[1].valid) { sensMinMax[1] = sensMinMaxTemp[1]; };
-	if (sensMinMaxTemp[2].valid) { sensMinMax[2] = sensMinMaxTemp[2]; };
-
 	len = InitRspMan_20(manTrmData);
-
-	sensMinMaxTemp[0].ampMax = 0;
-	sensMinMaxTemp[0].ampMin = ~0;
-	sensMinMaxTemp[0].timeMax = 0;
-	sensMinMaxTemp[0].timeMin = ~0;
-	sensMinMaxTemp[0].valid = false;
-
-	sensMinMaxTemp[1].ampMax = 0;
-	sensMinMaxTemp[1].ampMin = ~0;
-	sensMinMaxTemp[1].timeMax = 0;
-	sensMinMaxTemp[1].timeMin = ~0;
-	sensMinMaxTemp[1].valid = false;
-
-	sensMinMaxTemp[2].ampMax = 0;
-	sensMinMaxTemp[2].ampMin = ~0;
-	sensMinMaxTemp[2].timeMax = 0;
-	sensMinMaxTemp[2].timeMin = ~0;
-	sensMinMaxTemp[2].valid = false;
 
 	mtb->data1 = manTrmData;
 	mtb->len1 = len;
@@ -1542,6 +1551,62 @@ static bool RequestMan_50(u16 *data, u16 reqlen, MTB* mtb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+static bool RequestMan_60(u16 *data, u16 len, MTB* mtb)
+{
+	struct Rsp { u16 rw; };
+	
+	static Rsp rsp; 
+
+	if (data == 0 || len == 0 || len > 4 || mtb == 0) return false;
+
+	mtb->data2 = 0;
+	mtb->len2 = 0;
+
+	if (len < 3)
+	{
+		rspMan60.rw = manReqWord|0x60;
+		rspMan60.cnt = fireCounter;
+
+		mtb->data1 = (u16*)&rspMan60;
+		mtb->len1 = sizeof(rspMan60)/2;
+	}
+	else if (data[1] == 0)
+	{
+		rspMan60.rw = manReqWord|0x60;
+		rspMan60.cnt = fireCounter;
+
+		u16 maxlen = sizeof(rspMan60)/2;
+		u16 len = data[2]+1;
+
+		if (len > maxlen) len = maxlen;
+
+		mtb->data1 = (u16*)&rspMan60;
+		mtb->len1 = len;
+	}
+	else
+	{
+		rsp.rw = manReqWord|0x60;
+
+		mtb->data1 = (u16*)&rsp;
+		mtb->len1 = sizeof(rsp)/2;
+
+		if (sizeof(rspMan60)/2 > data[1])
+		{
+			u16 maxlen = sizeof(rspMan60)/2 - data[1] - 1;
+			u16 len = data[2];
+
+			if (len > maxlen) len = maxlen;
+
+			mtb->data2 = ((u16*)&rspMan60) + data[1]+1;
+			mtb->len2 = len;
+		};
+	};
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 static bool RequestMan_80(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len < 3 || len > 4 || mtb == 0) return false;
@@ -1573,65 +1638,47 @@ static bool RequestMan_80(u16 *data, u16 len, MTB* mtb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+//static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
+//{
+//	if (data == 0 || len < 3 || len > 4 || mtb == 0) return false;
+//
+//	cmdWriteStart_10 = true;
+
+
 static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len < 3 || len > 4 || mtb == 0) return false;
 
-	cmdWriteStart_10 = true;
+	u16 nr = data[1];
 
-	switch(data[1])
+	switch(nr)
 	{
-		//case 0x1:	mv.sens1.gain			= data[2];			break;
-		//case 0x2:	mv.sens1.st				= data[2];			break;
-		//case 0x3:	mv.sens1.sl				= data[2];			break;
-		//case 0x4:	mv.sens1.sd			 	= data[2];			break;
-		//case 0x5:	mv.sens1.deadTime		= data[2];			break;
-		//case 0x6:	mv.sens1.descriminant	= data[2];			break;
-		//case 0x7:	mv.sens1.freq			= data[2];			break;
-		//case 0x8:	mv.sens1.filtrType		= data[2];			break;
-		//case 0x9:	mv.sens1.packType		= data[2];			break;
-		//case 0xA:	mv.sens1.fi_Type		= data[2];			break;
-		//case 0xB:	mv.sens1.fragLen		= data[2];			break;
+		case 0x0:	mv.trmVoltage				= MIN(data[2],			950		);	break;	//0x00 - Напряжение излучателей (0..1000 В)
+		case 0x1:	mv.trans[0].pulseCount		= LIM(data[2],	1,		5		);	break;	//0x01 - Монополь. Количество импульсов (1..5)
+		case 0x2:	mv.trans[1].pulseCount		= LIM(data[2],	1,		5		);	break;	//0x02 - Диполь. Количество импульсов (1..5)
+		case 0x3:	mv.trans[0].freq			= LIM(data[2],	10000,	30000	);	break;	//0x03 - Монополь. Частота импульсов излучателя (10000..30000 шаг 1Гц)
+		case 0x4:	mv.trans[1].freq			= LIM(data[2],	1000,	10000	);	break;	//0x04 - Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
+		case 0x5:	mv.trans[0].duty			= MIN(data[2],			6000	);	break;	//0x05 - Монополь. Скважность импульсов излучателя (0..60 шаг 0.01%)
+		case 0x6:	mv.trans[1].duty			= MIN(data[2],			6000	);	break;	//0x06 - Диполь. Скважность импульсов излучателя (0..60 шаг 0.01%)
 
+		case 0x10:	mv.trans[0].gain			= MIN(data[2],			7		);	break;	//0x10 - Монополь. КУ (0..7 = 1..128)
+		case 0x18:	mv.trans[0].st				= MIN(data[2],			255		);	break;	//0x18 - Монополь. Шаг оцифровки (1..50)
+		case 0x19:	mv.trans[0].sl				= MIN(data[2],			1024	);	break;	//0x19 - Монополь. Длина оцифровки (0..512)
+		case 0x1A:	mv.trans[0].sd				= MIN(data[2],			1024	);	break;	//0x1A - Монополь. Задержка оцифровки 
 
-		//case 0x11:	mv.sens2.gain			= data[2];			break;
-		//case 0x12:	mv.sens2.st				= data[2];			break;
-		//case 0x13:	mv.sens2.sl				= data[2];			break;
-		//case 0x14:	mv.sens2.sd 			= data[2];			break;
-		//case 0x15:	mv.sens2.deadTime		= data[2];			break;
-		//case 0x16:	mv.sens2.descriminant	= data[2];			break;
-		//case 0x17:	mv.sens2.freq			= data[2];			break;
-		//case 0x18:	mv.sens2.filtrType		= data[2];			break;
-		//case 0x19:	mv.sens2.packType		= data[2];			break;
-		//case 0x1A:	mv.sens2.fi_Type		= data[2];			break;
-		//case 0x1B:	mv.sens2.fragLen		= data[2];			break;
+		case 0x20:	mv.trans[1].gain			= MIN(data[2],			7		);	break;	//0x20 - Диполь. КУ (0..7 = 1..128)
+		case 0x28:	mv.trans[1].st				= MIN(data[2],			255		);	break;	//0x28 - Диполь. Шаг оцифровки (1..50)
+		case 0x29:	mv.trans[1].sl				= MIN(data[2],			1024	);	break;	//0x29 - Диполь. Длина оцифровки (0..512)
+		case 0x2A:	mv.trans[1].sd				= MIN(data[2],			1024	);	break;	//0x2A - Диполь. Задержка оцифровки 
 
-		//case 0x21:	mv.refSens.gain			= data[2];			break;
-		//case 0x22:	mv.refSens.st			= data[2];			break;
-		//case 0x23:	mv.refSens.sl			= data[2];			break;
-		//case 0x24:	mv.refSens.sd 			= data[2];			break;
-		//case 0x25:	mv.refSens.deadTime		= data[2];			break;
-		//case 0x26:	mv.refSens.descriminant	= data[2];			break;
-		//case 0x27:	mv.refSens.freq			= data[2];			break;
-		//case 0x28:	mv.refSens.filtrType	= data[2];			break;
-		//case 0x29:	mv.refSens.packType		= data[2];			break;
-		//case 0x2A:	mv.refSens.fi_Type		= data[2];			break;
-		//case 0x2B:	mv.refSens.fragLen		= data[2];			break;
+		case 0x30:	mv.disableFireNoVibration	= data[2];							break;	//0x30 - Отключение регистрации на стоянке(0 - нет, 1 - да)
+		case 0x31:	mv.levelNoVibration			= data[2];							break;	//0x31 - Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
+		case 0x32:	mv.firePeriod				= MAX(data[2],	300);				break;	//0x32 - Период опроса(мс)(ushort)
 
-		//case 0x30:	mv.cmSPR 				= data[2]; Update_RPS_SPR();	break;
-		//case 0x31:	mv.imSPR 				= data[2]; Update_RPS_SPR();	break;
-
-		//case 0x40:	mv.fireVoltage			= data[2];			break;
-
-		//case 0x51:	mv.motoLimCur			= data[2];			break;
-		//case 0x52:	mv.motoMaxCur			= data[2];			break;
-
-		//case 0x60:	mv.sensMask				= data[2];			break;
-
-		//default:
-
-		//	return false;
+		default:	return false;
 	};
+
+	//if (nr >= 0x10 && nr < 0x30) qRcv.Add(CreateRcvReq03(0, 2));
 
 	manTrmData[0] = (manReqWord & manReqMask) | 0x90;
 
@@ -1643,7 +1690,7 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 	return true;
 }
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static bool RequestMan_F0(u16 *data, u16 len, MTB* mtb)
 {
@@ -2010,6 +2057,177 @@ static void UpdateMan()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void StartTrmFire()
+{
+	PIO_RTS4->BSET(PIN_RTS4);
+	PIO_RTS7->BSET(PIN_RTS7);
+
+	HW::USART4->CTRLB |= USART_TXEN;
+	HW::USART7->CTRLB |= USART_TXEN;
+
+	HW::USART4->DATA = 0;
+	HW::USART7->DATA = 0;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void StopTrmFire()
+{
+	PIO_RTS4->BCLR(PIN_RTS4);
+	PIO_RTS7->BCLR(PIN_RTS7);
+
+	HW::USART4->CTRLB &= ~USART_TXEN;
+	HW::USART7->CTRLB &= ~USART_TXEN;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void UpdateRcvTrm()
+{
+	static byte i = 0, n = 0;
+	//static u16 sd = 0;
+	static CTM32 ctm;
+
+	static u32 fireTime = MS2CTM(15);
+
+	Ptr<REQ> reqr;
+	Ptr<REQ> reqt;
+			
+	switch(i)
+	{
+		case 0:
+			
+			qRcv.Update();
+
+			i = (startFire) ? 2 : 1;
+
+			break;
+
+		case 1:
+
+			qTrm.Update();
+		
+			i = (startFire) ? 2 : 0;
+
+			break;
+
+		case 2:
+
+			qRcv.Stop();
+			qTrm.Stop();
+			n = fireType;
+
+			i++;
+
+			break;
+
+
+		case 3:
+
+			qRcv.Update();
+			qTrm.Update();
+ 
+			if (qRcv.Stoped() && qTrm.Stoped())
+			{
+				i++;
+			};
+
+			break;
+
+		case 4:
+
+			reqr = CreateRcvReqFire(n, fireCounter);
+
+			if (reqr.Valid())
+			{
+				comRcv.Write(&reqr->wb);
+				
+				i++;
+			};
+
+			break;
+
+		case 5:
+
+			if (mv.trmVoltage > 100)
+			{
+				reqt = CreateTrmReqFire(n);
+
+				if (reqt.Valid())
+				{
+					comTrm.Write(&reqt->wb);
+
+					i++;
+				};
+			}
+			else
+			{
+				i++;
+			};
+
+			break;
+
+		case 6:
+
+			if (!comRcv.Update() && !comTrm.Update())
+			{
+				reqr.Free();
+				reqt.Free();
+
+				ctm.Reset();
+				i++;
+			};
+
+			break;
+
+		case 7:
+
+			if (ctm.Check(US2CTM(100)))
+			{
+				StartTrmFire();
+
+				u32 t = 5000; // + (u32)sampleLen[n]*sampleTime[n]+sampleDelay[n] + ;
+
+				fireTime = US2CTM(t);
+
+				i++;
+			};
+
+			break;
+
+		case 8:
+
+			if (ctm.Check(fireTime))
+			{
+				i++;
+			};
+
+			break;
+
+		case 9:
+
+			//for (byte j = 1; j < 9; j++)
+			//{
+			//	qrcv.Add(CreateRcvReq02(j, n, 0));
+			//	qrcv.Add(CreateRcvReq02(j, n, 1));
+			//};
+
+			startFire = false;
+
+			qRcv.Start();
+			qTrm.Start();
+
+			i = 0;
+
+			break;
+	};
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 static void MainMode()
 {
 	//fireType
@@ -2021,6 +2239,7 @@ static void MainMode()
 	static TM32 rt;
 	static TM32 rt2;
 
+	static Ptr<REQ> req;
 //	REQ *rm = 0;
 
 	switch (mainModeState)
@@ -2029,11 +2248,11 @@ static void MainMode()
 
 			if (runMainMode && (mv.disableFireNoVibration == 0 || vibration > mv.levelNoVibration))
 			{
-				req = CreateRcvReq03(0, sampleTime, sampleLen, sampleDelay, 0);
+				req = CreateRcvReq03(0, 0);
 
-				if (req != 0)
+				if (req.Valid())
 				{
-					qrcv.Add(req);
+					qRcv.Add(req);
 
 					mainModeState++;
 				};
@@ -2046,6 +2265,8 @@ static void MainMode()
 			if (req->ready)
 			{
 				startFire = true;
+
+				req.Free();
 				
 				mainModeState++;
 			};
@@ -2065,11 +2286,11 @@ static void MainMode()
 
 		case 3:
 
-			r02 = CreateRcvReq02(rcv, fireType, chnl, 1);
+			req = CreateRcvReq02(rcv, fireType, chnl, 1);
 
-			if (r02 != 0)
+			if (req.Valid())
 			{
-				qrcv.Add(&r02->q);
+				qRcv.Add(req);
 
 				mainModeState++;
 			};
@@ -2078,41 +2299,25 @@ static void MainMode()
 
 		case 4:
 
-			if (r02->q.ready)
+			if (req->ready)
 			{
-				if (r02->q.crcOK)
+				if (req->crcOK)
 				{
+					RspRcv02 &r02 = *((RspRcv02*)(req->rsp->GetDataPtr()));
+
 					bool crc = false;
 					//bool free = true;
 
 					u16 rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
 					
-					if (r02->rsp.rw != rw || r02->rsp.cnt != fireCounter)
+					if (r02.rw != rw || r02.cnt != fireCounter)
 					{
-						r02->rsp.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
-						r02->rsp.cnt = fireCounter;
+						r02.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
+						r02.cnt = fireCounter;
 						crc = true;
 					};
 
-					//u16 *p = (u16*)&r02->rsp;
-
-					//u16 n = fireType;
-
-					//if (curRcv[fireType] == (rcv-1))
-					//{
-					//	if (manVec[n] != 0)
-					//	{
-					//		freeR02.Add(manVec[n]);
-					//	};
-
-					//	manVec[n] = r02;
-
-					//	free = false;
-					//};
-
-					CreateMemReq02(*r02, crc);
-
-					//freeR02.Add(r02);
+					if (!RequestFlashWrite(req->rsp, r02.rw, crc)) __breakpoint(0);
 
 					manCounter++;
 				};
@@ -2146,11 +2351,11 @@ static void MainMode()
 
 		case 6:
 
-			req = CreateRcvReq04(rcv, gain[rcv-1], 2);
+			req = CreateRcvReq04(rcv, 2);
 
-			if (req != 0)
+			if (req.Valid())
 			{
-				qrcv.Add(req);
+				qRcv.Add(req);
 
 				mainModeState++;
 			};
@@ -2177,7 +2382,7 @@ static void MainMode()
 
 		case 8:
 
-			if (rt.Check(MS2RT(firePeriod/16)))
+			if (rt.Check(MS2RT(mv.firePeriod/16)))
 			{
 				fireType = (fireType+1) % 3; 
 
@@ -2187,7 +2392,7 @@ static void MainMode()
 				{
 					mainModeState = 10;
 
-					CreateMemReq_20();
+					cmdWriteStart_20 = true;
 				}
 				else
 				{
@@ -2199,7 +2404,7 @@ static void MainMode()
 
 		case 9:
 
-			if (/*voltage >= reqVoltage ||*/ rt.Check(MS2RT(firePeriod/4)))
+			if (rt.Check(mv.firePeriod/4))
 			{
 				mainModeState = 0;
 			};
@@ -2208,7 +2413,7 @@ static void MainMode()
 
 		case 10:
 
-			if (rt2.Check(firePeriod))
+			if (rt2.Check(mv.firePeriod))
 			{
 				mainModeState = 0;
 			};
@@ -2315,15 +2520,10 @@ static void MainMode()
 
 			cmdWriteStart_20 = false;
 		};
-	}
-	else if (tm.Check(1001))
-	{
-		cmdWriteStart_20 = true;
 	};
-
-	//		mainModeState = 0;
-
-	//		break;
+	//else if (tm.Check(1001))
+	//{
+	//	cmdWriteStart_20 = true;
 	//};
 }
 
@@ -2374,8 +2574,7 @@ static bool AccelWriteReg(byte reg, u16 count)
 static void UpdateAccel()
 {
 	static byte i = 0; 
-	static i32 x = 0, y = 0, z = 0, t = 0;
-	static i32 fx = 0, fy = 0, fz = 0;
+	static i32 fx = 0, fy = 0, fz = 0, fv = 0;
 
 	static TM32 tm;
 
@@ -2493,25 +2692,31 @@ static void UpdateAccel()
 
 			if (dscAccel.ready)
 			{
-				t = (rxAccel[0] << 8) | rxAccel[1];
-				x = (rxAccel[2] << 24) | (rxAccel[3] << 16) | (rxAccel[4]<<8);
-				y = (rxAccel[5] << 24) | (rxAccel[6] << 16) | (rxAccel[7]<<8);
-				z = (rxAccel[8] << 24) | (rxAccel[9] << 16) | (rxAccel[10]<<8);
-
-				//x /= 4096;
-				//y /= 4096;
-				//z /= 4096;
+				i32 t = (rxAccel[0] << 8)  | rxAccel[1];
+				i32 x = (rxAccel[2] << 24) | (rxAccel[3] << 16) | (rxAccel[4]  <<8);
+				i32 y = (rxAccel[5] << 24) | (rxAccel[6] << 16) | (rxAccel[7]  <<8);
+				i32 z = (rxAccel[8] << 24) | (rxAccel[9] << 16) | (rxAccel[10] <<8);
 
 				fx += (x - fx) / 8;
 				fy += (y - fy) / 8;
 				fz += (z - fz) / 8;
 
 				ay = -(fz / 65536); 
-				ax = (fy / 65536); 
-				az = -(fx / 65536);
+				ax = -(fy / 65536); 
+				az =  (fx / 65536);
 
-				at = 250 + ((1852 - t) * 1000 + 452) / 905;
-				//at = 250 + (1852 - t) * 1.1049723756906077348066298342541f;
+				//at = 2500 + ((1852 - t) * 2000 + 91) / 181;
+				at = 2500 + ((1852 - t) * 11315 + 512) / 1024;
+
+				i32 vx = ABS(x - fx) / 64;
+				i32 vy = ABS(y - fy) / 64;
+				i32 vz = ABS(z - fz) / 64;
+
+				fv += ((i32)(vx+vy+vz)-fv)/128;
+
+				t = fv/1024;
+
+				vibration = LIM(t, 0, 0xFFFF);
 
 				i--;
 			};
