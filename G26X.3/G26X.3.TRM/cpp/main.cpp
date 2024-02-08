@@ -8,6 +8,7 @@
 #include "PointerCRC.h"
 #include "SEGGER_RTT.h"
 #include "hw_com.h"
+#include "G_TRM.h"
 
 //#include "G_TRM.H"
 
@@ -382,6 +383,112 @@ static void UpdateMan()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+typedef bool (*REQF)(byte *req, u16 len, ComPort::WriteBuffer *wb);
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool Request01(byte *data, u16 len, ComPort::WriteBuffer *wb)
+{
+	// Запуск импульса излучателя
+
+	ReqTrm01 &req = *((ReqTrm01*)data);
+	
+	PrepareFire(req.r[0].n, req.r[0].fireFreq, req.r[0].fireAmp, req.r[0].fireCount, req.r[0].fireDuty);
+
+	wb->data = 0;
+	wb->len = 0;
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool Request02(byte *data, u16 len, ComPort::WriteBuffer *wb)
+{
+	// Чтение текущего значения высокого напряжения
+
+	//__packed struct Rsp { byte f; u16 hv; u16 crc; };
+
+	//static Rsp rsp;
+	//
+	//rsp.f = 2;
+	//rsp.hv = GetCurHV();
+	//rsp.crc = GetCRC(&rsp, 3);
+	//wb->data = &rsp;
+	//wb->len = sizeof(rsp);
+
+	return false;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool Request03(byte *data, u16 len, ComPort::WriteBuffer *wb)
+{
+	// Установка значения требуемого высокого напряжения
+
+	//__packed struct Rsp { byte f; u16 crc; };
+
+	//static Rsp rsp;
+	//
+	//SetReqFireCountM(req->f3.fireCountM);
+	//SetReqFireCountXY(req->f3.fireCountXY);
+	//SetReqHV(req->f3.hv);
+	//SetReqFireFreqM(req->f3.fireFreqM, req->f3.fireDutyM);
+	//SetReqFireFreqXY(req->f3.fireFreqXY, req->f3.fireDutyXY);
+
+	//rsp.f = 3;
+	//rsp.crc = GetCRC(&rsp, 1);
+	//wb->data = &rsp;
+	//wb->len = sizeof(rsp);
+
+	return false;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static REQF listReq[3] = { Request01, Request02, Request03 };
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool UpdateRequest(ComPort::WriteBuffer *wb, ComPort::ReadBuffer *rb)
+{
+	//static Req nulReq;
+
+	static const byte fl[3] = { sizeof(ReqTrm01::r[0])-1, sizeof(ReqTrm02::r[0])-1, sizeof(ReqTrm03::r[0])-1 };
+
+	if (rb == 0 || rb->len < 4) return false;
+
+	bool result = false;
+
+	u16 rlen = rb->len;
+
+	byte *p = (byte*)rb->data;
+
+	while(rlen > 3)
+	{
+		byte len = p[0];
+		byte func = p[1]-1;
+
+		if (func < 4 && len == fl[func] && len < rlen && GetCRC16(p+1, len) == 0)
+		{
+			//Req *req = (Req*)p;
+
+			result = listReq[func](p, len+1, wb);
+
+			break;
+		}
+		else
+		{
+			p += 1;
+			rlen -= 1;
+		};
+	};
+
+	return result;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 static void UpdateCom()
 {
 	static byte i = 0;
@@ -410,11 +517,14 @@ static void UpdateCom()
 				{
 					ctm.Reset();
 
-					if ((buf[0] & 0xFFF0) == (manReqWord|0x20) && buf[1] >= 1000 && buf[1] <= 30000 && buf[2] <= 3000)
+					if (UpdateRequest(&wb, &rb))
 					{
-						wb.data = buf;
-						wb.len = 2;
+						i += 2;
+					}
+					else if (wb.data != 0 && wb.len != 0)
+					{
 						comdsp.Write(&wb);
+
 						i++;
 					}
 					else
@@ -434,22 +544,14 @@ static void UpdateCom()
 
 			if (!comdsp.Update())
 			{
-				i++;
+				i = 0;
 			};
 
 			break;
 
 		case 3:
 
-			//PrepareFire(buf[0]&15, buf[1], buf[2], mv.fireType == 0);
-
-			i++;
-
-			break;
-
-		case 4:
-
-			if (IsFireOK() || ctm.Check(MS2CLK(50)))
+			if (IsFireOK() || ctm.Check(MS2CTM(50)))
 			{
 				DisableFire();
 
@@ -882,7 +984,7 @@ int main()
 
 #ifndef WIN32
 
-	comdsp.Connect(ComPort::ASYNC, 1250000, 2, 2);
+	comdsp.Connect(ComPort::ASYNC, TRM_COM_BAUDRATE, TRM_COM_PARITY, TRM_COM_STOPBITS);
 
 #endif
 
@@ -904,7 +1006,7 @@ int main()
 		{
 			fps = fc; fc = 0; 
 
-			PrepareFire(0, fireFreq, fireAmp, true);
+			//PrepareFire(0, fireFreq, fireAmp, true);
 		};
 	}; // while (1)
 }

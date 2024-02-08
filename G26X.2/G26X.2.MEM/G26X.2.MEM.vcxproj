@@ -55,7 +55,7 @@
     <NMakeCleanCommandLine>%40del /Q $(OutDir)*.*</NMakeCleanCommandLine>
     <NMakeOutput>$(OutDir)G26X.2.MEM.axf</NMakeOutput>
     <NMakePreprocessorDefinitions>_DEBUG;__softfp=;CPU_SAME53;__CC_ARM;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
-    <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS_ARM\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS_ARM\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;</NMakeIncludeSearchPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SAME53_Release|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
@@ -65,7 +65,7 @@
     <NMakeCleanCommandLine>%40del /Q $(OutDir)*.*</NMakeCleanCommandLine>
     <NMakeOutput>$(OutDir)G26X.2.MEM.axf</NMakeOutput>
     <NMakePreprocessorDefinitions>__softfp=;CPU_SAME53;__CC_ARM;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
-    <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS_ARM\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS_ARM\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;</NMakeIncludeSearchPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win32_Debug|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
@@ -105,6 +105,7 @@
     <ClInclude Include="cpp\rtc.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="cpp.hint" />
     <None Include="makeobj" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

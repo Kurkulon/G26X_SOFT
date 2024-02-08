@@ -39,9 +39,9 @@ enum { VERSION = 0x105 };
 	static const bool __debug = true;
 #endif
 
-#define SENS_NUM	3
-#define NS2DSP(v) (((v)+10)/20)
-#define US2DSP(v) ((((v)*1000)+10)/20)
+//#define SENS_NUM	3
+//#define NS2DSP(v) (((v)+10)/20)
+//#define US2DSP(v) ((((v)*1000)+10)/20)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -85,7 +85,7 @@ static MainVars mv;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool runMainMode = false;
+static bool runMainMode = true;
 static bool startFire = false;
 static u32 fireCounter = 0;
 static u32 manCounter = 0;
@@ -93,9 +93,9 @@ static byte numStations = 0;
 static u16 resistValue = 0;
 static u16 voltage = 0;
 
-u32 req40_count1 = 0;
-u32 req40_count2 = 0;
-u32 req40_count3 = 0;
+u32 req30_count1 = 0;
+u32 req30_count2 = 0;
+u32 req30_count3 = 0;
 
 u32 fps;
 i16 tempClock = 0;
@@ -112,16 +112,17 @@ u16 txbuf[128 + 512 + 16];
 static RequestQuery qTrm(&comTrm);
 static RequestQuery qRcv(&comRcv);
 
-static Ptr<MB> manVec40[SENS_NUM];
+static Ptr<MB> manVec30[3];
+static Ptr<MB> curManVec30;
+static Ptr<MB> manVec60;
+static Ptr<MB> curManVec60;
 
-static Ptr<MB> curManVec40;
-static Ptr<MB> manVec50[SENS_NUM-1];
-static Ptr<MB> curManVec50;
-
-static ListPtr<MB> readyR01;
+//static ListPtr<MB> readyR01;
 
 static u16 mode = 0;
 static RspMan60 rspMan60;
+static byte curRcv[3] = { 0 };
+
 
 static TM32 imModeTimeout;
 
@@ -311,7 +312,7 @@ static Ptr<REQ> CreateRcvReqFire(byte n, u16 fc)
 
 	if (!rq.Valid()) return rq;
 
-	ReqRcv01* *req = ((ReqRcv01**)rq->reqData);
+	ReqRcv01 *req = ((ReqRcv01*)rq->reqData);
 
 	REQ &q = *rq;
 
@@ -327,12 +328,12 @@ static Ptr<REQ> CreateRcvReqFire(byte n, u16 fc)
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
 
-	req[2]->len		= req[1]->len	= req[0]->len	= sizeof(ReqRcv01) - 1;
-	req[2]->adr		= req[1]->adr	= req[0]->adr	= 0;
-	req[2]->func	= req[1]->func	= req[0]->func	= 1;
-	req[2]->n		= req[1]->n		= req[0]->n		= n;
-	req[2]->fc		= req[1]->fc	= req[0]->fc	= fc;
-	req[2]->crc		= req[1]->crc	= req[0]->crc	= GetCRC16(&req[0]->adr, sizeof(ReqRcv01)-3);
+	req[2].len		= req[1].len	= req[0].len	= sizeof(ReqRcv01) - 1;
+	req[2].adr		= req[1].adr	= req[0].adr	= 0;
+	req[2].func		= req[1].func	= req[0].func	= 1;
+	req[2].n		= req[1].n		= req[0].n		= n;
+	req[2].fc		= req[1].fc		= req[0].fc		= fc;
+	req[2].crc		= req[1].crc	= req[0].crc	= GetCRC16(&req[0].adr, sizeof(ReqRcv01)-3);
 
 	return &q;
 }
@@ -348,7 +349,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 	if (crcOK)
 	{
-		rcvStatus |= 1 << (rsp.rw & 7);
+		rcvStatus |= 1 << (rsp.hdr.rw & 7);
 		
 		q->rsp->len = q->rb.len;
 	}
@@ -358,7 +359,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 		if (q->rb.recieved)
 		{
-			if ((rsp.rw & manReqMask) != manReqWord || (rsp.len*8+16) != q->rb.len)
+			if ((rsp.hdr.rw & manReqMask) != manReqWord || (sizeof(rsp.hdr) + rsp.hdr.len * 8) != q->rb.len)
 			{
 				lenErr02[a]++;
 			}
@@ -398,7 +399,7 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqRcv02 **req = ((ReqRcv02**)rq->reqData);
+	ReqRcv02 *req = ((ReqRcv02*)rq->reqData);
 	RspRcv02 &rsp = *((RspRcv02*)(rq->rsp->GetDataPtr()));
 
 	adr = (adr-1)&7; 
@@ -423,8 +424,8 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 	q.rb.recieved = false;
 
-	ReqRcv02 &req0 = *(req[0]);
-	ReqRcv02 &req1 = *(req[1]);
+	ReqRcv02 &req0 = req[0];
+	ReqRcv02 &req1 = req[1];
 	
 	req1.len	= req0.len	= sizeof(req0) - 1;
 	req1.adr	= req0.adr	= adr+1;
@@ -462,11 +463,11 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv02)+2);
+	rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv03)+2);
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqRcv03 **req = ((ReqRcv03**)rq->reqData);
+	ReqRcv03 *req = ((ReqRcv03*)rq->reqData);
 	RspRcv03 &rsp = *((RspRcv03*)(rq->rsp->GetDataPtr()));
 
 	REQ &q = *rq;
@@ -487,8 +488,8 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 	q.rb.recieved = false;
 
-	ReqRcv03 &req0 = *(req[0]);
-	ReqRcv03 &req1 = *(req[1]);
+	ReqRcv03 &req0 = req[0];
+	ReqRcv03 &req1 = req[1];
 
 	req1.len	= req0.len	= sizeof(req0) - 1;
 	req1.adr	= req0.adr	= adr;
@@ -562,7 +563,7 @@ static Ptr<REQ> CreateRcvReq04(byte adr, u16 tryCount)
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqRcv04 **req = ((ReqRcv04**)rq->reqData);
+	ReqRcv04 *req = ((ReqRcv04*)rq->reqData);
 	RspRcv04 &rsp = *((RspRcv04*)(rq->rsp->GetDataPtr()));
 
 	REQ &q = *rq;
@@ -583,8 +584,8 @@ static Ptr<REQ> CreateRcvReq04(byte adr, u16 tryCount)
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 	q.rb.recieved = false;
 
-	ReqRcv04 &req0 = *(req[0]);
-	ReqRcv04 &req1 = *(req[1]);
+	ReqRcv04 &req0 = req[0];
+	ReqRcv04 &req1 = req[1];
 
 	req1.len	= req0.len	= sizeof(req0) - 1;
 	req1.adr	= req0.adr	= adr;
@@ -607,11 +608,11 @@ static Ptr<REQ> CreateTrmReqFire(byte n)
 	
 	if (!rq.Valid()) return rq;
 
-	ReqTrm01 **req = ((ReqTrm01**)rq->reqData);
+	ReqTrm01 &req = *((ReqTrm01*)rq->reqData);
 
 	REQ &q = *rq;
 
-	const byte fn[3] = {3, 1, 2};
+	const byte fn[3] = {0, 1, 1};
 
 	q.CallBack = 0;
 	q.ready = false;
@@ -624,14 +625,16 @@ static Ptr<REQ> CreateTrmReqFire(byte n)
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
 
-	ReqTrm01 &req0 = *(req[0]);
-	ReqTrm01 &req1 = *(req[1]);
-	ReqTrm01 &req2 = *(req[2]);
-	
-	req2.len	= req1.len	= req0.len	= sizeof(req0) - 1;
-	req2.func	= req1.func	= req0.func	= 1;
-	req2.n		= req1.n	= req0.n	= fn[n];
-	req2.crc	= req1.crc	= req0.crc	= GetCRC16(&req0.func, sizeof(req0)-3);
+	byte t = fn[n];
+
+	req.r[2].len		= req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
+	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
+	req.r[2].n			= req.r[1].n			= req.r[0].n			= n;
+	req.r[2].fireCount	= req.r[1].fireCount	= req.r[0].fireCount	= mv.trans[t].pulseCount;
+	req.r[2].fireFreq	= req.r[1].fireFreq		= req.r[0].fireFreq		= mv.trans[t].freq;
+	req.r[2].fireDuty	= req.r[1].fireDuty		= req.r[0].fireDuty		= mv.trans[t].duty;
+	req.r[2].fireAmp	= req.r[1].fireAmp		= req.r[0].fireAmp		= mv.trans[t].amp;
+	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].func, sizeof(req.r[0])-3);
 
 	return &q;
 }
@@ -1313,138 +1316,138 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 	mtb->data2 = 0;
 	mtb->len2 = 0;
 
+	runMainMode = true;
+
 	return true;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool RequestMan_40(u16 *data, u16 reqlen, MTB* mtb)
+static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 {
-	//__packed struct Req { u16 rw; u16 off; u16 len; };
+	__packed struct Req { u16 rw; u16 off; u16 len; };
 
-	//Req &req = *((Req*)data);
+	Req &req = *((Req*)data);
 
-	//if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
+	if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
 
-	//struct Rsp { u16 rw; };
-	//
-	//static Rsp rsp; 
-	//
-	//static u16 prevOff = 0;
-	//static u16 prevLen = 0;
-	//static u16 maxLen = 200;
+	byte nf = ((req.rw >> 4) - 3) & 3;
+	byte nr = req.rw & 7;
+
+	curRcv[nf] = nr;
+
+	struct Rsp { u16 rw; };
+	static Rsp rsp; 
+	
+	static u16 prevOff = 0;
+	static u16 prevLen = 0;
+	static u16 maxLen = 200;
 
 	//static byte sensInd = 0;
 
-	//rsp.rw = req.rw;
+	rsp.rw = req.rw;
 
-	//mtb->data1 = (u16*)&rsp;
-	//mtb->len1 = sizeof(rsp)/2;
-	//mtb->data2 = 0;
-	//mtb->len2 = 0;
+	mtb->data1 = (u16*)&rsp;
+	mtb->len1 = sizeof(rsp)/2;
+	mtb->data2 = 0;
+	mtb->len2 = 0;
 
-	//if (reqlen == 1 || (reqlen >= 2 && data[1] == 0))
-	//{
-	//	curManVec40 = manVec40[sensInd];
+	if (reqlen == 1 || (reqlen >= 2 && data[1] == 0))
+	{
+		if (manVec30[nf].Valid())
+		{
+			RspRcv02& rsp = *((RspRcv02*)manVec30[nf]->GetDataPtr());
 
-	//	manVec40[sensInd].Free();
+			if (rsp.hdr.rw == req.rw) curManVec30 = manVec30[nf];
+		}
+		
+		manVec30[nf].Free();
 
-	//	if (!curManVec40.Valid())
-	//	{
-	//		sensInd += 1; if (sensInd >= SENS_NUM) sensInd = 0;
+		if (curManVec30.Valid())
+		{
+			RspRcv02 &rsp = *((RspRcv02*)(curManVec30->GetDataPtr()));
 
-	//		curManVec40 = manVec40[sensInd];
+			u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + rsp.hdr.len * 4;
 
-	//		manVec40[sensInd].Free();
-	//	};
+			mtb->data2 = ((u16*)&rsp)+1;
 
-	//	if (curManVec40.Valid())
-	//	{
-	//		RspDsp01 &rsp = *((RspDsp01*)(curManVec40->GetDataPtr()));
+			prevOff = 0;
 
-	//		u16 sz = (sizeof(rsp.CM.hdr)-sizeof(rsp.CM.hdr.rw))/2 + ((rsp.CM.hdr.packType == 0) ? rsp.CM.hdr.sl : rsp.CM.hdr.packLen);
+			if (reqlen == 1)
+			{
+				mtb->len2 = sz;
+				prevLen = sz;
+			}
+			else 
+			{
+				req30_count1++;
 
-	//		mtb->data2 = ((u16*)&rsp)+1;
+				if (reqlen == 3) maxLen = data[2];
 
-	//		prevOff = 0;
+				u16 len = maxLen;
 
-	//		if (reqlen == 1)
-	//		{
-	//			mtb->len2 = sz;
-	//			prevLen = sz;
-	//		}
-	//		else 
-	//		{
-	//			req40_count1++;
+				if (len > sz) len = sz;
 
-	//			if (reqlen == 3) maxLen = data[2];
+				mtb->len2 = len;
 
-	//			u16 len = maxLen;
+				prevLen = len;
+			};
+		};
+	}
+	else if (curManVec30.Valid())
+	{
+		RspRcv02& rsp = *((RspRcv02*)(curManVec30->GetDataPtr()));
 
-	//			if (len > sz) len = sz;
+		req30_count2++;
 
-	//			mtb->len2 = len;
+		u16 off = prevOff + prevLen;
+		u16 len = prevLen;
 
-	//			prevLen = len;
-	//		};
-	//	};
+		if (reqlen == 3)
+		{
+			off = data[1];
+			len = data[2];
+		};
 
-	//	sensInd += 1; if (sensInd >= SENS_NUM) sensInd = 0;
-	//}
-	//else if (curManVec40.Valid())
-	//{
-	//	RspDsp01 &rsp = *((RspDsp01*)(curManVec40->GetDataPtr()));
+		u16 sz = (sizeof(rsp.hdr) - sizeof(rsp.hdr.rw)) / 2 + rsp.hdr.len * 4;
 
-	//	req40_count2++;
+		if (sz >= off)
+		{
+			req30_count3++;
 
-	//	u16 off = prevOff + prevLen;
-	//	u16 len = prevLen;
+			u16 ml = sz - off;
 
-	//	if (reqlen == 3)
-	//	{
-	//		off = data[1];
-	//		len = data[2];
-	//	};
+			if (len > ml) len = ml;
 
-	//	u16 sz = (sizeof(rsp.CM.hdr)-sizeof(rsp.CM.hdr.rw))/2 + ((rsp.CM.hdr.packType == 0) ? rsp.CM.hdr.sl : rsp.CM.hdr.packLen);
-
-	//	if (sz >= off)
-	//	{
-	//		req40_count3++;
-
-	//		u16 ml = sz - off;
-
-	//		if (len > ml) len = ml;
-
-	//		mtb->data2 = (u16*)&rsp + data[1]+1;
-	//		mtb->len2 = len;
-	//	};
-	//};
+			mtb->data2 = (u16*)&rsp + data[1]+1;
+			mtb->len2 = len;
+		};
+	};
 
 	return true;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool RequestMan_30(u16 *data, u16 len, MTB* mtb)
-{
-	if (data == 0 || len == 0 || len > 3 || mtb == 0) return false;
-
-	manTrmData[0] = data[0];	
- 
-	motoTargetRPS = (data[0]&15) * 100;
-		
-	//Set_Sync_Rot(motoTargetRPS, *curSPR);
-
-	Update_RPS_SPR();
-
-	mtb->data1 = manTrmData;
-	mtb->len1 = 1;
-	mtb->data2 = 0;
-	mtb->len2 = 0;
-
-	return true;
-}
+//static bool RequestMan_30(u16 *data, u16 len, MTB* mtb)
+//{
+//	if (data == 0 || len == 0 || len > 3 || mtb == 0) return false;
+//
+//	manTrmData[0] = data[0];	
+// 
+//	motoTargetRPS = (data[0]&15) * 100;
+//		
+//	//Set_Sync_Rot(motoTargetRPS, *curSPR);
+//
+//	Update_RPS_SPR();
+//
+//	mtb->data1 = manTrmData;
+//	mtb->len1 = 1;
+//	mtb->data2 = 0;
+//	mtb->len2 = 0;
+//
+//	return true;
+//}
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1724,7 +1727,7 @@ static bool RequestMan(u16 *buf, u16 len, MTB* mtb)
 		case 1: 	r = RequestMan_10(buf, len, mtb); break;
 		case 2: 	r = RequestMan_20(buf, len, mtb); break;
 		case 3:		r = RequestMan_30(buf, len, mtb); break;
-		case 4:		r = RequestMan_40(buf, len, mtb); break;
+//		case 4:		r = RequestMan_40(buf, len, mtb); break;
 		case 5: 	r = RequestMan_50(buf, len, mtb); break;
 		case 8: 	r = RequestMan_80(buf, len, mtb); break;
 		case 9:		r = RequestMan_90(buf, len, mtb); break;
@@ -2063,6 +2066,8 @@ static void StartTrmFire()
 {
 #ifndef WIN32
 
+	__disable_irq();
+
 	PIO_RTS4->BSET(PIN_RTS4);
 	PIO_RTS7->BSET(PIN_RTS7);
 
@@ -2071,6 +2076,8 @@ static void StartTrmFire()
 
 	HW::USART4->DATA = 0;
 	HW::USART7->DATA = 0;
+
+	__enable_irq();
 
 #endif
 }
@@ -2081,11 +2088,15 @@ static void StopTrmFire()
 {
 #ifndef WIN32
 
+	__disable_irq();
+
 	PIO_RTS4->BCLR(PIN_RTS4);
 	PIO_RTS7->BCLR(PIN_RTS7);
 
 	HW::USART4->CTRLB &= ~USART_TXEN;
 	HW::USART7->CTRLB &= ~USART_TXEN;
+
+	__enable_irq();
 
 #endif
 }
@@ -2192,7 +2203,7 @@ static void UpdateRcvTrm()
 
 		case 7:
 
-			if (ctm.Check(US2CTM(100)))
+			if (ctm.Check(US2CTM(200)))
 			{
 				StartTrmFire();
 
@@ -2209,25 +2220,14 @@ static void UpdateRcvTrm()
 
 			if (ctm.Check(fireTime))
 			{
-				i++;
+				StopTrmFire();
+
+				startFire = false;
+
+				qRcv.Start();
+				qTrm.Start();
+				i = 0;
 			};
-
-			break;
-
-		case 9:
-
-			//for (byte j = 1; j < 9; j++)
-			//{
-			//	qrcv.Add(CreateRcvReq02(j, n, 0));
-			//	qrcv.Add(CreateRcvReq02(j, n, 1));
-			//};
-
-			startFire = false;
-
-			qRcv.Start();
-			qTrm.Start();
-
-			i = 0;
 
 			break;
 	};
@@ -2244,8 +2244,8 @@ static void MainMode()
 	static byte chnl = 0;
 	//static REQ *req = 0;
 	//static R02 *r02 = 0;
-	static TM32 rt;
-	static TM32 rt2;
+	static CTM32 ctm;
+	static CTM32 ctm2;
 
 	static Ptr<REQ> req;
 //	REQ *rm = 0;
@@ -2318,14 +2318,16 @@ static void MainMode()
 
 					u16 rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
 					
-					if (r02.rw != rw || r02.cnt != fireCounter)
+					if (r02.hdr.rw != rw || r02.hdr.cnt != fireCounter)
 					{
-						r02.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
-						r02.cnt = fireCounter;
+						r02.hdr.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
+						r02.hdr.cnt = fireCounter;
 						crc = true;
 					};
 
-					if (!RequestFlashWrite(req->rsp, r02.rw, crc)) __breakpoint(0);
+					if (!RequestFlashWrite(req->rsp, r02.hdr.rw, crc)) __breakpoint(0);
+
+					if (curRcv[fireType] == rcv) manVec30[fireType] = req->rsp;
 
 					manCounter++;
 				};
@@ -2343,14 +2345,14 @@ static void MainMode()
 					mainModeState = 6;
 				};
 
-				rt.Reset();
+				ctm.Reset();
 			};
 
 			break;
 
 		case 5:
 
-			if (rt.Check(MS2RT(1)))
+			if (ctm.Check(MS2CTM(1)))
 			{
 				mainModeState = 3;
 			};
@@ -2390,7 +2392,7 @@ static void MainMode()
 
 		case 8:
 
-			if (rt.Check(MS2RT(mv.firePeriod/16)))
+			if (ctm.Check(MS2CTM(mv.firePeriod/16)))
 			{
 				fireType = (fireType+1) % 3; 
 
@@ -2412,7 +2414,7 @@ static void MainMode()
 
 		case 9:
 
-			if (rt.Check(mv.firePeriod/4))
+			if (ctm.Check(MS2CTM(mv.firePeriod/4)))
 			{
 				mainModeState = 0;
 			};
@@ -2421,7 +2423,7 @@ static void MainMode()
 
 		case 10:
 
-			if (rt2.Check(mv.firePeriod))
+			if (ctm2.Check(MS2CTM(mv.firePeriod)))
 			{
 				mainModeState = 0;
 			};
@@ -2705,9 +2707,9 @@ static void UpdateAccel()
 				i32 y = (rxAccel[5] << 24) | (rxAccel[6] << 16) | (rxAccel[7]  <<8);
 				i32 z = (rxAccel[8] << 24) | (rxAccel[9] << 16) | (rxAccel[10] <<8);
 
-				fx += (x - fx) / 8;
-				fy += (y - fy) / 8;
-				fz += (z - fz) / 8;
+				fx += (x - fx) / 16;
+				fy += (y - fy) / 16;
+				fz += (z - fz) / 16;
 
 				ay = -(fz / 65536); 
 				ax = -(fy / 65536); 
@@ -2720,7 +2722,7 @@ static void UpdateAccel()
 				i32 vy = ABS(y - fy) / 64;
 				i32 vz = ABS(z - fz) / 64;
 
-				fv += ((i32)(vx+vy+vz)-fv)/128;
+				fv += ((i32)(vx+vy+vz)-fv)/256;
 
 				t = fv/1024;
 
@@ -2922,48 +2924,48 @@ static void UpdateI2C()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static void UpdateMoto()
-{
-	static Ptr<REQ> rq;
-	static TM32 tm;
-
-	static byte i = 0;
-
-	switch (i)
-	{
-		case 0:
-
-			rq = CreateMotoReq();
-
-			if (rq.Valid())
-			{
-				qTrm.Add(rq);
-
-				i++;
-			};
-
-			break;
-
-		case 1:
-
-			if (rq->ready)
-			{
-				rq.Free();
-
-				i++;
-			};
-
-			break;
-
-		case 2:
-
-			if (tm.Check(101)) i = 0;
-
-			break;
-	};
-
-	qTrm.Update();
-}
+//static void UpdateMoto()
+//{
+//	static Ptr<REQ> rq;
+//	static TM32 tm;
+//
+//	static byte i = 0;
+//
+//	switch (i)
+//	{
+//		case 0:
+//
+//			rq = CreateMotoReq();
+//
+//			if (rq.Valid())
+//			{
+//				qTrm.Add(rq);
+//
+//				i++;
+//			};
+//
+//			break;
+//
+//		case 1:
+//
+//			if (rq->ready)
+//			{
+//				rq.Free();
+//
+//				i++;
+//			};
+//
+//			break;
+//
+//		case 2:
+//
+//			if (tm.Check(101)) i = 0;
+//
+//			break;
+//	};
+//
+//	qTrm.Update();
+//}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -3642,7 +3644,6 @@ static void UpdateParams()
 	switch(i++)
 	{
 		CALL( MainMode()				);
-		CALL( UpdateMoto()				);
 		CALL( UpdateTemp()				);
 		CALL( UpdateMan(); 				);
 		CALL( FLASH_Update();			);
@@ -3669,7 +3670,7 @@ static void UpdateMisc()
 	switch(i++)
 	{
 		CALL( UpdateEMAC();		);
-		CALL( UpdateDSP_Com();	);
+		CALL( UpdateRcvTrm();	);
 		CALL( SPI_Update();		);
 		CALL( UpdateParams();	);
 		CALL( I2C_Update();		); 
@@ -3974,7 +3975,7 @@ int main()
 
 #ifndef WIN32
 
-	comTrm.Connect(ComPort::ASYNC, 1562500, 0, 1);
+	comTrm.Connect(ComPort::ASYNC, TRM_COM_BAUDRATE, TRM_COM_PARITY, TRM_COM_STOPBITS);
 	comRcv.Connect(ComPort::ASYNC, 12500000, 0, 1);
 
 

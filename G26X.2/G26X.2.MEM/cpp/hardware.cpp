@@ -17,7 +17,7 @@
 #define MEDIUM_BUF_LEN	1536
 
 #ifndef WIN32
-#define HUGE_BUF_LEN	0x900 //2034
+#define HUGE_BUF_LEN	(0x2000+128) //2034
 #else
 #define HUGE_BUF_LEN	0x4100    
 #endif

@@ -53,7 +53,7 @@ struct Rsp20
 
 extern	Rsp20*	GetReadyRsp20();
 extern	void	FreeRsp20(Rsp20 *rsp);
-extern	void	PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, bool pwm);
+extern	void	PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fireDuty);
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

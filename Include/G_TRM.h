@@ -7,8 +7,12 @@
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define TRM_BOOT_SGUID	0X66C41909FA7C4F91 
-#define TRM_BOOT_MGUID	0x84F14C8C797FC02C
+#define TRM_BOOT_SGUID		0X66C41909FA7C4F91 
+#define TRM_BOOT_MGUID		0x84F14C8C797FC02C
+
+#define TRM_COM_BAUDRATE	1250000
+#define TRM_COM_PARITY		2
+#define TRM_COM_STOPBITS	2
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -18,19 +22,32 @@
 
 __packed struct ReqTrm01	
 {
-	byte 	len;
-	byte 	func;
-	byte 	n; 
-	word 	crc;  
+	__packed struct
+	{
+		byte 	len;
+		byte 	func;
+		byte 	n;
+		byte	fireCount;
+		u16		fireFreq;
+		u16		fireDuty;
+		u16		fireAmp;
+		word 	crc;
+	}
+	r[3];
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 __packed struct ReqTrm02	
 {
-	byte 	len;
-	byte 	f;
-	word 	crc;  
+	__packed struct
+	{
+		byte 	len;
+		byte 	f;
+		word    reqHV;
+		word 	crc;  
+	}
+	r[2];
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -39,6 +56,7 @@ __packed struct RspTrm02
 {
 	byte f; 
 	u16 hv; 
+	u16 temp;
 	u16 crc;
 };
 
@@ -46,16 +64,20 @@ __packed struct RspTrm02
 
 __packed struct ReqTrm03	
 {
-	byte 	len;
-	byte	f; 
-	byte	fireCountM; 
-	byte	fireCountXY; 
-	u16		hv;
-	u16		fireFreqM;
-	u16		fireFreqXY;
-	u16		fireDutyM;
-	u16		fireDutyXY;
-	word 	crc;  
+	__packed struct
+	{
+		byte 	len;
+		byte	f; 
+		byte	fireCountM; 
+		byte	fireCountXY; 
+		u16		hv;
+		u16		fireFreqM;
+		u16		fireFreqXY;
+		u16		fireDutyM;
+		u16		fireDutyXY;
+		word 	crc;  
+	}
+	r[2];
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
