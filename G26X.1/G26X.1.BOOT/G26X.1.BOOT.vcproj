@@ -97,6 +97,14 @@
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="Global Include"
+			>
+			<File
+				RelativePath="..\..\Include\G_RCV.h"
+				>
+			</File>
+		</Filter>
 		<File
 			RelativePath=".\makeobj"
 			>

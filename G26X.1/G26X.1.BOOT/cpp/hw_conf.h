@@ -3,7 +3,8 @@
 
 #define	CORETYPE_BF592
 
-#include "bf592.h"
+#include <bf592.h>
+#include <G_RCV.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -141,8 +142,8 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #define BOOT_NETADR
-#define BOOT_COM_SPEED			6250000
-#define BOOT_COM_PARITY			2
+#define BOOT_COM_SPEED			RCV_COM_BAUDRATE
+#define BOOT_COM_PARITY			RCV_COM_PARITY
 #define BOOT_COM_PRETIMEOUT		(~0)
 #define BOOT_COM_POSTTIMEOUT	(US2COM(500))
 

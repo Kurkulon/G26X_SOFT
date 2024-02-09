@@ -7,12 +7,16 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#ifdef __CC_ARM
+//#define TRM_BOOT_SGUID		0X66C41909FA7C4F91 
+//#define TRM_BOOT_MGUID		0x84F14C8C797FC02C
 
-#else
+#define RCV_COM_BAUDRATE	1250000
+#define RCV_COM_PARITY		2
+
+#ifdef _ADI_COMPILER
 	#pragma pack(1)
 	#ifndef __packed
-		#define __packed
+		#define __packed /**/
 	#endif
 #endif
 
