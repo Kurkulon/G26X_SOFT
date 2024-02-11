@@ -1,12 +1,12 @@
 #include "hardware.h"
 //#include "options.h"
 //#include "hw_emac.h"
-#include "CRC16.h"
-#include "ComPort.h"
-#include "CRC16_CCIT.h"
-#include "list.h"
-#include "PointerCRC.h"
-#include "SEGGER_RTT.h"
+#include <CRC\CRC16.h>
+#include <ComPort\ComPort.h>
+#include <CRC\CRC16_CCIT.h>
+#include <list.h>
+#include <PointerCRC.h>
+#include <SEGGER_RTT\SEGGER_RTT.h>
 #include "hw_com.h"
 #include "G_TRM.h"
 

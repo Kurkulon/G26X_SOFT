@@ -1,11 +1,11 @@
-#include "types.h"
-#include "core.h"
+#include <types.h>
+#include <core.h>
 //#include "COM_DEF.h"
 //#include "CRC16_8005.h"
 
 //#include "hardware.h"
 
-#include "SEGGER_RTT.h"
+#include <SEGGER_RTT\SEGGER_RTT.h>
 #include "hardware.h"
 
 #ifdef CPU_SAME53	
@@ -44,7 +44,7 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <manch_imp.h>
+#include <MANCH\manch_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

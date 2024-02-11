@@ -8,7 +8,7 @@
 #endif
 
 #include "types.h"
-#include "ComPort.h"
+#include "ComPort\ComPort.h"
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

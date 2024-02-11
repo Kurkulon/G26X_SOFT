@@ -11,10 +11,10 @@ version = Release
 
 curdir = $+ $(%cdrive):$(%cwd) $-
 #hdir = cpp
-libdir = $(curdir)\..\..\..\G_LIBS_BF592
+libdir = $(curdir)\..\..\..\G_LIBS
 ghdir = $(curdir)\..\..\Include,$(curdir)\..\Include
 incdir = $(ghdir),$(libdir)\cpp
-#bindir = $(ADI_DSP)
+bindir = $(%ADI_CCES)
 
 !ifeq version Debug
 
@@ -42,41 +42,29 @@ target_name = G26X.1.BOOT
 
 ##################################################################################################
 
-!ifeq buildtool CCES
-
-libname = $(libdir)\G_LIBS_BF592_$(libsuffix)_CCES.dlb
-linktool = ccblkfn
-initsuffix = _CCES
-
-!else
-
-libname = $(libdir)\G_LIBS_BF592_$(libsuffix).dlb
-linktool = linker
-initsuffix =
-
-!endif
+libname = $(libdir)\$(targetcpu)_$(libsuffix).a
 
 ####################################################################################################################################################################################################
 
-initcode_name = $(libdir)\initcode$(initsuffix)_osc25.dxe
+initcode_name = $(libdir)\initcode\initcode_osc25.dxe
 
 ####################################################################################################################################################################################################
 
-startup_obj = $(objdir)\startup_BF592A.doj
+startup_obj = $(objdir)\startup_BF592A.o
 
 ####################################################################################################################################################################################################
 
 .ERASE
 .EXTENSIONS:
-.EXTENSIONS: .dxe .doj .cpp .h .s .d
+.EXTENSIONS: .dxe .o .cpp .h .s .d
 
 ####################################################################################################################################################################################################
 
 .cpp:	$(cppdir)
-.doj:	$(objdir)
+.o:		$(objdir)
 .dxe:	$(objdir)
 .h:		$(hdir)
-.s: 	$(cppdir);$(libdir)\cpp
+.s: 	$(cppdir);$(libdir)\cpp\ADSP
 .d:		$(objdir)
 
 ####################################################################################################################################################################################################
@@ -88,34 +76,17 @@ startup_obj = $(objdir)\startup_BF592A.doj
 
 ####################################################################################################################################################################################################
 
-asm_options = -proc ADSP-BF592-A -g -si-revision 0.2 -DADI_$(buildtool)
+asm_options = -proc ADSP-BF592-A -g -si-revision 0.2 -DADI_CCES
 
 ####################################################################################################################################################################################################
 
-!ifeq buildtool CCES
-
 compiler_options = $(debug_compiler_options) -c -c++ -g -structs-do-not-overlap -no-multiline &
-	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -Wterse -I$(incdir)
-#-file-attr ProjectName="$(target_name)" -flags-compiler --no_wrap_diagnostics  -DCORE0 -D_DEBUG -no-const-strings -MD  
+	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -DCPU_$(targetcpu) -Wterse -I$(incdir)
 
-!else
-
-compiler_options = $(debug_compiler_options) -c -c++ -g -structs-do-not-overlap -no-multiline &
-	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -Wterse -I$(incdir)
-
-
-!endif
 ####################################################################################################################################################################################################
-
-!ifeq buildtool CCES
 
 link_options = -proc ADSP-BF592-A -si-revision 0.2 -T $(libdir)\BF592A.ldf -no-mem -flags-link -e,-MDNO_UTILITY_ROM,-MDADI_CCES -add-debug-libpaths -flags-link @$(objdir)\link_input.txt
 
-!else
-
-link_options = -T $(libdir)\BF592A.ldf -e -proc ADSP-BF592-A -si-revision 0.2 -MDNO_UTILITY_ROM @$(objdir)\link_input.txt
-
-!endif
   
 ####################################################################################################################################################################################################
 
@@ -162,7 +133,7 @@ $(objdir)\$(target_name)_$(buildtool).ldr : $(target_name).dxe $(initcode_name)
 $(target_name).dxe : $(startup_obj) $(modules_obj) $(libname)
 	@echo Linking ...
 	@echo -Map "$(objdir)\$^&_$(buildtool).xml" > $(objdir)\link_input.txt
-	@$(linktool) $(link_options) -o "$(objdir)\$^." $< 
+	@"$(bindir)\ccblkfn" $(link_options) -o "$(objdir)\$^." $< 
 
 ####################################################################################################################################################################################################
 
@@ -170,15 +141,15 @@ $(target_name).dxe : $(startup_obj) $(modules_obj) $(libname)
 
 ####################################################################################################################################################################################################
 
-.cpp.doj: .AUTODEPEND
+.cpp.o: .AUTODEPEND
 	@echo Compiling $[. ...
-	@ccblkfn $(compiler_options) -MD -Mo="$(objdir)\$^&.d" -o "$(objdir)\$^." $[@
+	@"$(bindir)\ccblkfn" $(compiler_options) -MD -Mo="$^*.d" -o "$^@" $[@
 
 ####################################################################################################################################################################################################
 
-.s.doj:
+.s.o:
 	@echo Assembling $[. ...
-	@easmblkfn $(asm_options) -l $(objdir)\$^&.lst  -o $(objdir)\$^. $[@	
+	@easmblkfn $(asm_options) -l $^*.lst  -o $^@ $[@	
 
 ####################################################################################################################################################################################################
 

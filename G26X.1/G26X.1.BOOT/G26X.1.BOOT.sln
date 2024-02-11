@@ -3,22 +3,22 @@ Microsoft Visual Studio Solution File, Format Version 9.00
 # Visual Studio 2005
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "G26X.1.BOOT", "G26X.1.BOOT.vcproj", "{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "G_LIBS_BF592", "..\..\..\G_LIBS_BF592\G_LIBS_BF592.vcproj", "{D7CF1E83-1697-4306-881C-2FABF8674421}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "G_LIBS", "..\..\..\G_LIBS\G_LIBS.vcproj", "{0EB74A34-94BC-4E8E-8F38-A0122D0B88D4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Win32 = Debug|Win32
-		Release|Win32 = Release|Win32
+		BF592_Debug|Win32 = BF592_Debug|Win32
+		BF592_Release|Win32 = BF592_Release|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}.Debug|Win32.ActiveCfg = Debug|Win32
-		{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}.Debug|Win32.Build.0 = Debug|Win32
-		{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}.Release|Win32.ActiveCfg = Release|Win32
-		{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}.Release|Win32.Build.0 = Release|Win32
-		{D7CF1E83-1697-4306-881C-2FABF8674421}.Debug|Win32.ActiveCfg = Debug|Win32
-		{D7CF1E83-1697-4306-881C-2FABF8674421}.Debug|Win32.Build.0 = Debug|Win32
-		{D7CF1E83-1697-4306-881C-2FABF8674421}.Release|Win32.ActiveCfg = Release|Win32
-		{D7CF1E83-1697-4306-881C-2FABF8674421}.Release|Win32.Build.0 = Release|Win32
+		{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}.BF592_Debug|Win32.ActiveCfg = BF592_Debug|Win32
+		{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}.BF592_Debug|Win32.Build.0 = BF592_Debug|Win32
+		{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}.BF592_Release|Win32.ActiveCfg = BF592_Release|Win32
+		{78AB4CA0-E665-4E3C-98EB-BB35E12CD5F9}.BF592_Release|Win32.Build.0 = BF592_Release|Win32
+		{0EB74A34-94BC-4E8E-8F38-A0122D0B88D4}.BF592_Debug|Win32.ActiveCfg = BF592_Debug|Win32
+		{0EB74A34-94BC-4E8E-8F38-A0122D0B88D4}.BF592_Debug|Win32.Build.0 = BF592_Debug|Win32
+		{0EB74A34-94BC-4E8E-8F38-A0122D0B88D4}.BF592_Release|Win32.ActiveCfg = BF592_Release|Win32
+		{0EB74A34-94BC-4E8E-8F38-A0122D0B88D4}.BF592_Release|Win32.Build.0 = BF592_Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

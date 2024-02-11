@@ -1,13 +1,13 @@
 #ifndef HARDWARE_H__23_12_2013__11_37
 #define HARDWARE_H__23_12_2013__11_37
 
-#include "types.h"
+#include <types.h>
 //#include "core.h"
-#include "time.h"
+#include <time.h>
 #include <i2c.h>
 #include "hw_nand.h"
 #include "hw_rtm.h"
-#include "manch.h"
+#include <MANCH\manch.h>
 #include "G26X_3_HW_CONF.H"
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

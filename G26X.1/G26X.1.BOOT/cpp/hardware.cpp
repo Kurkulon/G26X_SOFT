@@ -2,11 +2,12 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <system_imp.h>
+#include <ADSP\system_imp.h>
+#include <i2c.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <twi_imp.h>
+//#include <twi_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -19,7 +20,7 @@ void InitHardware()
 {
 	LowLevelInit();
 
-	InitTWI();
+	I2C_Init(SCLK_MHz, IVG_TWI, PID_TWI);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -29,18 +30,18 @@ void InitHardware()
 void UpdateHardware()
 {
 	static byte i = 0;
-	static DSCTWI dsc;
+	static DSCI2C dsc;
 	static byte wbuf[4];
 	static byte rbuf[4];
 	static byte adr = 0x28;
-	static RTM32 tm;
+	static CTM32 tm;
 	static i32 filtFV = 0;
 
 	switch (i)
 	{
 		case 0:
 
-			if (tm.Check(US2RT(500)))
+			if (tm.Check(US2CTM(500)))
 			{
 				wbuf[0] = 0x20;	
 
@@ -52,7 +53,7 @@ void UpdateHardware()
 				dsc.wdata2 = 0;
 				dsc.wlen2 = 0;
 
-				TWI_AddRequest(&dsc);
+				I2C_AddRequest(&dsc);
 
 				i++;
 			};

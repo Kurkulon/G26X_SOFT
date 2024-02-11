@@ -4,7 +4,7 @@
 //#include <stdio.h>
 //#include <conio.h>
 
-#include <ComPort.h>
+#include <ComPort\ComPort.h>
 #include "hw_com.h"
 #include "G26X_3_HW_CONF.H"
 
@@ -23,6 +23,6 @@ ComPort comdsp	(UART0_SERCOM_NUM, 0, PIO_UTXD0, PIO_URXD0, PIO_RTS0, 0, PIN_UTXD
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <ComPort_imp.h>
+#include <ComPort\ComPort_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

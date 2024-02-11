@@ -9,7 +9,7 @@ version = Release
 
 curdir = $+ $(%cdrive):$(%cwd) $-
 hdir = cpp
-libdir = $(curdir)\..\..\..\G_LIBS_ARM
+libdir = $(curdir)\..\..\..\G_LIBS
 bindir = $(%ARMCC50BIN)
 ghdir = $(curdir)\..\..\Include,$(curdir)\..\Include
 
@@ -46,7 +46,7 @@ cpu_compiler_options = --cpu=CORTEX-M4.fp.sp --thumb
 cpu_asm_options = --cpu CORTEX-M4.fp.sp --apcs /interwork	--pd "__PROGNAME__ SETS \"KAPCAP G26X.3.1(13AD90_IZL_UPR)-1.1\nBuild:$(%buildnumvar)\""
 cpu_link_options = --cpu CORTEX-M4.fp.sp
 cpu_obj = $(objdir)\startup_CM4.o
-cpu_scatter = $(libdir)\SAME53_18.sct
+cpu_scatter = $(libdir)\Scatter\SAME53_18.sct
 
 !else
 
@@ -69,11 +69,12 @@ libname = $(libdir)\$(targetcpu)_$(libsuffix).a
 .EXTENSIONS: .exe .o .cpp .h .s .d
 
 ##################################################################################################
+#!include $(libdir)\$(targetcpu)_$(version)\incdirlist
 
 .cpp:	$(cppdir)
 .o:	$(objdir)
 .h:	$(hdir)
-.s: $(libdir)\cpp
+.s: $(libdir)\cpp\ARM
 .d:	$(objdir)
 
 
@@ -88,10 +89,10 @@ libname = $(libdir)\$(targetcpu)_$(libsuffix).a
 
 preprocess_options = -E --gnu --diag_style=ide -DCPU_$(targetcpu) -J$(libdir)\cpp,"$(%ARMCC50INC)" -I$(ghdir)
 
-##################################################################################################
+################################################################################################## --diag_suppress=68,368,1165,1299,3017
 
 compiler_options = $(debug_compiler_options) $(cpu_compiler_options) --gnu --asm --interleave -g -c --diag_style=ide &
-		--feedback "$(objdir)\$(target_name).fed" --diag_suppress=68,368,1165,1299,3017 &
+		--feedback "$(objdir)\$(target_name).fed"  &
 		-D__MICROLIB -DBUILDNUMVAR="$(%buildnumvar)" -DBUILDNUMSTR="\"$(%buildnumvar)\"" &
 		-DCPU_$(targetcpu) --no_depend_system_headers --reduce_paths -J$(libdir)\cpp,"$(%ARMCC50INC)" -I$(ghdir)
 
@@ -175,7 +176,7 @@ $(objdir)\$(target_name).exe : makefile $(libname) $(modules_obj)
 
 ##################################################################################################
 
-#$(objdir)\startup_SAME53.o : $(cppdir)\startup_SAME53.s
+#$(objdir)\startup_SAME53.o : startup_SAME53.s
 
 ##################################################################################################
 
@@ -185,7 +186,7 @@ $(objdir)\$(target_name).exe : makefile $(libname) $(modules_obj)
 
 .cpp.o:
 	@echo Compiling $[. ...
-	@$(bindir)\armcc $(preprocess_options) -o "$(objdir)\$^&.pp" $[@
+	@rem $(bindir)\armcc $(preprocess_options) -o "$(objdir)\$^&.pp" $[@
 	@$(bindir)\armcc $(compiler_options) --depend="$(objdir)\$^&.d" -o "$(objdir)\$^." $[@
 
 ##################################################################################################

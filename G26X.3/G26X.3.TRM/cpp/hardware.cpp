@@ -1,16 +1,16 @@
 #include "types.h"
 #include "core.h"
 #include "time.h"
-#include "CRC16_8005.h"
+#include "CRC\CRC16_8005.h"
 #include "list.h"
 #include "PointerCRC.h"
 
 #include "hardware.h"
-#include "SEGGER_RTT.h"
+#include <SEGGER_RTT\SEGGER_RTT.h>
 #include "hw_rtm.h"
 #include "hw_nand.h"
-#include "DMA.h"
-#include "manch.h"
+#include <DMA\DMA.h>
+#include <MANCH\manch.h>
 #include <math.h>
 #include "G26X_3_HW_CONF.H"
 
@@ -57,7 +57,7 @@ __forceinline 	void DisableVCORE()	{ PIO_ENVCORE->SET(ENVCORE); 	}
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <system_imp.h>
+#include <ARM\system_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
