@@ -9,7 +9,7 @@ version = Release
 
 curdir = $+ $(%cdrive):$(%cwd) $-
 hdir = cpp
-libdir = $(curdir)\..\..\..\G_LIBS_ARM
+libdir = $(curdir)\..\..\..\G_LIBS
 bindir = $(%ARMCC50BIN)
 ghdir = $(curdir)\..\Include
 
@@ -39,7 +39,7 @@ cpu_compiler_options = --cpu=CORTEX-M4.fp.sp --thumb
 cpu_asm_options = --cpu CORTEX-M4.fp.sp --apcs /interwork	--pd "__PROGNAME__ SETS \"BOOT G26X.2.1(13AD90_UPR)-1.1\""
 cpu_link_options = --cpu CORTEX-M4.fp.sp
 cpu_obj = $(objdir)\startup_CM4.o
-cpu_scatter = $(libdir)\SAME53_BOOT.sct
+cpu_scatter = $(libdir)\Scatter\SAME53_BOOT.sct
 
 !else
 
@@ -66,7 +66,7 @@ libname = $(libdir)\$(targetcpu)_$(libsuffix).a
 .cpp:	$(cppdir)
 .o:		$(objdir)
 .h:		$(hdir)
-.s: 	$(libdir)\cpp;$(cppdir)
+.s: 	$(libdir)\cpp\ARM;$(cppdir)
 .d:		$(objdir)
 
 

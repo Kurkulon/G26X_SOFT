@@ -38,14 +38,14 @@ static ComPort com(0, 0, PIO_UTXD0, PIO_URXD0, PIO_RTS0, 0, PIN_UTXD0, PIN_URXD0
 
 #ifdef BOOT_EMAC
 
-#include <emac_imp_v2.h>
-#include <tftp_imp.h>
+#include <EMAC\emac_imp_v2.h>
+#include <EMAC\tftp_imp.h>
 
 #endif
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <boot_com_emac_imp.h>
+#include <BOOT\boot_com_emac_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

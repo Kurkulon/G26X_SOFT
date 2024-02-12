@@ -46,7 +46,7 @@ libname = $(libdir)\$(targetcpu)_$(libsuffix).a
 
 ####################################################################################################################################################################################################
 
-initcode_name = $(libdir)\initcode\initcode_osc25.dxe
+initcode_name = $(libdir)\$(targetcpu)_$(version)\initcode_osc25.dxe
 
 ####################################################################################################################################################################################################
 
@@ -80,12 +80,12 @@ asm_options = -proc ADSP-BF592-A -g -si-revision 0.2 -DADI_CCES
 
 ####################################################################################################################################################################################################
 
-compiler_options = $(debug_compiler_options) -c -c++ -g -structs-do-not-overlap -no-multiline &
+compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-overlap -no-multiline &
 	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -DCPU_$(targetcpu) -Wterse -I$(incdir)
 
 ####################################################################################################################################################################################################
 
-link_options = -proc ADSP-BF592-A -si-revision 0.2 -T $(libdir)\BF592A.ldf -no-mem -flags-link -e,-MDNO_UTILITY_ROM,-MDADI_CCES -add-debug-libpaths -flags-link @$(objdir)\link_input.txt
+link_options = -proc ADSP-BF592-A -si-revision 0.2 -T $(libdir)\LDF\BF592A.ldf -no-mem -flags-link -e,-MDNO_UTILITY_ROM,-MDADI_CCES -add-debug-libpaths -flags-link @$(objdir)\link_input.txt
 
   
 ####################################################################################################################################################################################################
@@ -124,8 +124,8 @@ link_options = -proc ADSP-BF592-A -si-revision 0.2 -T $(libdir)\BF592A.ldf -no-m
 #
 ####################################################################################################################################################################################################
 
-$(objdir)\$(target_name)_$(buildtool).ldr : $(target_name).dxe $(initcode_name)
-	@elfloader -proc ADSP-BF592-A -v -init $(initcode_name) -f binary -b SPI  -si-revision 0.2 -o "$^@" -dmawidth 8 -width 8 $(objdir)\$(target_name).dxe 
+$(objdir)\$(target_name).ldr : $(target_name).dxe $(initcode_name)
+	@"$(bindir)\elfloader" -proc ADSP-BF592-A -v -init $(initcode_name) -f binary -b SPI  -si-revision 0.2 -o "$^@" -dmawidth 8 -width 8 $(objdir)\$(target_name).dxe 
 
 ####################################################################################################################################################################################################
 #-Map "$(objdir)\$^&.xml"
@@ -149,7 +149,7 @@ $(target_name).dxe : $(startup_obj) $(modules_obj) $(libname)
 
 .s.o:
 	@echo Assembling $[. ...
-	@easmblkfn $(asm_options) -l $^*.lst  -o $^@ $[@	
+	@"$(bindir)\easmblkfn" $(asm_options) -l $^*.lst  -o $^@ $[@	
 
 ####################################################################################################################################################################################################
 

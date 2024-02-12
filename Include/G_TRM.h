@@ -3,7 +3,7 @@
 
 #pragma once
 
-#ifdef __CC_ARM
+#if defined(__CC_ARM) || defined(_MSC_VER)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

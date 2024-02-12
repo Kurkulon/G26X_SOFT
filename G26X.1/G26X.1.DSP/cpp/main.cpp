@@ -1,6 +1,6 @@
 #include "hardware.h"
-#include "ComPort.h"
-#include "CRC16.h"
+#include "ComPort\ComPort.h"
+#include "CRC\CRC16.h"
 
 //#include <bfrom.h>
 

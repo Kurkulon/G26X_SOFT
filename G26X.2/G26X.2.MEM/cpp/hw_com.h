@@ -4,11 +4,11 @@
 #ifdef WIN32
 #include <windows.h>
 #else
-#include "core.h"
+#include <core.h>
 #endif
 
-#include "types.h"
-#include "ComPort.h"
+#include <types.h>
+#include <ComPort\ComPort.h>
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

@@ -7,13 +7,13 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//#define TRM_BOOT_SGUID		0X66C41909FA7C4F91 
+#define RCV_BOOT_SGUID		0X66C41909FA7C4F91 
 //#define TRM_BOOT_MGUID		0x84F14C8C797FC02C
 
 #define RCV_COM_BAUDRATE	1250000
 #define RCV_COM_PARITY		2
 
-#ifdef _ADI_COMPILER
+#ifdef _ADI_COMPILER_1
 	#pragma pack(1)
 	#ifndef __packed
 		#define __packed /**/
@@ -326,9 +326,7 @@ __packed struct  ReqDsp07	// перезагрузить блэкфин
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#ifdef __CC_ARM
-
-#else
+#ifdef _ADI_COMPILER_1
 #pragma pack()
 #undef __packed
 #endif

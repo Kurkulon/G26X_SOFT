@@ -4,11 +4,11 @@
 #pragma once
 
 #include <RequestQuery.h>
-#include <ComPort.h>
+#include <ComPort\ComPort.h>
 
 #include <list.h>
-#include <flash.h>
-#include <boot_req.h>
+#include <FLASH\flash.h>
+#include <BOOT\boot_req.h>
 
 #include "G_TRM.h"
 #include "G_RCV.h"

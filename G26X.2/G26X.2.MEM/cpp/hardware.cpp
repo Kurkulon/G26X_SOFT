@@ -1,15 +1,15 @@
 #include "types.h"
 #include "core.h"
 #include "time.h"
-#include "CRC16_8005.h"
+#include "CRC\CRC16_8005.h"
 
 #include "hardware.h"
 
-#include "SEGGER_RTT.h"
+#include "SEGGER_RTT\SEGGER_RTT.h"
 #include "hw_conf.h"
 #include "hw_rtm.h"
-#include "manch.h"
-#include "DMA.h"
+#include "MANCH\manch.h"
+#include "DMA\DMA.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -25,7 +25,7 @@
 #define	NUM_MEDIUM_BUF	8
 #define	NUM_HUGE_BUF	8
 
-#include <mem_imp.h>
+#include <MEM\mem_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -75,7 +75,7 @@ volatile u16 curShaftCounter = 0;
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-#include <system_imp.h>
+#include <ARM\system_imp.h>
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -83,7 +83,7 @@ volatile u16 curShaftCounter = 0;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <CRC_CCITT_DMA_IMP.h>
+#include <CRC\CRC_CCITT_DMA_IMP.h>
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

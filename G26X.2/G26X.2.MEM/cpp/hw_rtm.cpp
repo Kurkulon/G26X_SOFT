@@ -1,7 +1,7 @@
-#include "time.h"
-#include "core.h"
+#include <time.h>
+//#include "core.h"
 
-#include "SEGGER_RTT.h"
+#include "SEGGER_RTT\SEGGER_RTT.h"
 
 #ifdef WIN32
 

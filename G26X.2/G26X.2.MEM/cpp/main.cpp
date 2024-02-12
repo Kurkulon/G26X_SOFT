@@ -1,14 +1,14 @@
 #include "hardware.h"
 //#include "options.h"
 //#include "hw_emac.h"
-#include "xtrap.h"
-#include "flash.h"
-#include "CRC16.h"
-#include "CRC16_CCIT.h"
+#include "EMAC\xtrap.h"
+#include "FLASH\flash.h"
+#include "CRC\CRC16.h"
+#include "CRC\CRC16_CCIT.h"
 #include "req.h"
 #include "list.h"
 #include "PointerCRC.h"
-#include "SEGGER_RTT.h"
+#include "SEGGER_RTT\SEGGER_RTT.h"
 #include "hw_com.h"
 
 #ifdef WIN32
@@ -26,7 +26,9 @@
 
 #endif
 
+#if defined(WIN32) || defined(_DEBUG)
 #define __TEST__
+#endif
 
 enum { VERSION = 0x105 };
 
@@ -3944,8 +3946,11 @@ int main()
 		Test_Ptr_MB();
 		Test_ListPtr();
 		Test_ListRef();
-		//Test_MT_ListPtr();
-		//Test_MT_ListRef();
+
+		#ifdef WIN32
+			Test_MT_ListPtr();
+			Test_MT_ListRef();
+		#endif
 
 	#endif
 

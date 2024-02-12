@@ -1,12 +1,12 @@
 #include "types.h"
 #include "core.h"
 #include "time.h"
-#include "CRC16_8005.h"
+//#include "CRC\CRC16_8005.h"
 #include "list.h"
 #include "PointerCRC.h"
 
 #include "hardware.h"
-#include "SEGGER_RTT.h"
+#include "SEGGER_RTT\SEGGER_RTT.h"
 #include "hw_conf.h"
 #include "hw_rtm.h"
 
@@ -19,7 +19,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <intrin.h>
-#include "CRC16_CCIT.h"
+//#include "CRC16_CCIT.h"
 #include "list.h"
 
 //static HANDLE handleNandFile;

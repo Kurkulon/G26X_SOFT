@@ -15,7 +15,7 @@
 	</ToolFiles>
 	<Configurations>
 		<Configuration
-			Name="Debug|Win32"
+			Name="BF592_Debug|Win32"
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="0"
@@ -23,12 +23,12 @@
 			>
 			<Tool
 				Name="VCNMakeTool"
-				BuildCommandLine="make -h version=Debug"
-				ReBuildCommandLine="make -h -a version=Debug"
+				BuildCommandLine="wmake -h version=Debug targetcpu=BF592"
+				ReBuildCommandLine="wmake -h -a version=Debug targetcpu=BF592"
 				CleanCommandLine="@del /Q .\Debug\*.*"
-				Output="$(OutDir)\g26p.dxe"
-				PreprocessorDefinitions="__DEBUG;"
-				IncludeSearchPath="$(ADI_CCES)\Blackfin\include;..\..\..\G_LIBS_BF592\cpp;"
+				Output="$(OutDir)\G26X.1.DSP.dxe"
+				PreprocessorDefinitions="__DEBUG,CPU_BF592,_ADI_COMPILER"
+				IncludeSearchPath="..\..\..\G_LIBS\cpp;$(ADI_CCES)\Blackfin\include;"
 				ForcedIncludes=""
 				AssemblySearchPath=""
 				ForcedUsingAssemblies=""
@@ -36,7 +36,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Release|Win32"
+			Name="BF592_Release|Win32"
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="0"
@@ -45,12 +45,12 @@
 			>
 			<Tool
 				Name="VCNMakeTool"
-				BuildCommandLine="make -h version=Release"
-				ReBuildCommandLine="make -h -a version=Release"
+				BuildCommandLine="wmake -h version=Release targetcpu=BF592"
+				ReBuildCommandLine="wmake -h -a version=Release targetcpu=BF592"
 				CleanCommandLine="@del /Q .\Release\*.*"
-				Output="$(OutDir)\g26p.dxe"
-				PreprocessorDefinitions=""
-				IncludeSearchPath="$(ADI_CCES)\Blackfin\include;..\..\..\G_LIBS_BF592\cpp;"
+				Output="$(OutDir)\G26X.1.DSP.dxe"
+				PreprocessorDefinitions="CPU_BF592,_ADI_COMPILER"
+				IncludeSearchPath="..\..\..\G_LIBS\cpp;$(ADI_CCES)\Blackfin\include;"
 				ForcedIncludes=""
 				AssemblySearchPath=""
 				ForcedUsingAssemblies=""

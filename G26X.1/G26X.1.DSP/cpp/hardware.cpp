@@ -9,8 +9,8 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <system_imp.h>
-#include <twi_imp.h>
+#include <ADSP\system_imp.h>
+#include <i2c.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -26,6 +26,9 @@ bool pgaSet = true;
 bool adcEnable = true;
 
 byte netAdr = 1;
+
+u16 netResist = 0;
+u16 fltResist = 0;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -198,89 +201,77 @@ void SyncReadSPORT(void *dst1, void *dst2, u16 len1, u16 len2, u16 clkdiv, bool 
 static void UpdateADC()
 {
 	static byte i = 0;
-
-	static RTM32 tm;
-
-	u16 t;
+	static DSCI2C dsc;
+	static byte wbuf[4];
+	static byte rbuf[4];
+	static byte adr = 0x28;
+	static CTM32 tm;
+	static U32u filtFV = 0;
 
 	switch (i)
 	{
 		case 0:
 
-			if (tm.Check(MS2RT(1)) && adcEnable)
+			if (tm.Check(US2CTM(500)))
 			{
-				*pSPI1_BAUD = 50; // SCLK=16MHz
-				*pSPI1_FLG = 0;//FLS5|FLS2;
-				*pSPI1_STAT = 0x7F;
-				*pSPI1_CTL = SPE|MSTR|CPOL|/*CPHA|*/SIZE|(TIMOD & 1);    // MSTR=1, CPOL=0, CPHA=0, LSBF=0, SIZE=1, EMISO=0, PSSE=0, GM=0, SZ=0, TIMOD=01
-				*pPORTGIO_CLEAR = 1<<12;
-				
-				t = *pSPI1_RDBR;
-				
-				*pSPI1_TDBR = 0;
+				wbuf[0] = 0x20;	
+
+				dsc.adr = 0x28|(adr&1);
+				dsc.wdata = wbuf;
+				dsc.wlen = 1;
+				dsc.rdata = rbuf;
+				dsc.rlen = 2;
+				dsc.wdata2 = 0;
+				dsc.wlen2 = 0;
+
+				I2C_AddRequest(&dsc);
 
 				i++;
-			}
-			else
-			{
-				i = 2;
 			};
 
 			break;
 
 		case 1:
 
-			if ((*pSPI1_STAT&1) != 0)
+			if (dsc.ready)
 			{
-				adcValue.d += ((i32)(*pSPI1_RDBR) - (i32)adcValue.w[1])*8192;
+				if (dsc.ack)
+				{
+					byte *p = rbuf;
 
-//				adcValue.w[1] = *pSPI1_RDBR;
+					for (u32 i = dsc.readedLen; i > 0; i -= 2, p += 2)
+					{
+						byte ch = (p[0] >> 4) & 3;
 
-				*pPORTGIO_SET = 1<<12;
+						u16 res = ((p[0]<<8)|p[1]) & 0xFFF;
 
-				*pSPI1_CTL = 0;
+						if (ch == 1)
+						{
+							if (filtFV.d == ~0) 
+							{
+								filtFV.d = res << 16;
+							}
+							else
+							{
+								filtFV.d += (res - filtFV.w[1]);
+							};
 
-				netAdr = (GetADC() / 398) + 1;
+							fltResist = (filtFV.d * 15179 + 32768) / 65536; //51869
+							netResist = (res * 15179 + 512) / 1024; 
 
-				i++;
-			};
-
-			break;
-
-		case 2:
-
-			if (pgaSet)
-			{
-				*pSPI1_BAUD = 7; // SCLK=7MHz
-				*pSPI1_FLG = 0;//FLS5|FLS2;
-				*pSPI1_CTL = SPE|MSTR|SIZE|(TIMOD & 1);    // MSTR=1, CPOL=0, CPHA=0, LSBF=0, SIZE=1, EMISO=0, PSSE=0, GM=0, SZ=0, TIMOD=01
-				*pPORTGIO_CLEAR = 1<<11;
-				*pSPI1_TDBR = pgaValue;
-
-				pgaSet = false;
-
-				i++;
-			}
-			else
-			{
-				i = 0;
-			};
-
-			break;
-
-		case 3:
-
-			if ((*pSPI1_STAT&1) != 0)
-			{
-				*pPORTGIO_SET = 1<<11;
-
-				*pSPI1_CTL = 0;
+							netAdr = netResist/1024;
+						};
+					};
+				}
+				else
+				{
+					adr ^= 1;
+				};
 
 				i = 0;
 			};
 
 			break;
-
 	};
 }
 
@@ -295,15 +286,15 @@ void InitHardware()
 {
 	LowLevelInit();
 
-	InitTWI();
+	I2C_Init(SCLK, IVG_TWI, PID_TWI);
 
 	InitSPORT();
 
-	RTM32 tm;
+	CTM32 tm;
 
 	tm.Reset();
 
-	while(!tm.Check(MS2RT(10))) UpdateHardware();
+	while(!tm.Check(MS2CTM(10))) UpdateHardware();
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

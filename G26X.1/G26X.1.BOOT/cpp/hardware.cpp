@@ -35,7 +35,7 @@ void UpdateHardware()
 	static byte rbuf[4];
 	static byte adr = 0x28;
 	static CTM32 tm;
-	static i32 filtFV = 0;
+	static u32 filtFV = ~0;
 
 	switch (i)
 	{
@@ -72,14 +72,21 @@ void UpdateHardware()
 					{
 						byte ch = (p[0] >> 4) & 3;
 
-						i32 res = ((p[0]<<8)|p[1]) & 0xFFF;
+						u16 res = ((p[0]<<8)|p[1]) & 0xFFF;
 
 						if (ch == 1)
 						{
-							filtFV += res - (filtFV+32)/64;
+							if (filtFV == ~0) 
+							{
+								filtFV = res << 4;
+							}
+							else
+							{
+								filtFV += res - (filtFV>>4);
+							};
 
-							fltResist = (filtFV * 15179 + 32768) / 65536; //51869
-							netResist = (res * 15179 + 512) / 1024; 
+							fltResist = (filtFV * 919 + 2048) / 4096; //51869
+							netResist = (res * 919 + 128) / 256; 
 						};
 					};
 				}
@@ -98,13 +105,9 @@ void UpdateHardware()
 #endif
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#ifdef BOOT_NETADR
-
 u16 GetNetAdr()
 {
 	return netResist/1024;
 }
-
-#endif
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
