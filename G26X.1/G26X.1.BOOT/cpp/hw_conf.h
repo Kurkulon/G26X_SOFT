@@ -147,10 +147,10 @@
 #define BOOT_COM_PRETIMEOUT		(~0)
 #define BOOT_COM_POSTTIMEOUT	(US2COM(500))
 
-#define BOOT_MAN_REQ_WORD		0xAD00
-#define BOOT_MAN_REQ_MASK 		0xFF00
+#define BOOT_MAN_REQ_WORD		RCV_BOOT_REQ_WORD
+#define BOOT_MAN_REQ_MASK 		RCV_BOOT_REQ_MASK
 
-#define BOOT_HW_UPDATE 			UpdateHardware
+#define BOOT_HW_UPDATE 			UpdateADC
 
 #define PIO_RTS					HW::PIOF
 #define PIN_RTS					10

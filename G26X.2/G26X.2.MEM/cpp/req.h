@@ -233,13 +233,11 @@ union ReqUnion
 	ReqRcv02	rcv02;
 	ReqRcv03	rcv03;
 	ReqRcv04	rcv04;
-	ReqDsp05 	dsp05;	
-	ReqDsp06 	dsp06;	
-	ReqDsp07 	dsp07;	
 	ReqTrm01	trm01;	
 	ReqTrm02	trm02;
 	ReqTrm03	trm03;
-	BootReqMes	bootTrm;
+	BootReqV1	bootTrm;
+	BootReqHS	bootHS;
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -97,6 +97,14 @@
 			Name="Global Include"
 			>
 			<File
+				RelativePath="..\Include\G26X_1_HW_CONF.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Include\G26X_1_UpdateADC_imp.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\Include\G_RCV.h"
 				>
 			</File>

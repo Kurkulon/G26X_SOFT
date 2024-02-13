@@ -7,11 +7,24 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+#define RCV_MAX_NUM_STATIONS 13
+
 #define RCV_BOOT_SGUID		0X66C41909FA7C4F91 
-//#define TRM_BOOT_MGUID		0x84F14C8C797FC02C
 
 #define RCV_COM_BAUDRATE	1250000
 #define RCV_COM_PARITY		2
+
+#define RCV_MAN_REQ_WORD 0xAA00
+#define RCV_MAN_REQ_MASK 0xFF00
+
+#define RCV_BOOT_REQ_WORD	((~(RCV_MAN_REQ_WORD)) & RCV_MAN_REQ_MASK)
+#define RCV_BOOT_REQ_MASK	RCV_MAN_REQ_MASK
+
+#define RCV_FltResist(v)	(((v) * 941 + 2048) / 4096)
+#define RCV_NetResist(v)	(((v) * 941 + 128) / 256)
+#define RCV_NetAdr(v)		(1 + (v)/1024)
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifdef _ADI_COMPILER_1
 	#pragma pack(1)
@@ -28,12 +41,16 @@
 
 __packed struct ReqRcv01	// старт оцифровки
 {
-	byte 	len;
-	byte 	adr;
-	byte 	func;
-	byte 	n; 
-	u16		fc;		// fire count
-	word 	crc;  
+	__packed struct Req
+	{
+		byte 	len;
+		byte 	adr;
+		byte 	func;
+		byte 	n; 
+		u16		fc;		// fire count
+		word 	crc;  
+	}
+	r[3];
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -49,12 +66,16 @@ __packed struct RspRcv01	// старт оцифровки
 
 __packed struct ReqRcv02	// чтение вектора
 {
-	byte 	len;
-	byte 	adr;
-	byte 	func;
-	byte 	n; 
-	byte 	chnl; 
-	word 	crc; 
+	__packed struct Req
+	{
+		byte 	len;
+		byte 	adr;
+		byte 	func;
+		byte 	n; 
+		byte 	chnl; 
+		word 	crc; 
+	}
+	r[2];
 };  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -83,13 +104,17 @@ __packed struct RspRcv02	// чтение вектора
 
 __packed struct  ReqRcv03	// установка периода дискретизации вектора и коэффициента усиления
 { 
-	byte 	len;
-	byte 	adr;
-	byte 	func;
-	u16 	st[3]; 
-	u16		sl[3]; 
-	u16		sd[3];
-	word	crc; 
+	__packed struct Req
+	{
+		byte 	len;
+		byte 	adr;
+		byte 	func;
+		u16 	st[3]; 
+		u16		sl[3]; 
+		u16		sd[3];
+		word	crc; 
+	}
+	r[2];
 };  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -105,11 +130,15 @@ __packed struct  RspRcv03	// установка периода дискретизации вектора и коэффицие
 
 __packed struct  ReqRcv04	// установка коэффициента усиления
 { 
-	byte 	len;
-	byte 	adr;
-	byte 	func;
-	byte 	ka[3]; 
-	word 	crc; 
+	__packed struct Req
+	{
+		byte 	len;
+		byte 	adr;
+		byte 	func;
+		byte 	ka[3]; 
+		word 	crc; 
+	}
+	r[2];
 };  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -125,57 +154,57 @@ __packed struct  RspRcv04	// установка периода дискретизации вектора и коэффицие
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct  ReqRcv05	// запрос контрольной суммы и длины программы во флэш-памяти
-{ 
-	byte 	len;
-	byte 	adr;
-	byte 	func;
-	word 	crc; 
-};  
+//__packed struct  ReqRcv05	// запрос контрольной суммы и длины программы во флэш-памяти
+//{ 
+//	byte 	len;
+//	byte 	adr;
+//	byte 	func;
+//	word 	crc; 
+//};  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct  RspRcv05	// запрос контрольной суммы и длины программы во флэш-памяти
-{ 
-	byte 	adr;
-	byte 	func;
-	u16		flashLen; 
-	u16		flashCRC;
-	word 	crc; 
-};  
+//__packed struct  RspRcv05	// запрос контрольной суммы и длины программы во флэш-памяти
+//{ 
+//	byte 	adr;
+//	byte 	func;
+//	u16		flashLen; 
+//	u16		flashCRC;
+//	word 	crc; 
+//};  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct  ReqRcv06	// запись страницы во флэш
-{ 
-	byte 	len;
-	byte 	adr;
-	byte 	func;
-	u16		stAdr; 
-	u16		count; 
-	word	crc; 
-	byte	data[258]; 
-};  
+//__packed struct  ReqRcv06	// запись страницы во флэш
+//{ 
+//	byte 	len;
+//	byte 	adr;
+//	byte 	func;
+//	u16		stAdr; 
+//	u16		count; 
+//	word	crc; 
+//	byte	data[258]; 
+//};  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct  RspRcv06	// запись страницы во флэш
-{ 
-	byte 	adr;
-	byte 	func;
-	u16		res; 
-	word	crc; 
-};  
+//__packed struct  RspRcv06	// запись страницы во флэш
+//{ 
+//	byte 	adr;
+//	byte 	func;
+//	u16		res; 
+//	word	crc; 
+//};  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct  ReqRcv07	// перезагрузить блэкфин
-{ 
-	byte 	len;
-	byte 	adr;
-	byte 	func;
-	word 	crc; 
-};  
+//__packed struct  ReqRcv07	// перезагрузить блэкфин
+//{ 
+//	byte 	len;
+//	byte 	adr;
+//	byte 	func;
+//	word 	crc; 
+//};  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -279,56 +308,56 @@ __packed struct Transmiter
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct  ReqDsp05	// запрос контрольной суммы и длины программы во флэш-памяти
-{ 
-	u16		rw; 
-	u16 	crc; 
-};  
+//__packed struct  ReqDsp05	// запрос контрольной суммы и длины программы во флэш-памяти
+//{ 
+//	u16		rw; 
+//	u16 	crc; 
+//};  
+//
+////+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//
+//__packed struct  RspDsp05	// запрос контрольной суммы и длины программы во флэш-памяти
+//{ 
+//	u16		rw; 
+//	u16		flashLen; 
+//	u32		startAdr; 
+//	u16		flashCRC; 
+//	u16		crc;
+//};  
+//
+////+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//
+//__packed struct  ReqDsp06	// запись страницы во флэш
+//{ 
+//	u16		rw; 
+//	u16		stAdr; 
+//	u16		count; 
+//	byte	data[258]; 
+//	u16		crc; 
+//};  
+//
+////+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//
+//__packed struct  RspDsp06	// запись страницы во флэш
+//{ 
+//	u16		rw; 
+//	u16		res; 
+//	word	crc; 
+//};  
+//
+////+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//
+//__packed struct  ReqDsp07	// перезагрузить блэкфин
+//{ 
+//	u16		rw; 
+//	word 	crc; 
+//};  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct  RspDsp05	// запрос контрольной суммы и длины программы во флэш-памяти
-{ 
-	u16		rw; 
-	u16		flashLen; 
-	u32		startAdr; 
-	u16		flashCRC; 
-	u16		crc;
-};  
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-__packed struct  ReqDsp06	// запись страницы во флэш
-{ 
-	u16		rw; 
-	u16		stAdr; 
-	u16		count; 
-	byte	data[258]; 
-	u16		crc; 
-};  
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-__packed struct  RspDsp06	// запись страницы во флэш
-{ 
-	u16		rw; 
-	u16		res; 
-	word	crc; 
-};  
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-__packed struct  ReqDsp07	// перезагрузить блэкфин
-{ 
-	u16		rw; 
-	word 	crc; 
-};  
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-#ifdef _ADI_COMPILER_1
+#ifdef _ADI_COMPILER
 #pragma pack()
-#undef __packed
+//#undef __packed
 #endif
 
 

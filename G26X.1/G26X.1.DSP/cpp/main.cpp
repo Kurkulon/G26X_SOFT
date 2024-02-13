@@ -1,6 +1,9 @@
 #include "hardware.h"
 #include "ComPort\ComPort.h"
 #include "CRC\CRC16.h"
+#include "G_RCV.h"
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //#include <bfrom.h>
 
@@ -91,9 +94,6 @@ struct NewRequest
 		struct  { byte n; byte chnl; word crc; } f2;  // чтение вектора
 		struct  { u16 st[3]; u16 sl[3]; u16 sd[3]; word crc; } f3;  // установка шага и длины оцифровки вектора
 		struct  { byte ka[3]; word crc; } f4;  // установка коэффициента усиления
-		struct  { word crc; } f5;  // запрос контрольной суммы и длины программы во флэш-памяти
-		struct  { u16 stAdr; u16 len; word crc; byte data[258]; } f6;  // запись страницы во флэш
-		struct  { word crc; } f7;  // перезагрузить блэкфин
 	};
 };
 
@@ -111,8 +111,6 @@ struct Response
 		struct  { word crc; } f1;  // старт оцифровки
 		struct  { word crc; } f3;  // установка периода дискретизации вектора и коэффициента усиления
 		struct  { u16 maxAmp[4]; u16 power[4]; word crc; } f4;  // старт оцифровки с установкой периода дискретизации вектора и коэффициента усиления
-		struct  { u16 flashLen; u16 flashCRC; word crc; } f5;  // запрос контрольной суммы и длины программы во флэш-памяти
-		struct  { u16 res; word crc; } f6;  // запись страницы во флэш
 	};
 };
 
@@ -133,15 +131,19 @@ static byte rspBuf[64];
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool RequestFunc01(const NewRequest *req, ComPort::WriteBuffer *wb)
+static byte build_date[sizeof(NewRequest)+32] = "\n" "G26X_1_DSP" "\n" __DATE__ "\n" __TIME__ "\n";
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
-//	const Request *req = (Request*)rb->data;
+	ReqRcv01::Req &req = *((ReqRcv01::Req*)data);
 	Response &rsp = *((Response*)rspBuf);
 
-	byte n = req->f1.n;
+	byte n = req.n;
 	if (n > 2) n = 2;
 
-	vectorCount = req->f1.vc;
+	vectorCount = req.fc;
 
 	spTime[n] = sampleTime[n];
 	spGain[n] = gain[n];
@@ -155,7 +157,7 @@ static bool RequestFunc01(const NewRequest *req, ComPort::WriteBuffer *wb)
 	fireN = n;
 	sportState = 0;
 
-	if (req->adr == 0) return  false;
+	if (req.adr == 0) return  false;
 
 	rsp.adr = GetNetAdr();
 	rsp.func = 1;
@@ -169,29 +171,30 @@ static bool RequestFunc01(const NewRequest *req, ComPort::WriteBuffer *wb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool RequestFunc02(const NewRequest *req, ComPort::WriteBuffer *wb)
+static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
-//	const Request *req = (Request*)rb->data;
+	ReqRcv02::Req &req = *((ReqRcv02::Req*)data);
 
-	if (req->f2.n > 2)
+	if (req.n > 2)
 	{
 		return false;
 	};
 
-	if (req->adr == 0) return  false;
+	if (req.adr == 0) return  false;
 
-	byte n = req->f2.n;
+	byte n = req.n;
 //	byte chnl = (req->f2.chnl)&3;
 
 	byte ch = 0;
 	byte cl = 0;
-	u16 len = sampleLen[n];
+	
+	len = sampleLen[n];
 
 	Response02 &rsp = rsp02;
 
 	if (rsp.rw == 0)
 	{
-		rsp.rw = 0xAA30 + (n<<4) + req->adr-1;
+		rsp.rw = 0xAA30 + (n<<4) + req.adr-1;
 		rsp.cnt = vectorCount++;
 		rsp.gain = gain[n]; 
 		rsp.st = sampleTime[n]; 
@@ -225,31 +228,31 @@ static bool RequestFunc02(const NewRequest *req, ComPort::WriteBuffer *wb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool RequestFunc03(const NewRequest *req, ComPort::WriteBuffer *wb)
+static bool RequestFunc03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
-//	const Request *req = (Request*)rb->data;
+	ReqRcv03::Req &req = *((ReqRcv03::Req*)data);
 	Response &rsp = *((Response*)rspBuf);
 
-	sampleTime[0] = req->f3.st[0];
-	sampleTime[1] = req->f3.st[1];
-	sampleTime[2] = req->f3.st[2];
+	sampleTime[0] = req.st[0];
+	sampleTime[1] = req.st[1];
+	sampleTime[2] = req.st[2];
 
-	sampleLen[0] = req->f3.sl[0];
-	sampleLen[1] = req->f3.sl[1];
-	sampleLen[2] = req->f3.sl[2];
+	sampleLen[0] = req.sl[0];
+	sampleLen[1] = req.sl[1];
+	sampleLen[2] = req.sl[2];
 
 	if (sampleLen[0] > 1024) { sampleLen[0] = 1024; };
 	if (sampleLen[1] > 1024) { sampleLen[1] = 1024; };
 	if (sampleLen[2] > 1024) { sampleLen[2] = 1024; };
 
-	sampleDelay[0] = req->f3.sd[0];
-	sampleDelay[1] = req->f3.sd[1];
-	sampleDelay[2] = req->f3.sd[2];
+	sampleDelay[0] = req.sd[0];
+	sampleDelay[1] = req.sd[1];
+	sampleDelay[2] = req.sd[2];
 
-	if (req->adr == 0) return  false;
+	if (req.adr == 0) return  false;
 
-	rsp.adr = req->adr;
-	rsp.func = req->func;
+	rsp.adr = req.adr;
+	rsp.func = req.func;
 	rsp.f3.crc = GetCRC16(&rsp, 2);
 
 	wb->data = &rsp;
@@ -260,18 +263,18 @@ static bool RequestFunc03(const NewRequest *req, ComPort::WriteBuffer *wb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool RequestFunc04(const NewRequest *req, ComPort::WriteBuffer *wb)
+static bool RequestFunc04(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
-//	const Request *req = (Request*)rb->data;
+	ReqRcv04::Req &req = *((ReqRcv04::Req*)data);
 	Response &rsp = *((Response*)rspBuf);
 
-	gain[0] = req->f4.ka[0];
-	gain[1] = req->f4.ka[1];
-	gain[2] = req->f4.ka[2];
+	gain[0] = req.ka[0];
+	gain[1] = req.ka[1];
+	gain[2] = req.ka[2];
 
-	if (req->adr == 0) return  false;
+	if (req.adr == 0) return  false;
 
-	rsp.adr = req->adr;
+	rsp.adr = req.adr;
 	rsp.func = 4;
 
 	rsp.f4.maxAmp[0] = maxAmp[0];
@@ -293,14 +296,21 @@ static bool RequestFunc04(const NewRequest *req, ComPort::WriteBuffer *wb)
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+typedef bool (*REQF)(byte *req, u16 len, ComPort::WriteBuffer *wb);
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static REQF listReq[4] = { RequestFunc01, RequestFunc02, RequestFunc03, RequestFunc04 };
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static bool RequestFunc(const ComPort::ReadBuffer *rb, ComPort::WriteBuffer *wb)
 {
-	static NewRequest nulReq;
-	static const byte fl[7] = { sizeof(nulReq.f1)+2, sizeof(nulReq.f2)+2, sizeof(nulReq.f3)+2, sizeof(nulReq.f4)+2, sizeof(nulReq.f5)+2, sizeof(nulReq.f6)+2-sizeof(nulReq.f6.data), sizeof(nulReq.f7)+2 };
+	//static NewRequest nulReq;
+	static const byte fl[4] = { sizeof(ReqRcv01::r[0])-1, sizeof(ReqRcv02::r[0])-1, sizeof(ReqRcv03::r[0])-1, sizeof(ReqRcv04::r[0])-1 };
 
-	if (rb == 0 || rb->len < 2) return false;
+	if (rb == 0 || rb->len < 4) return false;
 
 	bool result = false;
 
@@ -308,24 +318,17 @@ static bool RequestFunc(const ComPort::ReadBuffer *rb, ComPort::WriteBuffer *wb)
 
 	byte *p = (byte*)rb->data;
 
-	while(rlen > 5)
+	while(rlen > 3)
 	{
 		byte len = p[0];
+		byte adr = p[1];
 		byte func = p[2]-1;
 
-		if (func < 7 && len == fl[func] && len < rlen && GetCRC16(p+1, len) == 0)
+		if (func < 4 && len == fl[func] && len < rlen && GetCRC16(p+1, len) == 0)
 		{
-			NewRequest *req = (NewRequest*)p;
+			if (adr != 0 && adr != GetNetAdr()) return false;
 
-			if (req->adr != 0 && req->adr != GetNetAdr()) return false;
-
-			switch(req->func)
-			{
-				case 1: result = RequestFunc01 (req, wb); break;
-				case 2: result = RequestFunc02 (req, wb); break;
-				case 3: result = RequestFunc03 (req, wb); break;
-				case 4: result = RequestFunc04 (req, wb); break;
-			};
+			result = listReq[func](p, len+1, wb);
 
 			break;
 		}
@@ -346,14 +349,13 @@ static void UpdateBlackFin()
 	static byte i = 0;
 	static ComPort::WriteBuffer wb;
 	static ComPort::ReadBuffer rb;
-	static byte buf[sizeof(NewRequest)+10];
 
 	switch(i)
 	{
 		case 0:
 
-			rb.data = buf;
-			rb.maxLen = sizeof(buf);
+			rb.data = build_date;
+			rb.maxLen = sizeof(build_date);
 			com.Read(&rb, (u32)-1, US2SCLK(50));
 			i++;
 
@@ -556,7 +558,7 @@ void main( void )
 
 	InitHardware();
 
-	com.Connect(6250000, 0);
+	com.Connect(RCV_COM_BAUDRATE, RCV_COM_PARITY);
 
 //	InitNetAdr();
 

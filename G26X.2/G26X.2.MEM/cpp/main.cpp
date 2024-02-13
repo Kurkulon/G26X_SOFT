@@ -5,6 +5,7 @@
 #include "FLASH\flash.h"
 #include "CRC\CRC16.h"
 #include "CRC\CRC16_CCIT.h"
+#include "BOOT\boot_req.h"
 #include "req.h"
 #include "list.h"
 #include "PointerCRC.h"
@@ -91,7 +92,7 @@ static bool runMainMode = true;
 static bool startFire = false;
 static u32 fireCounter = 0;
 static u32 manCounter = 0;
-static byte numStations = 0;
+static byte numStations = RCV_MAX_NUM_STATIONS;
 static u16 resistValue = 0;
 static u16 voltage = 0;
 
@@ -147,11 +148,11 @@ static u16 curFireVoltage = 500;
 //static u32 dspMMSEC = 0;
 //static u32 shaftMMSEC = 0;
 
-const u16 dspReqWord = 0xAD00;
+//const u16 dspReqWord = 0xAD00;
 //const u16 dspReqMask = 0xFF00;
 
-static u16 manReqWord = 0xAA00;
-static u16 manReqMask = 0xFF00;
+static u16 manReqWord = RCV_MAN_REQ_WORD;
+static u16 manReqMask = RCV_MAN_REQ_MASK;
 
 static u16 memReqWord = 0x3D00;
 static u16 memReqMask = 0xFF00;
@@ -314,7 +315,7 @@ static Ptr<REQ> CreateRcvReqFire(byte n, u16 fc)
 
 	if (!rq.Valid()) return rq;
 
-	ReqRcv01 *req = ((ReqRcv01*)rq->reqData);
+	ReqRcv01 &req = *((ReqRcv01*)rq->reqData);
 
 	REQ &q = *rq;
 
@@ -330,12 +331,12 @@ static Ptr<REQ> CreateRcvReqFire(byte n, u16 fc)
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
 
-	req[2].len		= req[1].len	= req[0].len	= sizeof(ReqRcv01) - 1;
-	req[2].adr		= req[1].adr	= req[0].adr	= 0;
-	req[2].func		= req[1].func	= req[0].func	= 1;
-	req[2].n		= req[1].n		= req[0].n		= n;
-	req[2].fc		= req[1].fc		= req[0].fc		= fc;
-	req[2].crc		= req[1].crc	= req[0].crc	= GetCRC16(&req[0].adr, sizeof(ReqRcv01)-3);
+	req.r[2].len	= req.r[1].len	= req.r[0].len	= sizeof(ReqRcv01) - 1;
+	req.r[2].adr	= req.r[1].adr	= req.r[0].adr	= 0;
+	req.r[2].func	= req.r[1].func	= req.r[0].func	= 1;
+	req.r[2].n		= req.r[1].n	= req.r[0].n		= n;
+	req.r[2].fc		= req.r[1].fc	= req.r[0].fc		= fc;
+	req.r[2].crc	= req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return &q;
 }
@@ -357,7 +358,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 	}
 	else
 	{
-		byte a = (req.adr-1) & 7;
+		byte a = (req.r[0].adr-1) & 7;
 
 		if (q->rb.recieved)
 		{
@@ -401,7 +402,7 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqRcv02 *req = ((ReqRcv02*)rq->reqData);
+	ReqRcv02 &req = *((ReqRcv02*)rq->reqData);
 	RspRcv02 &rsp = *((RspRcv02*)(rq->rsp->GetDataPtr()));
 
 	adr = (adr-1)&7; 
@@ -426,15 +427,15 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 	q.rb.recieved = false;
 
-	ReqRcv02 &req0 = req[0];
-	ReqRcv02 &req1 = req[1];
+	//ReqRcv02 &req0 = req[0];
+	//ReqRcv02 &req1 = req[1];
 	
-	req1.len	= req0.len	= sizeof(req0) - 1;
-	req1.adr	= req0.adr	= adr+1;
-	req1.func	= req0.func	= 2;
-	req1.n		= req0.n	= n;
-	req1.chnl	= req0.chnl	= chnl;
-	req1.crc	= req0.crc	= GetCRC16(&req0.adr, sizeof(req0)-3);
+	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
+	req.r[1].adr	= req.r[0].adr	= adr+1;
+	req.r[1].func	= req.r[0].func	= 2;
+	req.r[1].n		= req.r[0].n	= n;
+	req.r[1].chnl	= req.r[0].chnl	= chnl;
+	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return rq;
 }
@@ -469,7 +470,7 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqRcv03 *req = ((ReqRcv03*)rq->reqData);
+	ReqRcv03 &req = *((ReqRcv03*)rq->reqData);
 	RspRcv03 &rsp = *((RspRcv03*)(rq->rsp->GetDataPtr()));
 
 	REQ &q = *rq;
@@ -490,26 +491,26 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 	q.rb.recieved = false;
 
-	ReqRcv03 &req0 = req[0];
-	ReqRcv03 &req1 = req[1];
+	//ReqRcv03 &req0 = req[0];
+	//ReqRcv03 &req1 = req[1];
 
-	req1.len	= req0.len	= sizeof(req0) - 1;
-	req1.adr	= req0.adr	= adr;
-	req1.func	= req0.func	= 3;
+	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
+	req.r[1].adr	= req.r[0].adr	= adr;
+	req.r[1].func	= req.r[0].func	= 3;
 
-	req1.st[0] 	= req0.st[0] = mv.trans[0].st;
-	req1.st[1] 	= req0.st[1] = mv.trans[1].st;
-	req1.st[2] 	= req0.st[2] = mv.trans[1].st;
-		   
-	req1.sl[0] 	= req0.sl[0] = mv.trans[0].sl;
-	req1.sl[1] 	= req0.sl[1] = mv.trans[1].sl;
-	req1.sl[2] 	= req0.sl[2] = mv.trans[1].sl;
-		   
-	req1.sd[0] 	= req0.sd[0] = mv.trans[0].sd;
-	req1.sd[1] 	= req0.sd[1] = mv.trans[1].sd;
-	req1.sd[2] 	= req0.sd[2] = mv.trans[1].sd;
+	req.r[1].st[0] 	= req.r[0].st[0] = mv.trans[0].st;
+	req.r[1].st[1] 	= req.r[0].st[1] = mv.trans[1].st;
+	req.r[1].st[2] 	= req.r[0].st[2] = mv.trans[1].st;
+	   
+	req.r[1].sl[0] 	= req.r[0].sl[0] = mv.trans[0].sl;
+	req.r[1].sl[1] 	= req.r[0].sl[1] = mv.trans[1].sl;
+	req.r[1].sl[2] 	= req.r[0].sl[2] = mv.trans[1].sl;
+	   
+	req.r[1].sd[0] 	= req.r[0].sd[0] = mv.trans[0].sd;
+	req.r[1].sd[1] 	= req.r[0].sd[1] = mv.trans[1].sd;
+	req.r[1].sd[2] 	= req.r[0].sd[2] = mv.trans[1].sd;
 
-	req1.crc = req0.crc = GetCRC16(&req0.adr, sizeof(req0)-3);
+	req.r[1].crc = req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 	
 	return &q;
 }
@@ -565,7 +566,7 @@ static Ptr<REQ> CreateRcvReq04(byte adr, u16 tryCount)
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqRcv04 *req = ((ReqRcv04*)rq->reqData);
+	ReqRcv04 &req = *((ReqRcv04*)rq->reqData);
 	RspRcv04 &rsp = *((RspRcv04*)(rq->rsp->GetDataPtr()));
 
 	REQ &q = *rq;
@@ -586,18 +587,15 @@ static Ptr<REQ> CreateRcvReq04(byte adr, u16 tryCount)
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 	q.rb.recieved = false;
 
-	ReqRcv04 &req0 = req[0];
-	ReqRcv04 &req1 = req[1];
-
-	req1.len	= req0.len	= sizeof(req0) - 1;
-	req1.adr	= req0.adr	= adr;
-	req1.func	= req0.func	= 4;
-
-	req1.ka[0] = req0.ka[0] = mv.trans[0].gain;
-	req1.ka[1] = req0.ka[1] = mv.trans[1].gain;
-	req1.ka[2] = req0.ka[2] = mv.trans[1].gain;
-
-	req1.crc = req0.crc = GetCRC16(&req0.adr, sizeof(req0)-3);
+	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
+	req.r[1].adr	= req.r[0].adr	= adr;
+	req.r[1].func	= req.r[0].func	= 4;
+						 
+	req.r[1].ka[0] 	= req.r[0].ka[0] = mv.trans[0].gain;
+	req.r[1].ka[1] 	= req.r[0].ka[1] = mv.trans[1].gain;
+	req.r[1].ka[2] 	= req.r[0].ka[2] = mv.trans[1].gain;
+	   
+	req.r[1].crc	= req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return &q;
 }
@@ -687,7 +685,7 @@ static Ptr<MB> CreateTestDspReq01()
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool CallBackDspReq05(Ptr<REQ> &q)
+static bool CallBackRcvBootReq00(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
@@ -705,7 +703,7 @@ static bool CallBackDspReq05(Ptr<REQ> &q)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateDspReq05(u16 tryCount)
+static Ptr<REQ> CreateRcvBootReq00(u16 adr, BootRspV1::SF0 *rspdata, u16 tryCount)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
@@ -713,20 +711,21 @@ static Ptr<REQ> CreateDspReq05(u16 tryCount)
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(RspDsp05));
+	if (rspdata == 0)
+	{
+		rq->rsp = AllocMemBuffer(sizeof(*rspdata));
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+		rspdata = (BootRspV1::SF0*)(rq->rsp->GetDataPtr());
+	};
 
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
-
-	ReqDsp05 &req = *((ReqDsp05*)rq->reqData);
-	RspDsp05 &rsp = *((RspDsp05*)(rq->rsp->GetDataPtr()));
+	BootReqV1::SF0 &req = *((BootReqV1::SF0*)rq->reqData);
+	BootRspV1::SF0 &rsp = *rspdata;
 	
 	REQ &q = *rq;
 
-	q.CallBack = CallBackDspReq05;
+	q.CallBack = CallBackRcvBootReq00;
 	q.preTimeOut = MS2COM(10);
 	q.postTimeOut = US2COM(100);
-	//q.rb = &rb;
-	//q.wb = &wb;
 	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
@@ -738,15 +737,75 @@ static Ptr<REQ> CreateDspReq05(u16 tryCount)
 	q.rb.data = &rsp;
 	q.rb.maxLen = sizeof(rsp);
 
-	req.rw = dspReqWord|5;
-	req.crc	= GetCRC16(&req, sizeof(req)-2);
+	req.adr	= adr;
+	req.rw	= RCV_BOOT_REQ_WORD|0;
+	req.crc	= GetCRC16(&req, sizeof(req)-sizeof(req.crc));
 
 	return rq;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool CallBackDspReq06(Ptr<REQ> &q)
+static bool CallBackRcvBootReq01(Ptr<REQ> &q)
+{
+	if (!q->crcOK) 
+	{
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qRcv.Add(q);
+
+			return false;
+		};
+	};
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateRcvBootReq01(u16 adr, u32 len, u16 tryCount)
+{
+	Ptr<REQ> rq(AllocREQ());
+	
+	//rq.Alloc();//= REQ::Alloc();
+
+	if (!rq.Valid()) return rq;
+
+	rq->rsp = AllocMemBuffer(sizeof(BootRspV1::F1));
+
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+
+	BootReqV1::SF1 &req = *((BootReqV1::SF1*)rq->reqData);
+	BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)(rq->rsp->GetDataPtr()));
+	
+	REQ &q = *rq;
+
+	q.CallBack = CallBackRcvBootReq01;
+	q.preTimeOut = MS2COM(10);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+	
+	q.rb.data = &rsp;
+	q.rb.maxLen = sizeof(rsp);
+
+	req.adr	= adr;
+	req.rw	= RCV_BOOT_REQ_WORD|1;
+	req.len = len;
+	req.crc	= GetCRC16(&req, sizeof(req)-sizeof(req.crc));
+
+	return rq;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool CallBackRcvBootReq02(Ptr<REQ> &q)
 {
 	bool retry = false;
 
@@ -758,7 +817,7 @@ static bool CallBackDspReq06(Ptr<REQ> &q)
 	}
 	else
 	{
-		RspDsp06 &rsp = *((RspDsp06*)q->rb.data);
+		BootRspV1::SF2 &rsp = *((BootRspV1::SF2*)q->rb.data);
 
 		if (rsp.res != 0) wrtErr06++, retry = true;
 	};
@@ -776,7 +835,7 @@ static bool CallBackDspReq06(Ptr<REQ> &q)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateDspReq06(u16 stAdr, u16 count, void* data, u16 count2, void* data2, u16 tryCount)
+static Ptr<REQ> CreateRcvBootReq02(u16 adr, u16 stAdr, u16 count, void* data, u16 count2, void* data2, u16 pageLen, u16 tryCount)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
@@ -784,20 +843,18 @@ static Ptr<REQ> CreateDspReq06(u16 stAdr, u16 count, void* data, u16 count2, voi
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(RspDsp06));
+	rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF2) + pageLen);
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqDsp06 &req = *((ReqDsp06*)rq->reqData);
-	RspDsp06 &rsp = *((RspDsp06*)(rq->rsp->GetDataPtr()));
+	BootReqV1::SF2 &req = *((BootReqV1::SF2*)rq->reqData);
+	BootRspV1::SF2 &rsp = *((BootRspV1::SF2*)(rq->rsp->GetDataPtr()));
 	
 	REQ &q = *rq;
 
-	q.CallBack = CallBackDspReq06;
+	q.CallBack = CallBackRcvBootReq02;
 	q.preTimeOut = MS2COM(500);
 	q.postTimeOut = US2COM(100);
-	//q.rb = &rb;
-	//q.wb = &wb;
 	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
@@ -806,9 +863,10 @@ static Ptr<REQ> CreateDspReq06(u16 stAdr, u16 count, void* data, u16 count2, voi
 	q.rb.data = &rsp;
 	q.rb.maxLen = sizeof(rsp);
 
-	req.rw = dspReqWord|6;
+	req.adr	= adr;
+	req.rw	= RCV_BOOT_REQ_WORD|2;
 
-	u16 max = sizeof(req.data)-2;
+	u16 max = pageLen;
 
 	if (count > max)
 	{
@@ -820,35 +878,22 @@ static Ptr<REQ> CreateDspReq06(u16 stAdr, u16 count, void* data, u16 count2, voi
 		count2 = max - count;
 	};
 
-	req.stAdr = stAdr;
-	req.count = count+count2;
+	req.padr = stAdr;
+	req.plen = count+count2;
 
-	byte *d = req.data;
+	byte *d = (byte*)req.pdata;
 	byte *s = (byte*)data;
 
-	while(count > 0)
-	{
-		*d++ = *s++;
-		count--;
-	};
+	while(count > 0) *d++ = *s++, count--;
 
-	if (data2 != 0)
-	{
-		s = (byte*)data2;
+	if (data2 != 0)	{ s = (byte*)data2;	while(count2 > 0) *d++ = *s++, count2--; };
 
-		while(count2 > 0)
-		{
-			*d++ = *s++;
-			count2--;
-		};
-	};
-
-	u16 len = sizeof(req) - 2 - sizeof(req.data) + req.count;
+	u16 len = sizeof(req) - sizeof(req.pdata) + req.plen;
 
 	u16 crc = GetCRC16(&req, len);
 
-	d[0] = crc;
-	d[1] = crc>>8;
+	*(d++) = crc;
+	*(d++) = crc>>8;
 
 	q.wb.data = &req;
 	q.wb.len = len+2;
@@ -858,7 +903,33 @@ static Ptr<REQ> CreateDspReq06(u16 stAdr, u16 count, void* data, u16 count2, voi
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateDspReq07()
+static bool CallBackRcvBootReq03(Ptr<REQ> &q)
+{
+	if (!q->crcOK) 
+	{
+		if (q->rb.len >=4)
+		{
+			BootReqV1::SF3 &req = *((BootReqV1::SF3*)q->wb.data);
+			BootRspV1::SF3 &rsp = *((BootRspV1::SF3*)q->rb.data);
+
+			if (rsp.adr == req.adr && rsp.rw == req.rw) return q->crcOK = true;
+		};
+
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qRcv.Add(q);
+
+			return false;
+		};
+	};
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
@@ -866,37 +937,32 @@ static Ptr<REQ> CreateDspReq07()
 
 	if (!rq.Valid()) return rq;
 
-	//rq->rsp.Alloc();
+	rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF3));
 
-	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqDsp07 &req = *((ReqDsp07*)rq->reqData);
-	//RspDsp06 &rsp = *((RspDsp06*)(rq->rsp->GetDataPtr()));
+	BootReqV1::SF3 &req = *((BootReqV1::SF3*)rq->reqData);
+	BootRspV1::SF3 &rsp = *((BootRspV1::SF3*)(rq->rsp->GetDataPtr()));
 	
 	REQ &q = *rq;
 
-	q.CallBack = 0;
-	//q.preTimeOut = US2CLK(500);
-	//q.postTimeOut = US2CLK(100);
-	//q.rb = 0;
-	//q.wb = &wb;
+	q.CallBack = CallBackRcvBootReq00;
+	q.preTimeOut = MS2COM(10);
+	q.postTimeOut = US2COM(100);
 	q.ready = false;
-	q.tryCount = 0;
-	q.checkCRC = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
 	q.updateCRC = false;
 	
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
-
-	q.rb.data = 0;
-	q.rb.maxLen = 0;
 	
-	//rb.data = &rsp;
-	//rb.maxLen = sizeof(rsp);
+	q.rb.data = (adr == 0) ? 0 : &rsp;
+	q.rb.maxLen = sizeof(rsp);
 
-	req.rw	= dspReqWord|7;
-
-	req.crc = GetCRC16(&req, sizeof(ReqDsp07)-2);
+	req.adr	= adr;
+	req.rw	= RCV_BOOT_REQ_WORD|3;
+	req.crc	= GetCRC16(&req, sizeof(req)-sizeof(req.crc));
 
 	return rq;
 }
@@ -3172,7 +3238,7 @@ static void UpdateDSP_SPI()
 
 #ifndef WIN32
 
-static const u32 dspFlashPages[] = {
+static const u32 rcvFlashPages[] = {
 #include "G26X.1.DSP.LDR.H"
 };
 
@@ -3188,6 +3254,119 @@ static const u32 dspFlashPages[] = {
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+static void FlashRcv()
+{
+	Ptr<REQ> rq;
+
+	u32 flashLen = sizeof(rcvFlashPages);
+	u16 flashCRC = GetCRC16(rcvFlashPages, flashLen);
+
+	BootRspV1::SF0	rspF0[RCV_MAX_NUM_STATIONS];
+
+	u16 tryCount = 2;
+	
+	rcvStatus = 0;
+
+	while (tryCount > 0)
+	{
+		for (byte i = 1; i <= RCV_MAX_NUM_STATIONS; i++)
+		{
+			if ((rcvStatus & (1 << (i-1))) == 0)
+			{
+				rq = CreateRcvBootReq00(i, &rspF0[i], 2);
+
+				if (rq.Valid())
+				{
+					qRcv.Add(rq); while(!rq->ready) qRcv.Update();
+
+					if (rq->crcOK)
+					{
+						BootReqV1::SF0 &req = *((BootReqV1::SF0*)rq->wb.data);
+						BootRspV1::SF0 &rsp = rspF0[i];
+
+						if (rsp.adr == i && rsp.rw == req.rw)
+						{
+							rcvStatus |= 1 << (i-1);
+						};
+
+						if (tryCount > RCV_MAX_NUM_STATIONS) tryCount = RCV_MAX_NUM_STATIONS;
+					};
+
+					rq.Free();
+				};
+			};
+		};
+		
+		tryCount--;
+	};
+
+	for (byte i = 1; i <= RCV_MAX_NUM_STATIONS; i++)
+	{
+		if (rcvStatus & (1 << (i-1)))
+		{
+			rq = CreateRcvBootReq01(i, flashLen, 2);
+
+			qRcv.Add(rq); while(!rq->ready) { qRcv.Update(); };
+
+			BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)rq->rb.data);
+
+			if (rsp.flashCRC != flashCRC || rsp.flashLen != flashLen)
+			{
+				u16 count = flashLen+2;
+				u16 adr = 0;
+				byte *p = (byte*)rcvFlashPages;
+
+				u16 max = rspF0[i].pageLen;
+
+				u16 len;
+
+				while (count > 0)
+				{
+					if (count > max)
+					{
+						len = max;
+
+						rq = CreateRcvBootReq02(i, adr, len, p, 0, 0, max, 2);
+					}
+					else
+					{
+						len = count;
+
+						if (len > 2)
+						{
+							rq = CreateRcvBootReq02(i, adr, len-2, p, sizeof(flashCRC), &flashCRC, max, 2);
+						}
+						else
+						{
+							rq = CreateRcvBootReq02(i, adr, sizeof(flashCRC), &flashCRC, 0, 0, max, 2);
+						};
+					};
+
+					qRcv.Add(rq); while(!rq->ready) qRcv.Update();
+
+					count -= len;
+					p += len;
+					adr += len;
+				};
+			};
+
+			rq = CreateRcvBootReq03(i, 2);
+
+			qRcv.Add(rq); while(!rq->ready) qRcv.Update();
+
+			rq.Free();
+		};
+	};
+
+	rq = CreateRcvBootReq03(0, 2);
+
+	qRcv.Add(rq); while(!rq->ready) qRcv.Update();
+
+	rq.Free();
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+/*
 static void FlashDSP()
 {
 	TM32 tm;
@@ -3198,7 +3377,7 @@ static void FlashDSP()
 
 	while (!tm.Check(100)) HW::WDT->Update();
 
-	while (!req.Valid()) req = CreateDspReq05(2);
+	while (!req.Valid()) req = CreateRcvBootReq00(2);
 
 	qRcv.Add(req); while(!req->ready) { qRcv.Update(); HW::WDT->Update(); };
 
@@ -3254,7 +3433,7 @@ static void FlashDSP()
 		};
 	};
 }
-
+*/
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static const u32 motoFlashPages[] = {
@@ -3981,14 +4160,14 @@ int main()
 #ifndef WIN32
 
 	comTrm.Connect(ComPort::ASYNC, TRM_COM_BAUDRATE, TRM_COM_PARITY, TRM_COM_STOPBITS);
-	comRcv.Connect(ComPort::ASYNC, 12500000, 0, 1);
+	comRcv.Connect(ComPort::ASYNC, RCV_COM_BAUDRATE, RCV_COM_PARITY, 1);
 
 
 	//__breakpoint(0);
 
 	//FlashMoto();
 
-//	FlashDSP();
+	FlashRcv();
 
 #endif
 
