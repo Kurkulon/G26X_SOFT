@@ -19,11 +19,9 @@ const u32 sysCLK = SCLK;
 
 //U32u adcValue;
 
-u16 pgaValue = 0x2A01;
-
-bool pgaSet = true;
-
-bool adcEnable = true;
+//u16 pgaValue = 0x2A01;
+//bool pgaSet = true;
+//bool adcEnable = true;
 
 //byte netAdr = 1;
 

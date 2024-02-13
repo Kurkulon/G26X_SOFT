@@ -11,11 +11,11 @@ extern void UpdateHardware();
 
 extern void SyncReadSPORT(void *dst1, void *dst2, u16 len1, u16 len2, u16 clkdiv, bool *ready0, bool *ready1);
 extern void ReadSPORT(void *dst1, void *dst2, u16 len1, u16 len2, u16 clkdiv, bool *ready0, bool *ready1);
-inline void WritePGA(u16 v) { extern u16 pgaValue; extern bool pgaSet; pgaValue = v; pgaSet = true; }
-inline void SetGain(byte g) { WritePGA(0x2A01|(g<<4)); }
-inline u16 GetADC() { extern U32u adcValue; return adcValue.w[1]; }
-inline void EnableADC() { extern bool adcEnable; adcEnable = true; }
-inline void DisableADC() { extern bool adcEnable; adcEnable = false; }
+//inline void WritePGA(u16 v) { extern u16 pgaValue; extern bool pgaSet; pgaValue = v; pgaSet = true; }
+//inline void SetGain(byte g) { WritePGA(0x2A01|(g<<4)); }
+//inline u16 GetADC() { extern U32u adcValue; return adcValue.w[1]; }
+//inline void EnableADC() { extern bool adcEnable; adcEnable = true; }
+//inline void DisableADC() { extern bool adcEnable; adcEnable = false; }
 
 extern u16 GetNetAdr();
 

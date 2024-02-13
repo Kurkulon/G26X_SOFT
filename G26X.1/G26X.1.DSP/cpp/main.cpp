@@ -82,89 +82,90 @@ static void CheckFlash();
 
 #pragma pack(1)
 
-struct NewRequest
-{
-	byte len;
-	byte adr;
-	byte func;
-	
-	union
-	{
-		struct  { byte n; u16 vc; word crc; } f1;  // старт оцифровки
-		struct  { byte n; byte chnl; word crc; } f2;  // чтение вектора
-		struct  { u16 st[3]; u16 sl[3]; u16 sd[3]; word crc; } f3;  // установка шага и длины оцифровки вектора
-		struct  { byte ka[3]; word crc; } f4;  // установка коэффициента усиления
-	};
-};
+//struct NewRequest
+//{
+//	byte len;
+//	byte adr;
+//	byte func;
+//	
+//	union
+//	{
+//		struct  { byte n; u16 vc; word crc; } f1;  // старт оцифровки
+//		struct  { byte n; byte chnl; word crc; } f2;  // чтение вектора
+//		struct  { u16 st[3]; u16 sl[3]; u16 sd[3]; word crc; } f3;  // установка шага и длины оцифровки вектора
+//		struct  { byte ka[3]; word crc; } f4;  // установка коэффициента усиления
+//	};
+//};
 
 #pragma pack()
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-struct Response
-{
-	byte adr;
-	byte func;
-	
-	union
-	{
-		struct  { word crc; } f1;  // старт оцифровки
-		struct  { word crc; } f3;  // установка периода дискретизации вектора и коэффициента усиления
-		struct  { u16 maxAmp[4]; u16 power[4]; word crc; } f4;  // старт оцифровки с установкой периода дискретизации вектора и коэффициента усиления
-	};
-};
-
+//struct Response
+//{
+//	byte adr;
+//	byte func;
+//	
+//	union
+//	{
+//		struct  { word crc; } f1;  // старт оцифровки
+//		struct  { word crc; } f3;  // установка периода дискретизации вектора и коэффициента усиления
+//		struct  { u16 maxAmp[4]; u16 power[4]; word crc; } f4;  // старт оцифровки с установкой периода дискретизации вектора и коэффициента усиления
+//	};
+//};
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #pragma pack(1)
 
-struct Response02 { u16 rw; u32 cnt; u16 gain; u16 st; u16 len; u16 delay; u16 data[1024*4]; word crc; }; // чтение вектора
+//struct Response02 { u16 rw; u32 cnt; u16 gain; u16 st; u16 len; u16 delay; u16 data[1024*4]; word crc; }; // чтение вектора
 
 #pragma pack()
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Response02 rsp02;
+union RequestUnion { ReqRcv01	req01; ReqRcv02	req02; ReqRcv03	req03; ReqRcv04	req04; };
+				
+static RspRcv02 rsp02;
 
 static byte rspBuf[64];
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static byte build_date[sizeof(NewRequest)+32] = "\n" "G26X_1_DSP" "\n" __DATE__ "\n" __TIME__ "\n";
+static byte build_date[sizeof(RequestUnion)+32] = "\n" "G26X_1_DSP" "\n" __DATE__ "\n" __TIME__ "\n";
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
 	ReqRcv01::Req &req = *((ReqRcv01::Req*)data);
-	Response &rsp = *((Response*)rspBuf);
+	RspRcv01 &rsp = *((RspRcv01*)rspBuf);
 
 	byte n = req.n;
 	if (n > 2) n = 2;
 
 	vectorCount = req.fc;
 
-	spTime[n] = sampleTime[n];
-	spGain[n] = gain[n];
-	spLen[n] = sampleLen[n];
-	spDelay[n] = sampleDelay[n];
+	spTime[n]	= sampleTime[n];
+	spGain[n]	= gain[n];
+	spLen[n]	= sampleLen[n];
+	spDelay[n]	= sampleDelay[n];
 
-	SetGain(spGain[n]);
+	//SetGain(spGain[n]);
 	SyncReadSPORT(spd[0], spd[1], spLen[n]*4, spLen[n]*4, spTime[n]-1, &ready1, &ready2);
-	DisableADC();
+	//DisableADC();
 
 	fireN = n;
 	sportState = 0;
 
 	if (req.adr == 0) return  false;
 
-	rsp.adr = GetNetAdr();
-	rsp.func = 1;
-	rsp.f1.crc = GetCRC16(&rsp, 2);
+	rsp.adr = req.adr;
+	rsp.func = req.func;
+	rsp.crc = GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
 
 	wb->data = &rsp;
-	wb->len = sizeof(rsp.f1)+2;
+	wb->len = sizeof(rsp);
 
 	return true;
 }
@@ -190,16 +191,18 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	
 	len = sampleLen[n];
 
-	Response02 &rsp = rsp02;
+	RspRcv02 &rsp = rsp02;
 
-	if (rsp.rw == 0)
+	u16 rsplen = sizeof(rsp) - sizeof(rsp.data) - sizeof(rsp.crc) + len*8;
+
+	if (rsp.hdr.rw == 0)
 	{
-		rsp.rw = 0xAA30 + (n<<4) + req.adr-1;
-		rsp.cnt = vectorCount++;
-		rsp.gain = gain[n]; 
-		rsp.st = sampleTime[n]; 
-		rsp.len = len; 
-		rsp.delay = sampleDelay[n];
+		rsp.hdr.rw = 0xAA30 + (n<<4) + req.adr-1;
+		rsp.hdr.cnt		= vectorCount++;
+		rsp.hdr.gain	= gain[n]; 
+		rsp.hdr.st		= sampleTime[n]; 
+		rsp.hdr.len		= len; 
+		rsp.hdr.delay	= sampleDelay[n];
 
 		u16 *p1 = rsp.data+len*0;
 		u16 *p2 = rsp.data+len*1;
@@ -214,14 +217,14 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 			*p4++ = spd[1][i*2+1] - 0x8000;
 		};
 
-		rsp.data[len*4] = GetCRC16(&rsp, sizeof(rsp) - sizeof(rsp.data) - sizeof(rsp.crc) + len*8);
+		rsp.data[len*4] = GetCRC16(&rsp, rsplen);
 	};
 
 	//rsp.adr = netAdr;
 	//rsp.func = 2;
 
 	wb->data = &rsp;
-	wb->len = sizeof(rsp) - sizeof(rsp.data) + rsp.len*8;
+	wb->len = rsplen + 2;
 
 	return true;
 }
@@ -230,8 +233,8 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 static bool RequestFunc03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
-	ReqRcv03::Req &req = *((ReqRcv03::Req*)data);
-	Response &rsp = *((Response*)rspBuf);
+	ReqRcv03::Req &req	= *((ReqRcv03::Req*)data);
+	RspRcv03 &rsp		= *((RspRcv03*)rspBuf);
 
 	sampleTime[0] = req.st[0];
 	sampleTime[1] = req.st[1];
@@ -251,12 +254,12 @@ static bool RequestFunc03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 	if (req.adr == 0) return  false;
 
-	rsp.adr = req.adr;
-	rsp.func = req.func;
-	rsp.f3.crc = GetCRC16(&rsp, 2);
+	rsp.adr		= req.adr;
+	rsp.func	= req.func;
+	rsp.crc		= GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
 
 	wb->data = &rsp;
-	wb->len = sizeof(rsp.f3)+2;
+	wb->len = sizeof(rsp);
 
 	return true;
 }
@@ -265,8 +268,8 @@ static bool RequestFunc03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 static bool RequestFunc04(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
-	ReqRcv04::Req &req = *((ReqRcv04::Req*)data);
-	Response &rsp = *((Response*)rspBuf);
+	ReqRcv04::Req	&req = *((ReqRcv04::Req*)data);
+	RspRcv04		&rsp = *((RspRcv04*)rspBuf);
 
 	gain[0] = req.ka[0];
 	gain[1] = req.ka[1];
@@ -277,20 +280,20 @@ static bool RequestFunc04(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	rsp.adr = req.adr;
 	rsp.func = 4;
 
-	rsp.f4.maxAmp[0] = maxAmp[0];
-	rsp.f4.maxAmp[1] = maxAmp[1];
-	rsp.f4.maxAmp[2] = maxAmp[2];
-	rsp.f4.maxAmp[3] = maxAmp[3];
+	rsp.maxAmp[0] = maxAmp[0];
+	rsp.maxAmp[1] = maxAmp[1];
+	rsp.maxAmp[2] = maxAmp[2];
+	rsp.maxAmp[3] = maxAmp[3];
 
-	rsp.f4.power[0] = power[0];
-	rsp.f4.power[1] = power[1];
-	rsp.f4.power[2] = power[2];
-	rsp.f4.power[3] = power[3];
+	rsp.power[0] = power[0];
+	rsp.power[1] = power[1];
+	rsp.power[2] = power[2];
+	rsp.power[3] = power[3];
 
-	rsp.f4.crc = GetCRC16(&rsp, sizeof(rsp.f4));
+	rsp.crc = GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
 
 	wb->data = &rsp;
-	wb->len = sizeof(rsp.f4) + 2;
+	wb->len = sizeof(rsp);
 
 	return true;
 }
@@ -407,7 +410,7 @@ static void UpdateSport()
 	static byte sg = 0;
 	static u16 sd = 0;
 
-	Response02 &rsp = rsp02;
+	RspRcv02 &rsp = rsp02;
 
 	switch(sportState)
 	{
@@ -415,7 +418,7 @@ static void UpdateSport()
 			
 			if (ready1 && ready2)
 			{
-				EnableADC();
+				//EnableADC();
 
 				n = fireN;
 				chnl = 0;
@@ -431,12 +434,12 @@ static void UpdateSport()
 
 		case 1:
 
-			rsp.rw = 0xAA30 + (n<<4) + GetNetAdr()-1;
-			rsp.cnt = vectorCount++;
-			rsp.gain = sg; 
-			rsp.st = st; 
-			rsp.len = len; 
-			rsp.delay = spDelay[n];
+			rsp.hdr.rw = 0xAA30 + (n<<4) + GetNetAdr()-1;
+			rsp.hdr.cnt = vectorCount++;
+			rsp.hdr.gain = sg; 
+			rsp.hdr.st = st; 
+			rsp.hdr.len = len; 
+			rsp.hdr.delay = spDelay[n];
 
 			*pPORTFIO_SET = 1<<8;
 
@@ -564,7 +567,7 @@ void main( void )
 
 	while (1)
 	{
-		*pPORTFIO_TOGGLE = 1<<5;
+		MAIN_LOOP_PIN_SET();
 
 		static byte i = 0;
 
@@ -582,7 +585,7 @@ void main( void )
 
 		#undef CALL
 
-		*pPORTFIO_TOGGLE = 1<<5;
+		MAIN_LOOP_PIN_CLR();
 	};
 
 //	return 0;

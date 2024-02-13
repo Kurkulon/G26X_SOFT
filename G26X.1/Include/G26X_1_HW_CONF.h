@@ -1,9 +1,9 @@
-#ifndef HW_CONF_H__11_11_22__17_22
-#define HW_CONF_H__11_11_22__17_22
+#ifndef G26X_1_HW_CONF_H__13_02_2024__23_17
+#define G26X_1_HW_CONF_H__13_02_2024__23_17
 
-#define	CORETYPE_BF592
+#pragma once
 
-#include "bf592.h"
+#include <types.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -148,81 +148,15 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define PIO_DSHAFT			HW::PIOF
-#define PIO_SYNC			HW::PIOF
-#define PIO_ROT				HW::PIOG
-#define PIO_RST_SW_ARR		HW::PIOG
-
-#define PIN_DSHAFT			3
-#define PIN_SYNC			4
-#define PIN_ROT				15
-#define PIN_RST_SW_ARR		4
-
-#define BM_DSHAFT			(1U << PIN_DSHAFT)	
-#define BM_SYNC				(1U << PIN_SYNC)
-#define BM_ROT				(1U << PIN_ROT)
-#define BM_RST_SW_ARR		(1U << PIN_RST_SW_ARR)
-
-//#define PIN_GAIN_EN		1
-//#define PIN_GAIN_0		0
-//#define PIN_GAIN_1		2
-//#define PIN_GAIN_2		3
-//#define PIN_A0			4
-
-//#define GAIN_EN		(1 << PIN_GAIN_EN)	
-//#define GAIN_0		(1 << PIN_GAIN_0)
-//#define GAIN_1		(1 << PIN_GAIN_1)
-//#define GAIN_2		(1 << PIN_GAIN_2)
-//#define A0			(1 << PIN_A0)
-
-//#define GAIN_M0		(0)
-//#define GAIN_M1		(GAIN_EN)
-//#define GAIN_M2		(GAIN_EN|GAIN_0)	
-//#define GAIN_M3		(GAIN_EN|GAIN_1)	
-//#define GAIN_M4		(GAIN_EN|GAIN_1|GAIN_0)	
-//#define GAIN_M5		(GAIN_EN|GAIN_2)	
-//#define GAIN_M6		(GAIN_EN|GAIN_2|GAIN_0)	
-//#define GAIN_M7		(GAIN_EN|GAIN_2|GAIN_1)	
-//#define GAIN_M8		(GAIN_EN|GAIN_2|GAIN_1|GAIN_0)
+#define PIO_GAIN			HW::PIOF
+#define PIN_GAIN			3
+#define BM_GAIN				(1U << PIN_GAIN)	
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #define PIO_RTS					HW::PIOF
-
-//#define PIO_RTS_SET				*pPORTFIO_SET
-//#define PIO_RTS_CLR				*pPORTFIO_CLEAR
-//#define PIO_RTS_DIR				*pPORTFIO_DIR
-//#define PIO_RTS_FER				*pPORTF_FER
-
 #define PIN_RTS					5
 #define MASK_RTS				(1UL<<PIN_RTS)
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-#define PIN_DSP_CS				8
-#define PIN_DSP_MOSI			13
-#define PIN_DSP_MISO			14
-#define PIN_DSP_SCK				15
-
-#define BM_DSP_CS				(1UL<<PIN_DSP_CS	)
-#define BM_DSP_MOSI				(1UL<<PIN_DSP_MOSI	)
-#define BM_DSP_MISO				(1UL<<PIN_DSP_MISO	)
-#define BM_DSP_SCK				(1UL<<PIN_DSP_SCK	)
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-#define PIO_MUX_SYNC			HW::PIOG
-#define PIO_MUX_RESET			HW::PIOG
-
-#define PIN_MUX_SCK				8
-#define PIN_MUX_DIN				9
-#define PIN_MUX_RESET			10
-#define PIN_MUX_SYNC			11
-
-#define BM_MUX_SCK				(1UL<<PIN_MUX_SCK	)
-#define BM_MUX_DIN				(1UL<<PIN_MUX_DIN	)
-#define BM_MUX_RESET			(1UL<<PIN_MUX_RESET	)
-#define BM_MUX_SYNC				(1UL<<PIN_MUX_SYNC	)
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -238,7 +172,7 @@
 #define INIT_PORTFIO_INEN 		0x0000		//  0000 0000 0000 0000
 #define INIT_PORTGIO_INEN 		0x0000		//  0000 0000 0000 0000
 
-#define INIT_PORTFIO 			MASK_RTS|BM_DSP_CS
+#define INIT_PORTFIO 			MASK_RTS
 #define INIT_PORTGIO 			0
 
 #define INIT_PORTFIO_POLAR		0
@@ -263,9 +197,9 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define MAIN_LOOP_PIN_SET()		{*pPORTFIO_SET = 1<<7;}
-#define MAIN_LOOP_PIN_CLR()		{*pPORTFIO_CLEAR = 1<<7;}
+#define MAIN_LOOP_PIN_SET()		{*pPORTFIO_SET = 1<<5;}
+#define MAIN_LOOP_PIN_CLR()		{*pPORTFIO_CLEAR = 1<<5;}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#endif // HW_CONF_H__11_11_22__17_22
+#endif // G26X_1_HW_CONF_H__13_02_2024__23_17
