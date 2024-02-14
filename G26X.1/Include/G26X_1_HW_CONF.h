@@ -37,17 +37,17 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define MS2CLK(x) ((u32)(x*1.0*SCLK/1e3+0.5))
-#define US2CLK(x) ((u32)(x*1.0*SCLK/1e6+0.5))
-#define NS2CLK(x) ((u32)(x*1.0*SCLK/1e9+0.5))
+#define MS2CLK(x) ((u32)((x)*1.0*SCLK/1e3+0.5))
+#define US2CLK(x) ((u32)((x)*1.0*SCLK/1e6+0.5))
+#define NS2CLK(x) ((u32)((x)*1.0*SCLK/1e9+0.5))
 
 #define MS2SCLK(x) MS2CLK(x)
 #define US2SCLK(x) US2CLK(x)
 #define NS2SCLK(x) NS2CLK(x)
 
-#define MS2CCLK(x) ((u32)(x*1.0*CCLK/1e3+0.5))
-#define US2CCLK(x) ((u32)(x*1.0*CCLK/1e6+0.5))
-#define NS2CCLK(x) ((u32)(x*1.0*CCLK/1e9+0.5))
+#define MS2CCLK(x) ((u32)((x)*1.0*CCLK/1e3+0.5))
+#define US2CCLK(x) ((u32)((x)*1.0*CCLK/1e6+0.5))
+#define NS2CCLK(x) ((u32)((x)*1.0*CCLK/1e9+0.5))
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -110,7 +110,7 @@
 #define IVG_EXEPTIONS		3
 #define IVG_HW_ERROR		5
 #define IVG_CORETIMER		6
-//#define IVG_PORTF_SYNC		7
+#define IVG_PORTF_SYNC		7
 //#define IVG_PORTF_SHAFT		8
 //#define IVG_GPTIMER2_RTT	9
 #define IVG_SPORT0_DMA		10
@@ -132,19 +132,9 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define PIO_FIRE			HW::PIOF
-
-#define PIN_FIRE1			9
-#define PIN_FIRE2			10
-
-#define BM_FIRE1			(1UL << PIN_FIRE1)
-#define BM_FIRE2			(1UL << PIN_FIRE2)
-
-#define FIRE1_TIMER			HW::TIMER1
-#define FIRE2_TIMER			HW::TIMER0
-
-#define FIRE1_TIMEN			TIMEN1
-#define FIRE2_TIMEN			TIMEN0
+#define PIO_SYNC			HW::PIOF
+#define PIN_SYNC			12
+#define BM_SYNC				(1UL << PIN_SYNC)
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -155,19 +145,19 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #define PIO_RTS					HW::PIOF
-#define PIN_RTS					5
+#define PIN_RTS					10
 #define MASK_RTS				(1UL<<PIN_RTS)
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define INIT_PORTF_MUX			0xFEC3		//  1111 1110 1100 0011
-#define INIT_PORTG_MUX			0x03C3		//  0000 0011 1100 0011
+#define INIT_PORTF_MUX			0x0000		//  0000 0000 0000 0000
+#define INIT_PORTG_MUX			0x0000		//  0000 0000 0000 0000
 
-#define INIT_PORTF_FER 			0x0000		//  0000 0000 0000 0000
-#define INIT_PORTG_FER 			0x0000		//  0000 0000 0000 0000
+#define INIT_PORTF_FER 			0x000F		//  0000 0000 0000 1111
+#define INIT_PORTG_FER 			0x000F		//  0000 0000 0000 1111
 
-#define INIT_PORTFIO_DIR 		0x0124		//  0000 0001 0010 0100
-#define INIT_PORTGIO_DIR 		0x7C3C		//  0111 1100 0011 1100
+#define INIT_PORTFIO_DIR 		0x05F0		//  0000 0101 1111 0000
+#define INIT_PORTGIO_DIR 		0xFFF0		//  1111 1111 1111 0000
 
 #define INIT_PORTFIO_INEN 		0x0000		//  0000 0000 0000 0000
 #define INIT_PORTGIO_INEN 		0x0000		//  0000 0000 0000 0000

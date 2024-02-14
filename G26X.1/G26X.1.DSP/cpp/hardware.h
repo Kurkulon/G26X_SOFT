@@ -9,8 +9,8 @@ extern void UpdateHardware();
 
 //inline u32 GetRTT() { return *pTIMER0_COUNTER; }
 
-extern void SyncReadSPORT(void *dst1, void *dst2, u16 len1, u16 len2, u16 clkdiv, bool *ready0, bool *ready1);
-extern void ReadSPORT(void *dst1, void *dst2, u16 len1, u16 len2, u16 clkdiv, bool *ready0, bool *ready1);
+extern void SyncReadSPORT(void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool *ready0, bool *ready1);
+//extern void ReadSPORT(void *dst1, void *dst2, u16 len1, u16 len2, u16 clkdiv, bool *ready0, bool *ready1);
 //inline void WritePGA(u16 v) { extern u16 pgaValue; extern bool pgaSet; pgaValue = v; pgaSet = true; }
 //inline void SetGain(byte g) { WritePGA(0x2A01|(g<<4)); }
 //inline u16 GetADC() { extern U32u adcValue; return adcValue.w[1]; }

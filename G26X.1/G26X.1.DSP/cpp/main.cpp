@@ -149,10 +149,13 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	spTime[n]	= sampleTime[n];
 	spGain[n]	= gain[n];
 	spLen[n]	= sampleLen[n];
-	spDelay[n]	= sampleDelay[n];
+
+	u16 delay = sampleDelay[n] / sampleTime[n];
+
+	spDelay[n]	= delay * sampleTime[n];
 
 	//SetGain(spGain[n]);
-	SyncReadSPORT(spd[0], spd[1], spLen[n]*4, spLen[n]*4, spTime[n]-1, &ready1, &ready2);
+	SyncReadSPORT(spd[0], spd[1], spLen[n]*2, spTime[n], delay, &ready1, &ready2);
 	//DisableADC();
 
 	fireN = n;
@@ -198,7 +201,7 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	if (rsp.hdr.rw == 0)
 	{
 		rsp.hdr.rw = 0xAA30 + (n<<4) + req.adr-1;
-		rsp.hdr.cnt		= vectorCount++;
+		rsp.hdr.cnt		= vectorCount;
 		rsp.hdr.gain	= gain[n]; 
 		rsp.hdr.st		= sampleTime[n]; 
 		rsp.hdr.len		= len; 
@@ -236,17 +239,17 @@ static bool RequestFunc03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	ReqRcv03::Req &req	= *((ReqRcv03::Req*)data);
 	RspRcv03 &rsp		= *((RspRcv03*)rspBuf);
 
-	sampleTime[0] = req.st[0];
-	sampleTime[1] = req.st[1];
-	sampleTime[2] = req.st[2];
+	sampleTime[0] = MAX(req.st[0], 2);
+	sampleTime[1] = MAX(req.st[1], 2);
+	sampleTime[2] = MAX(req.st[2], 2);
 
-	sampleLen[0] = req.sl[0];
-	sampleLen[1] = req.sl[1];
-	sampleLen[2] = req.sl[2];
+	sampleLen[0] = LIM(req.sl[0], 16, 1024);
+	sampleLen[1] = LIM(req.sl[1], 16, 1024);
+	sampleLen[2] = LIM(req.sl[2], 16, 1024);
 
-	if (sampleLen[0] > 1024) { sampleLen[0] = 1024; };
-	if (sampleLen[1] > 1024) { sampleLen[1] = 1024; };
-	if (sampleLen[2] > 1024) { sampleLen[2] = 1024; };
+	//if (sampleLen[0] > 1024) { sampleLen[0] = 1024; };
+	//if (sampleLen[1] > 1024) { sampleLen[1] = 1024; };
+	//if (sampleLen[2] > 1024) { sampleLen[2] = 1024; };
 
 	sampleDelay[0] = req.sd[0];
 	sampleDelay[1] = req.sd[1];
@@ -319,7 +322,7 @@ static bool RequestFunc(const ComPort::ReadBuffer *rb, ComPort::WriteBuffer *wb)
 
 	u16 rlen = rb->len;
 
-	byte *p = (byte*)rb->data;
+	byte *p = (byte*)rb->data; 
 
 	while(rlen > 3)
 	{
@@ -359,7 +362,7 @@ static void UpdateBlackFin()
 
 			rb.data = build_date;
 			rb.maxLen = sizeof(build_date);
-			com.Read(&rb, (u32)-1, US2SCLK(50));
+			com.Read(&rb, ~0, US2COM(45+62500000/RCV_COM_BAUDRATE));
 			i++;
 
 			break;
@@ -435,11 +438,11 @@ static void UpdateSport()
 		case 1:
 
 			rsp.hdr.rw = 0xAA30 + (n<<4) + GetNetAdr()-1;
-			rsp.hdr.cnt = vectorCount++;
+			rsp.hdr.cnt = vectorCount;
 			rsp.hdr.gain = sg; 
 			rsp.hdr.st = st; 
 			rsp.hdr.len = len; 
-			rsp.hdr.delay = spDelay[n];
+			rsp.hdr.delay = sd;
 
 			*pPORTFIO_SET = 1<<8;
 

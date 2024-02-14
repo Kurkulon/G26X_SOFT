@@ -92,7 +92,7 @@ static bool runMainMode = true;
 static bool startFire = false;
 static u32 fireCounter = 0;
 static u32 manCounter = 0;
-static byte numStations = RCV_MAX_NUM_STATIONS;
+static byte numStations = 1;//RCV_MAX_NUM_STATIONS;
 static u16 resistValue = 0;
 static u16 voltage = 0;
 
@@ -331,11 +331,11 @@ static Ptr<REQ> CreateRcvReqFire(byte n, u16 fc)
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
 
-	req.r[2].len	= req.r[1].len	= req.r[0].len	= sizeof(ReqRcv01) - 1;
+	req.r[2].len	= req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
 	req.r[2].adr	= req.r[1].adr	= req.r[0].adr	= 0;
 	req.r[2].func	= req.r[1].func	= req.r[0].func	= 1;
-	req.r[2].n		= req.r[1].n	= req.r[0].n		= n;
-	req.r[2].fc		= req.r[1].fc	= req.r[0].fc		= fc;
+	req.r[2].n		= req.r[1].n	= req.r[0].n	= n;
+	req.r[2].fc		= req.r[1].fc	= req.r[0].fc	= fc;
 	req.r[2].crc	= req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return &q;
@@ -398,12 +398,23 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 	
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv02)+2);
+	if (adr != 0)
+	{
+		rq->rsp = AllocFlashWriteBuffer(sizeof(RspRcv02)+2);
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+		
+		RspRcv02 &rsp = *((RspRcv02*)(rq->rsp->GetDataPtr()));
 
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+		rq->rb.data = &rsp;
+		rq->rb.maxLen = rq->rsp->GetDataMaxLen();
+	}
+	else
+	{
+		rq->rb.data = 0;
+		rq->rb.maxLen = 0;
+	};
 
 	ReqRcv02 &req = *((ReqRcv02*)rq->reqData);
-	RspRcv02 &rsp = *((RspRcv02*)(rq->rsp->GetDataPtr()));
 
 	adr = (adr-1)&7; 
 	chnl &= 3; n %= 3;
@@ -419,17 +430,11 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
+	q.crcType = REQ::CRC16;
 	
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	q.rb.data = &rsp;
-	q.rb.maxLen = rq->rsp->GetDataMaxLen();
-	q.rb.recieved = false;
-
-	//ReqRcv02 &req0 = req[0];
-	//ReqRcv02 &req1 = req[1];
-	
 	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
 	req.r[1].adr	= req.r[0].adr	= adr+1;
 	req.r[1].func	= req.r[0].func	= 2;
@@ -487,12 +492,8 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	q.rb.data = &rsp;
+	q.rb.data = (adr != 0) ? &rsp : 0;
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
-	q.rb.recieved = false;
-
-	//ReqRcv03 &req0 = req[0];
-	//ReqRcv03 &req1 = req[1];
 
 	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
 	req.r[1].adr	= req.r[0].adr	= adr;
@@ -583,9 +584,8 @@ static Ptr<REQ> CreateRcvReq04(byte adr, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	q.rb.data = &rsp;
+	q.rb.data = (adr != 0) ? &rsp : 0;
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
-	q.rb.recieved = false;
 
 	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
 	req.r[1].adr	= req.r[0].adr	= adr;
@@ -1402,7 +1402,7 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 	byte nf = ((req.rw >> 4) - 3) & 3;
 	byte nr = req.rw & 7;
 
-	curRcv[nf] = nr;
+	curRcv[nf] = nr+1;
 
 	struct Rsp { u16 rw; };
 	static Rsp rsp; 
@@ -2324,7 +2324,7 @@ static void MainMode()
 
 			if (runMainMode && (mv.disableFireNoVibration == 0 || vibration > mv.levelNoVibration))
 			{
-				req = CreateRcvReq03(0, 0);
+				req = CreateRcvReq03(1, 0);
 
 				if (req.Valid())
 				{
@@ -2377,7 +2377,7 @@ static void MainMode()
 
 			if (req->ready)
 			{
-				if (req->crcOK)
+				if (req->crcOK && req->rsp.Valid())
 				{
 					RspRcv02 &r02 = *((RspRcv02*)(req->rsp->GetDataPtr()));
 

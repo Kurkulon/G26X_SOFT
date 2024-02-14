@@ -11,7 +11,7 @@
 
 #define RCV_BOOT_SGUID		0X66C41909FA7C4F91 
 
-#define RCV_COM_BAUDRATE	1250000
+#define RCV_COM_BAUDRATE	12500000
 #define RCV_COM_PARITY		2
 
 #define RCV_MAN_REQ_WORD 0xAA00
@@ -47,6 +47,7 @@ __packed struct ReqRcv01	// старт оцифровки
 		byte 	adr;
 		byte 	func;
 		byte 	n; 
+		byte 	next_n; 
 		u16		fc;		// fire count
 		word 	crc;  
 	}
