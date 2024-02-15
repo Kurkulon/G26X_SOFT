@@ -10,9 +10,11 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define BOOT_NETADR
-#define BOOT_COM_SPEED			RCV_COM_BAUDRATE
-#define BOOT_COM_PARITY			RCV_COM_PARITY
+#define BOOT_MAX_NETADR			RCV_MAX_NUM_STATIONS
+#define BOOT_TIMEOUT			(MS2CTM(2000))
+#define BOOT_MAIN_TIMEOUT		(MS2CTM(100000))
+#define BOOT_COM_SPEED			RCV_BOOT_COM_BAUDRATE	
+#define BOOT_COM_PARITY			RCV_BOOT_COM_PARITY		
 #define BOOT_COM_PRETIMEOUT		(~0)
 #define BOOT_COM_POSTTIMEOUT	(US2COM(500))
 
@@ -27,8 +29,6 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//#define MAIN_LOOP_PIN_SET()		{ HW::PIOF->SET(PF4);}
-//#define MAIN_LOOP_PIN_CLR()		{ HW::PIOF->CLR(PF4);}
 #define MAIN_LOOP_PIN_TGL()		{ HW::PIOF->NOT(PF4);}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -80,8 +80,8 @@ asm_options = -proc ADSP-BF592-A -g -si-revision 0.2 -DADI_CCES
 
 ####################################################################################################################################################################################################
 
-compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-overlap -no-multiline &
-	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -DCPU_$(targetcpu) -Wterse -I$(incdir)
+compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-overlap -save-temps -path-output $(objdir) -no-multiline &
+	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -DCPU_$(targetcpu) -DBOOTLOADER -Wterse -I$(incdir)
 
 ####################################################################################################################################################################################################
 

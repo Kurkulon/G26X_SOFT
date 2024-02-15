@@ -7,6 +7,8 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+#ifndef BOOTLOADER
+
 #define CLKIN_MHz			25
 #define CLKIN_DIV			1	// 1, 2
 
@@ -15,9 +17,21 @@
 #define CCLK_CSEL			0	// 0...3
 #define CCLK_DIV			(1UL<<CCLK_CSEL)
 
+#else
+
+#define CLKIN_MHz			25
+#define CLKIN_DIV			1	// 1, 2
+
+#define PLL_MUL				8	// 5...64
+#define SCLK_DIV			2	// 1...15
+#define CCLK_CSEL			0	// 0...3
+#define CCLK_DIV			(1UL<<CCLK_CSEL)
+
+#endif
+
 #define VCO_CLK_MHz 		(CLKIN_MHz*PLL_MUL/CLKIN_DIV)
-#define CCLK_MHz			VCO_CLK_MHz/CCLK_DIV
-#define SCLK_MHz			VCO_CLK_MHz/SCLK_DIV
+#define CCLK_MHz			(VCO_CLK_MHz/CCLK_DIV)
+#define SCLK_MHz			(VCO_CLK_MHz/SCLK_DIV)
 
 #define VRCTL_VALUE         0x0000
 
@@ -37,17 +51,26 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define MS2CLK(x) ((u32)((x)*1.0*SCLK/1e3+0.5))
-#define US2CLK(x) ((u32)((x)*1.0*SCLK/1e6+0.5))
-#define NS2CLK(x) ((u32)((x)*1.0*SCLK/1e9+0.5))
+#define MS2CLK(x) ((u64)((x)*1.0*SCLK/1e3+0.5))
+#define US2CLK(x) ((u64)((x)*1.0*SCLK/1e6+0.5))
+#define NS2CLK(x) ((u64)((x)*1.0*SCLK/1e9+0.5))
+
+//#define MS2CLK(x) (((x)*SCLK+500)/1000)
+//#define US2CLK(x) (((x)*SCLK+500000)/1000000)
+//#define NS2CLK(x) (((x)*SCLK+500000000)/1000000000)
 
 #define MS2SCLK(x) MS2CLK(x)
 #define US2SCLK(x) US2CLK(x)
 #define NS2SCLK(x) NS2CLK(x)
 
-#define MS2CCLK(x) ((u32)((x)*1.0*CCLK/1e3+0.5))
-#define US2CCLK(x) ((u32)((x)*1.0*CCLK/1e6+0.5))
-#define NS2CCLK(x) ((u32)((x)*1.0*CCLK/1e9+0.5))
+#define MS2CCLK(x) ((u64)((x)*1.0*CCLK/1e3+0.5))
+#define US2CCLK(x) ((u64)((x)*1.0*CCLK/1e6+0.5))
+#define NS2CCLK(x) ((u64)((x)*1.0*CCLK/1e9+0.5))
+
+//#define MS2CCLK(x) (((x)*CCLK+500)/1000)
+//#define US2CCLK(x) (((x)*CCLK+500000)/1000000)
+//#define NS2CCLK(x) (((x)*CCLK+500000000)/1000000000)
+
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

@@ -270,7 +270,7 @@ void InitHardware()
 {
 	LowLevelInit();
 
-	I2C_Init(SCLK, IVG_TWI, PID_TWI);
+	I2C_Init(SCLK_MHz, IVG_TWI, PID_TWI);
 
 	InitSPORT();
 

@@ -92,7 +92,7 @@ static bool runMainMode = true;
 static bool startFire = false;
 static u32 fireCounter = 0;
 static u32 manCounter = 0;
-static byte numStations = 1;//RCV_MAX_NUM_STATIONS;
+static byte numStations = RCV_MAX_NUM_STATIONS;
 static u16 resistValue = 0;
 static u16 voltage = 0;
 
@@ -122,28 +122,26 @@ static Ptr<MB> curManVec60;
 
 //static ListPtr<MB> readyR01;
 
-static u16 mode = 0;
 static RspMan60 rspMan60;
 static byte curRcv[3] = { 0 };
 
 
-static TM32 imModeTimeout;
 
 //static u16 motoEnable = 0;		// двигатель включить или выключить
-static u16 motoTargetRPS = 0;		// заданные обороты двигателя
-static u16 motoRPS = 0;				// обороты двигателя, об/сек
-static u16 motoCur = 0;				// ток двигателя, 0...9400 мА
-static u16 motoCurLow = 0;			// ток двигателя, 0...4500 мА
-static u16 motoStat = 0;			// статус двигателя
-static u16 motoCounter = 0;			// счётчик оборотов двигателя 1/6 оборота
+//static u16 motoTargetRPS = 0;		// заданные обороты двигателя
+//static u16 motoRPS = 0;				// обороты двигателя, об/сек
+//static u16 motoCur = 0;				// ток двигателя, 0...9400 мА
+//static u16 motoCurLow = 0;			// ток двигателя, 0...4500 мА
+//static u16 motoStat = 0;			// статус двигателя
+//static u16 motoCounter = 0;			// счётчик оборотов двигателя 1/6 оборота
 //static u16 cmSPR = 32;			// Количество волновых картин на оборот головки в режиме цементомера
 //static u16 imSPR = 100;			// Количество точек на оборот головки в режиме имиджера
 //static u16 *curSPR = &cmSPR;		// Количество импульсов излучателя на оборот в текущем режиме
-static u16 auxVoltage = 0;
-static u16 motoVoltage = 90;
-static u16 motoRcvCount = 0;
+//static u16 auxVoltage = 0;
+//static u16 motoVoltage = 90;
+//static u16 motoRcvCount = 0;
 
-static u16 curFireVoltage = 500;
+//static u16 curFireVoltage = 500;
 
 //static u32 dspMMSEC = 0;
 //static u32 shaftMMSEC = 0;
@@ -168,22 +166,23 @@ static u16 verMemDevice = 0x100;
 
 static byte mainModeState = 0;
 static byte fireType = 0;
-static byte dspStatus = 0;
+//static byte dspStatus = 0;
 
 static bool cmdWriteStart_00 = false;
 static bool cmdWriteStart_10 = false;
 static bool cmdWriteStart_20 = false;
 
-static u32 dspRcv40 = 0;
-static u32 dspRcv50 = 0;
-static u16 dspRcvCount = 0;
-static u32 dspRcvErr = 0;
-static u16 dspNotRcv = 0;
+//static u32 dspRcv40 = 0;
+//static u32 dspRcv50 = 0;
+//static u16 dspRcvCount = 0;
+//static u32 dspRcvErr = 0;
+//static u16 dspNotRcv = 0;
 
 static u16 rcvStatus = 0;
 static u32 crcErr02[13] = {0};
 static u32 crcErr03 = 0;
 static u32 crcErr04 = 0;
+static u32 rcv02rejVec = 0;
 
 static u32 notRcv02[13] = {0};
 static u32 lenErr02[13] = {0};
@@ -214,7 +213,7 @@ static byte svCount = 0;
 //static AmpTimeMinMax sensMinMax[SENS_NUM]		= { {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0} };
 //static AmpTimeMinMax sensMinMaxTemp[SENS_NUM]	= { {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0} };
 
-static u32 testDspReqCount = 0;
+//static u32 testDspReqCount = 0;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -245,37 +244,6 @@ u16 GetVersionDevice()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static void Update_RPS_SPR()
-{
-	//Set_Sync_Rot(motoTargetRPS, (mode == 0) ? mv.cmSPR : mv.imSPR);
-}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static void SetModeCM()
-{
-	if (mode != 0)
-	{
-		mode = 0;
-
-		Update_RPS_SPR();
-	};
-}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static void SetModeIM()
-{
-	if (mode == 0)
-	{
-		mode = 1;
-
-		Update_RPS_SPR();
-	};
-
-	imModeTimeout.Reset();
-}
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -384,6 +352,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		else
 		{
 			rcvStatus &= ~(1 << (a)); 
+			rcv02rejVec += 1;
 		};
 	};
 
@@ -843,12 +812,12 @@ static Ptr<REQ> CreateRcvBootReq02(u16 adr, u16 stAdr, u16 count, void* data, u1
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF2) + pageLen);
+	rq->rsp = AllocMemBuffer(sizeof(BootReqV1::SF2) + pageLen);
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	BootReqV1::SF2 &req = *((BootReqV1::SF2*)rq->reqData);
-	BootRspV1::SF2 &rsp = *((BootRspV1::SF2*)(rq->rsp->GetDataPtr()));
+	BootRspV1::SF2 &rsp = *((BootRspV1::SF2*)rq->reqData);
+	BootReqV1::SF2 &req = *((BootReqV1::SF2*)(rq->rsp->GetDataPtr()));
 	
 	REQ &q = *rq;
 
@@ -946,7 +915,7 @@ static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount)
 	
 	REQ &q = *rq;
 
-	q.CallBack = CallBackRcvBootReq00;
+	q.CallBack = CallBackRcvBootReq03;
 	q.preTimeOut = MS2COM(10);
 	q.postTimeOut = US2COM(100);
 	q.ready = false;
@@ -1497,131 +1466,6 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//static bool RequestMan_30(u16 *data, u16 len, MTB* mtb)
-//{
-//	if (data == 0 || len == 0 || len > 3 || mtb == 0) return false;
-//
-//	manTrmData[0] = data[0];	
-// 
-//	motoTargetRPS = (data[0]&15) * 100;
-//		
-//	//Set_Sync_Rot(motoTargetRPS, *curSPR);
-//
-//	Update_RPS_SPR();
-//
-//	mtb->data1 = manTrmData;
-//	mtb->len1 = 1;
-//	mtb->data2 = 0;
-//	mtb->len2 = 0;
-//
-//	return true;
-//}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static bool RequestMan_50(u16 *data, u16 reqlen, MTB* mtb)
-{
-	//__packed struct Req { u16 rw; u16 off; u16 len; };
-
-	//Req &req = *((Req*)data);
-
-	//if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
-
-	//struct Rsp { u16 rw; };
-	//
-	//static Rsp rsp; 
-	//
-	//static u16 prevOff = 0;
-	//static u16 prevLen = 0;
-	//static u16 maxLen = 200;
-
-	//static byte sensInd = 0;
-
-	//SetModeIM();
-
-	//rsp.rw = req.rw;
-
-	//mtb->data1 = (u16*)&rsp;
-	//mtb->len1 = sizeof(rsp)/2;
-	//mtb->data2 = 0;
-	//mtb->len2 = 0;
-
-	//if (reqlen == 1 || (reqlen >= 2 && data[1] == 0))
-	//{
-	//	curManVec50 = manVec50[sensInd];
-
-	//	manVec50[sensInd].Free();
-
-	//	if (!curManVec50.Valid())
-	//	{
-	//		sensInd += 1; if (sensInd >= (SENS_NUM-1)) sensInd = 0;
-
-	//		curManVec50 = manVec50[sensInd];
-
-	//		manVec50[sensInd].Free();
-	//	};
-
-	//	if (curManVec50.Valid())
-	//	{
-	//		RspDsp01 &rsp = *((RspDsp01*)curManVec50->GetDataPtr());
-
-	//		mtb->data2 = ((u16*)&rsp)+1;
-
-	//		prevOff = 0;
-
-	//		u16 sz = (sizeof(rsp.IM.hdr)-sizeof(rsp.IM.hdr.rw))/2 + rsp.IM.hdr.dataLen*2;
-
-	//		if (reqlen == 1)
-	//		{
-	//			mtb->len2 = sz;
-	//			prevLen = sz;
-	//		}
-	//		else 
-	//		{
-	//			if (reqlen == 3) maxLen = data[2];
-
-	//			u16 len = maxLen;
-
-	//			if (len > sz) len = sz;
-
-	//			mtb->len2 = len;
-
-	//			prevLen = len;
-	//		};
-	//	};
-
-	//	sensInd += 1; if (sensInd >= (SENS_NUM-1)) sensInd = 0;
-	//}
-	//else if (curManVec50.Valid())
-	//{
-	//	RspDsp01 &rsp = *((RspDsp01*)curManVec50->GetDataPtr());
-
-	//	u16 off = prevOff + prevLen;
-	//	u16 len = prevLen;
-	//	u16 sz = (sizeof(rsp.IM.hdr)-sizeof(rsp.IM.hdr.rw))/2 + rsp.IM.hdr.dataLen*2;
-
-	//	if (reqlen == 3)
-	//	{
-	//		off = data[1];
-	//		len = data[2];
-	//	};
-
-	//	if (sz >= off)
-	//	{
-	//		u16 ml = sz - off;
-
-	//		if (len > ml) len = ml;
-
-	//		mtb->data2 = (u16*)&rsp + data[1]+1;
-	//		mtb->len2 = len;
-	//	};
-	//};
-
-	return true;
-}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 static bool RequestMan_60(u16 *data, u16 len, MTB* mtb)
 {
 	struct Rsp { u16 rw; };
@@ -1794,9 +1638,11 @@ static bool RequestMan(u16 *buf, u16 len, MTB* mtb)
 		case 0: 	r = RequestMan_00(buf, len, mtb); break;
 		case 1: 	r = RequestMan_10(buf, len, mtb); break;
 		case 2: 	r = RequestMan_20(buf, len, mtb); break;
-		case 3:		r = RequestMan_30(buf, len, mtb); break;
-//		case 4:		r = RequestMan_40(buf, len, mtb); break;
-		case 5: 	r = RequestMan_50(buf, len, mtb); break;
+		case 3:
+		case 4:
+		case 5:		r = RequestMan_30(buf, len, mtb); break;
+
+		case 6: 	r = RequestMan_60(buf, len, mtb); break;
 		case 8: 	r = RequestMan_80(buf, len, mtb); break;
 		case 9:		r = RequestMan_90(buf, len, mtb); break;
 		case 0xF:	r = RequestMan_F0(buf, len, mtb); break;
@@ -1860,7 +1706,7 @@ static bool RequestMem_20(u16 *data, u16 len, MTB* mtb)
 	rsp.device = GetDeviceID();  
 	rsp.session = FLASH_Session_Get();	  
 	rsp.rcvVec =  FLASH_Vectors_Recieved_Get();
-	rsp.rejVec = dspRcvErr; //FLASH_Vectors_Rejected_Get();
+	rsp.rejVec = rcv02rejVec; //FLASH_Vectors_Rejected_Get();
 	rsp.wrVec = FLASH_Vectors_Saved_Get();
 	rsp.errVec = FLASH_Vectors_Errors_Get();
 	*((__packed u64*)rsp.wrAdr) = FLASH_Current_Adress_Get();
@@ -2275,7 +2121,7 @@ static void UpdateRcvTrm()
 			{
 				StartTrmFire();
 
-				u32 t = 5000; // + (u32)sampleLen[n]*sampleTime[n]+sampleDelay[n] + ;
+				u32 t = 50000;// + (u32)mv.transsampleLen[n]*sampleTime[n]+sampleDelay[n];
 
 				fireTime = US2CTM(t);
 
@@ -3263,9 +3109,13 @@ static void FlashRcv()
 
 	BootRspV1::SF0	rspF0[RCV_MAX_NUM_STATIONS];
 
-	u16 tryCount = 2;
+	u16 tryCount = 100;
 	
 	rcvStatus = 0;
+
+	comRcv.Disconnect();
+
+	comRcv.Connect(ComPort::ASYNC, RCV_BOOT_COM_BAUDRATE, RCV_BOOT_COM_PARITY, 1);
 
 	while (tryCount > 0)
 	{
@@ -3273,7 +3123,7 @@ static void FlashRcv()
 		{
 			if ((rcvStatus & (1 << (i-1))) == 0)
 			{
-				rq = CreateRcvBootReq00(i, &rspF0[i], 2);
+				rq = CreateRcvBootReq00(i, &rspF0[i-1], 2);
 
 				if (rq.Valid())
 				{
@@ -3282,7 +3132,7 @@ static void FlashRcv()
 					if (rq->crcOK)
 					{
 						BootReqV1::SF0 &req = *((BootReqV1::SF0*)rq->wb.data);
-						BootRspV1::SF0 &rsp = rspF0[i];
+						BootRspV1::SF0 &rsp = rspF0[i-1];
 
 						if (rsp.adr == i && rsp.rw == req.rw)
 						{
@@ -3316,7 +3166,7 @@ static void FlashRcv()
 				u16 adr = 0;
 				byte *p = (byte*)rcvFlashPages;
 
-				u16 max = rspF0[i].pageLen;
+				u16 max = rspF0[i-1].pageLen;
 
 				u16 len;
 
@@ -3363,6 +3213,8 @@ static void FlashRcv()
 	qRcv.Add(rq); while(!rq->ready) qRcv.Update();
 
 	rq.Free();
+	
+	comRcv.Disconnect();
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -4160,7 +4012,6 @@ int main()
 #ifndef WIN32
 
 	comTrm.Connect(ComPort::ASYNC, TRM_COM_BAUDRATE, TRM_COM_PARITY, TRM_COM_STOPBITS);
-	comRcv.Connect(ComPort::ASYNC, RCV_COM_BAUDRATE, RCV_COM_PARITY, 1);
 
 
 	//__breakpoint(0);
@@ -4168,6 +4019,8 @@ int main()
 	//FlashMoto();
 
 	FlashRcv();
+
+	comRcv.Connect(ComPort::ASYNC, RCV_COM_BAUDRATE, RCV_COM_PARITY, 1);
 
 #endif
 

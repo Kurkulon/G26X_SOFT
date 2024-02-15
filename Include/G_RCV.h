@@ -9,16 +9,18 @@
 
 #define RCV_MAX_NUM_STATIONS 13
 
-#define RCV_BOOT_SGUID		0X66C41909FA7C4F91 
+#define RCV_BOOT_SGUID			0X66C41909FA7C4F91 
+#define RCV_BOOT_REQ_WORD		((~(RCV_MAN_REQ_WORD)) & RCV_MAN_REQ_MASK)
+#define RCV_BOOT_REQ_MASK		RCV_MAN_REQ_MASK
+#define RCV_BOOT_COM_BAUDRATE	1250000
+#define RCV_BOOT_COM_PARITY		2
 
-#define RCV_COM_BAUDRATE	12500000
-#define RCV_COM_PARITY		2
 
-#define RCV_MAN_REQ_WORD 0xAA00
-#define RCV_MAN_REQ_MASK 0xFF00
+#define RCV_COM_BAUDRATE		12500000
+#define RCV_COM_PARITY			2
 
-#define RCV_BOOT_REQ_WORD	((~(RCV_MAN_REQ_WORD)) & RCV_MAN_REQ_MASK)
-#define RCV_BOOT_REQ_MASK	RCV_MAN_REQ_MASK
+#define RCV_MAN_REQ_WORD 		0xAA00
+#define RCV_MAN_REQ_MASK 		0xFF00
 
 #define RCV_FltResist(v)	(((v) * 941 + 2048) / 4096)
 #define RCV_NetResist(v)	(((v) * 941 + 128) / 256)
@@ -36,6 +38,7 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #define TRANSMITER_NUM	2	// 0 - Monopole, 1 - DipoleXY
+#define RCV_FIRE_NUM	3	// 0 - Mnpl_1, 1 - Mnpl_2, 2 - DplX, 3 - DplY
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -110,9 +113,9 @@ __packed struct  ReqRcv03	// установка периода дискретизации вектора и коэффицие
 		byte 	len;
 		byte 	adr;
 		byte 	func;
-		u16 	st[3]; 
-		u16		sl[3]; 
-		u16		sd[3];
+		u16 	st[RCV_FIRE_NUM]; 
+		u16		sl[RCV_FIRE_NUM]; 
+		u16		sd[RCV_FIRE_NUM];
 		word	crc; 
 	}
 	r[2];
@@ -136,7 +139,7 @@ __packed struct  ReqRcv04	// установка коэффициента усиления
 		byte 	len;
 		byte 	adr;
 		byte 	func;
-		byte 	ka[3]; 
+		byte 	ka[RCV_FIRE_NUM]; 
 		word 	crc; 
 	}
 	r[2];
