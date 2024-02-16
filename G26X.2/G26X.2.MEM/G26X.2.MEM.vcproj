@@ -182,6 +182,10 @@
 			RelativePath=".\makeobj"
 			>
 		</File>
+		<File
+			RelativePath="..\..\телеметрия.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

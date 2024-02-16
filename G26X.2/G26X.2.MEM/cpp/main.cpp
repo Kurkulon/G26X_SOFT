@@ -80,6 +80,8 @@ __packed struct MainVars // NonVolatileVars
 	u16 disableFireNoVibration;
 	u16 levelNoVibration;
 	u16 firePeriod;
+	u16 lfMnplEnabled;
+	u16 packType;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -95,6 +97,7 @@ static u32 manCounter = 0;
 static byte numStations = RCV_MAX_NUM_STATIONS;
 static u16 resistValue = 0;
 static u16 voltage = 0;
+static byte transIndex[RCV_FIRE_NUM] = {0, 1, 2, 2};
 
 u32 req30_count1 = 0;
 u32 req30_count2 = 0;
@@ -166,6 +169,7 @@ static u16 verMemDevice = 0x100;
 
 static byte mainModeState = 0;
 static byte fireType = 0;
+static byte nextFireType = 0;
 //static byte dspStatus = 0;
 
 static bool cmdWriteStart_00 = false;
@@ -275,7 +279,7 @@ u16 GetVersionDevice()
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateRcvReqFire(byte n, u16 fc)
+static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
@@ -299,12 +303,13 @@ static Ptr<REQ> CreateRcvReqFire(byte n, u16 fc)
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
 
-	req.r[2].len	= req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
-	req.r[2].adr	= req.r[1].adr	= req.r[0].adr	= 0;
-	req.r[2].func	= req.r[1].func	= req.r[0].func	= 1;
-	req.r[2].n		= req.r[1].n	= req.r[0].n	= n;
-	req.r[2].fc		= req.r[1].fc	= req.r[0].fc	= fc;
-	req.r[2].crc	= req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
+	req.r[2].len	= req.r[1].len		= req.r[0].len		= sizeof(req.r[0]) - 1;
+	req.r[2].adr	= req.r[1].adr		= req.r[0].adr		= 0;
+	req.r[2].func	= req.r[1].func		= req.r[0].func		= 1;
+	req.r[2].n		= req.r[1].n		= req.r[0].n		= n;
+	req.r[2].next_n	= req.r[1].next_n	= req.r[0].next_n	= next_n;
+	req.r[2].fc		= req.r[1].fc		= req.r[0].fc		= fc;
+	req.r[2].crc	= req.r[1].crc		= req.r[0].crc		= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return &q;
 }
@@ -320,13 +325,13 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 	if (crcOK)
 	{
-		rcvStatus |= 1 << (rsp.hdr.rw & 7);
+		rcvStatus |= 1 << (rsp.hdr.rw & 15);
 		
 		q->rsp->len = q->rb.len;
 	}
 	else
 	{
-		byte a = (req.r[0].adr-1) & 7;
+		byte a = (req.r[0].adr-1) & 15;
 
 		if (q->rb.recieved)
 		{
@@ -361,7 +366,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
+static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
@@ -385,8 +390,8 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 
 	ReqRcv02 &req = *((ReqRcv02*)rq->reqData);
 
-	adr = (adr-1)&7; 
-	chnl &= 3; n %= 3;
+	adr = (adr-1)&15; 
+	n %= 3; //chnl &= 3; 
 
 	rq->rsp->len = 0;
 	
@@ -408,7 +413,6 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, byte chnl, u16 tryCount)
 	req.r[1].adr	= req.r[0].adr	= adr+1;
 	req.r[1].func	= req.r[0].func	= 2;
 	req.r[1].n		= req.r[0].n	= n;
-	req.r[1].chnl	= req.r[0].chnl	= chnl;
 	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return rq;
@@ -468,17 +472,14 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	req.r[1].adr	= req.r[0].adr	= adr;
 	req.r[1].func	= req.r[0].func	= 3;
 
-	req.r[1].st[0] 	= req.r[0].st[0] = mv.trans[0].st;
-	req.r[1].st[1] 	= req.r[0].st[1] = mv.trans[1].st;
-	req.r[1].st[2] 	= req.r[0].st[2] = mv.trans[1].st;
-	   
-	req.r[1].sl[0] 	= req.r[0].sl[0] = mv.trans[0].sl;
-	req.r[1].sl[1] 	= req.r[0].sl[1] = mv.trans[1].sl;
-	req.r[1].sl[2] 	= req.r[0].sl[2] = mv.trans[1].sl;
-	   
-	req.r[1].sd[0] 	= req.r[0].sd[0] = mv.trans[0].sd;
-	req.r[1].sd[1] 	= req.r[0].sd[1] = mv.trans[1].sd;
-	req.r[1].sd[2] 	= req.r[0].sd[2] = mv.trans[1].sd;
+	for (u16 i = 0; i < RCV_FIRE_NUM; i++)
+	{
+		byte n = transIndex[i];
+
+		req.r[1].st[i] 	= req.r[0].st[i] = mv.trans[n].st;
+		req.r[1].sl[i] 	= req.r[0].sl[i] = mv.trans[n].sl;
+		req.r[1].sd[i] 	= req.r[0].sd[i] = mv.trans[n].sd;
+	};
 
 	req.r[1].crc = req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 	
@@ -741,7 +742,7 @@ static Ptr<REQ> CreateRcvBootReq01(u16 adr, u32 len, u16 tryCount)
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(BootRspV1::F1));
+	rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF1));
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
@@ -1317,7 +1318,7 @@ static u32 InitRspMan_20(__packed u16 *data)
 	*(data++) = GD(&fireCounter, u16, 1);				//	3. 	счётчик. старшие 2 байта
 	*(data++) = voltage;								//	4. 	напряжение передатчика
 	*(data++) = numStations|(((u16)rcvStatus)<<8);		//	5. 	мл.байт - к-во приемников, ст.байт-статус приёмников
-	*(data++) = resistValue;							//	6. 	сопротивление IdLine
+	*(data++) = rcvStatus;//resistValue;							//	6. 	сопротивление IdLine
 	*(data++) = (temp+5)/10;							//	7. 	ТЕМПЕРАТУРА CPU
 	*(data++) = ax;										//	8. 	AX
 	*(data++) = ay;										//	9. 	AY
@@ -2019,7 +2020,7 @@ static void StopTrmFire()
 
 static void UpdateRcvTrm()
 {
-	static byte i = 0, n = 0;
+	static byte i = 0, n = 0, next_n = 0;
 	//static u16 sd = 0;
 	static CTM32 ctm;
 
@@ -2051,6 +2052,7 @@ static void UpdateRcvTrm()
 			qRcv.Stop();
 			qTrm.Stop();
 			n = fireType;
+			next_n = nextFireType;
 
 			i++;
 
@@ -2071,7 +2073,7 @@ static void UpdateRcvTrm()
 
 		case 4:
 
-			reqr = CreateRcvReqFire(n, fireCounter);
+			reqr = CreateRcvReqFire(n, next_n, fireCounter);
 
 			if (reqr.Valid())
 			{
@@ -2121,7 +2123,9 @@ static void UpdateRcvTrm()
 			{
 				StartTrmFire();
 
-				u32 t = 50000;// + (u32)mv.transsampleLen[n]*sampleTime[n]+sampleDelay[n];
+				byte tn = transIndex[n];
+
+				u32 t = 1000 + (u32)mv.trans[tn].sl * mv.trans[tn].st + mv.trans[tn].sd;
 
 				fireTime = US2CTM(t);
 
@@ -2155,7 +2159,7 @@ static void MainMode()
 	//fireType
 
 	static byte rcv = 0;
-	static byte chnl = 0;
+	//static byte chnl = 0;
 	//static REQ *req = 0;
 	//static R02 *r02 = 0;
 	static CTM32 ctm;
@@ -2199,7 +2203,7 @@ static void MainMode()
 
 			if (!startFire)
 			{
-				rcv = 1; chnl = 0;
+				rcv = 1;
 
 				mainModeState++;
 			};
@@ -2208,7 +2212,7 @@ static void MainMode()
 
 		case 3:
 
-			req = CreateRcvReq02(rcv, fireType, chnl, 1);
+			req = CreateRcvReq02(rcv, fireType, 1);
 
 			if (req.Valid())
 			{
@@ -2249,7 +2253,6 @@ static void MainMode()
 				if (rcv < numStations)
 				{
 					rcv += 1;
-					chnl = 0;
 
 					mainModeState++;
 				}
@@ -2262,11 +2265,13 @@ static void MainMode()
 				ctm.Reset();
 			};
 
+			qRcv.Update();
+
 			break;
 
 		case 5:
 
-			if (ctm.Check(MS2CTM(1)))
+			if (ctm.Check(US2CTM(100)))
 			{
 				mainModeState = 3;
 			};
@@ -3112,6 +3117,7 @@ static void FlashRcv()
 	u16 tryCount = 100;
 	
 	rcvStatus = 0;
+	byte N = RCV_MAX_NUM_STATIONS;
 
 	comRcv.Disconnect();
 
@@ -3119,7 +3125,7 @@ static void FlashRcv()
 
 	while (tryCount > 0)
 	{
-		for (byte i = 1; i <= RCV_MAX_NUM_STATIONS; i++)
+		for (byte i = 1; i <= N; i++)
 		{
 			if ((rcvStatus & (1 << (i-1))) == 0)
 			{
@@ -3150,7 +3156,7 @@ static void FlashRcv()
 		tryCount--;
 	};
 
-	for (byte i = 1; i <= RCV_MAX_NUM_STATIONS; i++)
+	for (byte i = 1; i <= N; i++)
 	{
 		if (rcvStatus & (1 << (i-1)))
 		{
@@ -3403,48 +3409,39 @@ static void InitMainVars()
 	mv.numDevice		= 11111;
 	mv.numMemDevice		= 11111;
 
-	//mv.sens1.gain			= 0; 
-	//mv.sens1.st				= NS2DSP(400); 
-	//mv.sens1.sl				= 500; 
-	//mv.sens1.sd 			= US2DSP(50); 
-	//mv.sens1.deadTime		= US2DSP(50); 
-	//mv.sens1.descriminant	= 400; 
-	//mv.sens1.freq			= 500;
-	//mv.sens1.filtrType		= 0;
-	//mv.sens1.packType		= 0;
-	//mv.sens1.fi_Type		= 0;
-	//mv.sens1.fragLen		= 0;
+	mv.trans[0].gain		= 0;
+	mv.trans[0].st 		= 5;	
+	mv.trans[0].sl 		= 512;	
+	mv.trans[0].sd 		= 200;	
+	mv.trans[0].freq		= 16000;
+	mv.trans[0].duty		= 50;
+	mv.trans[0].amp		= 1200;
+	mv.trans[0].pulseCount = 1;
 
-	//mv.sens2.gain			= 0; 
-	//mv.sens2.st				= NS2DSP(400); 
-	//mv.sens2.sl				= 500; 
-	//mv.sens2.sd 			= US2DSP(50); 
-	//mv.sens2.deadTime		= US2DSP(50); 
-	//mv.sens2.descriminant	= 400; 
-	//mv.sens2.freq			= 500; 
-	//mv.sens2.filtrType		= 0;
-	//mv.sens2.packType		= 0;
-	//mv.sens2.fi_Type		= 0;
-	//mv.sens2.fragLen		= 0;
+	mv.trans[1].gain		= 1;
+	mv.trans[1].st 		= 10;	
+	mv.trans[1].sl 		= 512;	
+	mv.trans[1].sd 		= 200;	
+	mv.trans[1].freq		= 3000;
+	mv.trans[1].duty		= 50;
+	mv.trans[1].amp		= 1200;
+	mv.trans[1].pulseCount = 1;
 
-	//mv.refSens.gain			= 0; 
-	//mv.refSens.st			= NS2DSP(400); 
-	//mv.refSens.sl			= 500; 
-	//mv.refSens.sd 			= US2DSP(50); 
-	//mv.refSens.deadTime		= US2DSP(50); 
-	//mv.refSens.descriminant	= 400; 
-	//mv.refSens.freq			= 500; 
-	//mv.refSens.filtrType	= 0;
-	//mv.refSens.packType		= 0;
-	//mv.refSens.fi_Type		= 0;
-	//mv.refSens.fragLen		= 0;
+	mv.trans[2].gain		= 1;
+	mv.trans[2].st 		= 10;	
+	mv.trans[2].sl 		= 512;	
+	mv.trans[2].sd 		= 500;	
+	mv.trans[2].freq		= 1000;
+	mv.trans[2].duty		= 50;
+	mv.trans[2].amp		= 1200;
+	mv.trans[2].pulseCount = 1;
 
-	//mv.cmSPR			= 36;
-	//mv.imSPR			= 180;
-	//mv.fireVoltage		= 500;
-	//mv.motoLimCur		= 2000;
-	//mv.motoMaxCur		= 3000;
-	//mv.sensMask			= 1;
+	mv.trmVoltage				= 800;
+	mv.disableFireNoVibration	= 1;
+	mv.levelNoVibration		= 100;
+	mv.firePeriod				= 1000;
+	mv.lfMnplEnabled			= 0;
+	mv.packType				= 0;
 
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_CYAN "Init Main Vars Vars ... OK\n");
 }
@@ -3464,19 +3461,6 @@ static void LoadVars()
 	MainVars mv1, mv2;
 
 	bool c1 = false, c2 = false;
-
-	//spi.adr = ((u32)ReverseWord(FRAM_SPI_MAINVARS_ADR)<<8)|0x9F;
-	//spi.alen = 1;
-	//spi.csnum = 1;
-	//spi.wdata = 0;
-	//spi.wlen = 0;
-	//spi.rdata = buf;
-	//spi.rlen = 9;
-
-	//if (SPI_AddRequest(&spi))
-	//{
-	//	while (!spi.ready);
-	//};
 
 	bool loadVarsOk = false;
 
@@ -4056,7 +4040,7 @@ int main()
 			extern u32 txThreadCount;
 
 			Printf(0, 0, 0xFC, "FPS=%9i", fps);
-			Printf(0, 1, 0xF0, "%lu", testDspReqCount);
+//			Printf(0, 1, 0xF0, "%lu", testDspReqCount);
 			Printf(0, 2, 0xF0, "%lu", txThreadCount);
 #endif
 		};

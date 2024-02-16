@@ -1,7 +1,7 @@
 #include "hardware.h"
 
-#include <bfrom.h>
-#include <sys\exception.h>
+//#include <bfrom.h>
+//#include <sys\exception.h>
 //#include <cdefBF592-A.h>
 //#include <ccblkfn.h>
 
@@ -9,24 +9,22 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <ADSP\system_imp.h>
-#include <i2c.h>
+#include "ADSP\system_imp.h"
+#include "i2c.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#define SPORT_BUF_NUM 1
 
 const u32 coreCLK = CCLK;
 const u32 sysCLK = SCLK;
 
-//U32u adcValue;
+static DSCSPORT *curDscSPORT = 0;
 
-//u16 pgaValue = 0x2A01;
-//bool pgaSet = true;
-//bool adcEnable = true;
+static DSCSPORT sportdsc[SPORT_BUF_NUM];
 
-//byte netAdr = 1;
-
-//u16 netResist = 0;
-//u16 fltResist = 0;
+#pragma instantiate List<DSCSPORT>
+static List<DSCSPORT> freeSPORT;
+static List<DSCSPORT> readySPORT;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -36,8 +34,30 @@ DMA_CH	dmaRxSp1(SPORT1_RX_DMA);
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool defSport0_Ready = false, defSport1_Ready = false;
-static bool *sport0_Ready = 0, *sport1_Ready = 0;
+//static bool defSport0_Ready = false, defSport1_Ready = false;
+//static bool *sport0_Ready = 0, *sport1_Ready = 0;
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+DSCSPORT* GetDscSPORT()
+{
+	return readySPORT.Get();
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+DSCSPORT* AllocDscSPORT()
+{
+	return freeSPORT.Get();
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void FreeDscSPORT(DSCSPORT* dsc)
+{
+	freeSPORT.Add(dsc);
+}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -51,9 +71,9 @@ EX_INTERRUPT_HANDLER(SPORT0_ISR)
 	{
 		HW::SPORT0->RCR1 = 0;
 		dmaRxSp0.Disable();
-		//*pDMA1_IRQ_STATUS = 1;
-		//*pDMA1_CONFIG = 0;
-		*sport0_Ready = true;
+		curDscSPORT->readyMask |= 1;
+
+		if (curDscSPORT->readyMask == 3) readySPORT.Add(curDscSPORT), curDscSPORT = 0;
 	};
 
 	HW::PIOF->CLR(PF4);
@@ -69,9 +89,9 @@ EX_INTERRUPT_HANDLER(SPORT1_ISR)
 	{
 		HW::SPORT1->RCR1 = 0;
 		dmaRxSp1.Disable();
-		//*pDMA3_IRQ_STATUS = 1;
-		//*pDMA3_CONFIG = 0;
-		*sport1_Ready = true;
+		curDscSPORT->readyMask |= 2;
+
+		if (curDscSPORT->readyMask == 3) readySPORT.Add(curDscSPORT), curDscSPORT = 0;
 	};
 
 	HW::PIOF->CLR(PF4);
@@ -126,21 +146,14 @@ static void InitSPORT()
 
 	InitIVG(IVG_PORTF_SYNC, PID_Port_F_Interrupt_A, StartSPORT_ISR);
 
-	//*pEVT9 = (void*)SPORT_ISR;
-	//*pIMASK |= EVT_IVG9; 
-	//*pSIC_IMASK |= IRQ_DMA1;
+	for (u16 i = 0; i < ArraySize(sportdsc); i++)
+	{
+		DSCSPORT &dsc = sportdsc[i];
 
+		dsc.readyMask = 0;
 
-	//*pEVT11 = (void*)StartSPORT_ISR;
-	//*pIMASK |= EVT_IVG11; 
-	//*pSIC_IMASK |= IRQ_PFA_PORTF;
-
-	//*pPORTFIO_INEN = 1<<12;
-	//*pPORTFIO_EDGE = 1<<12;
-	//*pPORTFIO_BOTH = 0;
-	//*pPORTFIO_CLEAR = 1<<12;
-	//*pPORTFIO_MASKA = 0;
-	//*pPORTFIO_MASKB = 0;
+		freeSPORT.Add(&dsc);
+	};
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -183,13 +196,11 @@ static void InitSPORT()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void SyncReadSPORT(void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool *ready0, bool *ready1)
+void SyncReadSPORT(DSCSPORT *dsc) // (void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool *ready0, bool *ready1)
 {
-	sport0_Ready = (ready0 != 0) ? ready0 : &defSport0_Ready;
-	sport1_Ready = (ready1 != 0) ? ready1 : &defSport1_Ready;
+	if (dsc == 0) return;
 
-	*sport0_Ready = false;
-	*sport1_Ready = false;
+	dsc->readyMask = 0;
 
 	dmaRxSp0.Disable();
 	dmaRxSp1.Disable();
@@ -199,42 +210,33 @@ void SyncReadSPORT(void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool 
 
 	HW::SPORT0->RCR1	= 0;							//*pSPORT0_RCR1 = 0;
 	HW::SPORT0->RCR2	= 15|RXSE;						//*pSPORT0_RCR2 = 15|RXSE;
-	HW::SPORT0->RCLKDIV = clkdiv*(SCLK_MHz/50)-1;		//*pSPORT0_RCLKDIV = clkdiv;
+	HW::SPORT0->RCLKDIV = dsc->st*(SCLK_MHz/50)-1;		//*pSPORT0_RCLKDIV = clkdiv;
 	HW::SPORT0->RFSDIV	= 24;							//*pSPORT0_RFSDIV = 49;
 
 	HW::SPORT1->RCR1	= 0;
 	HW::SPORT1->RCR2	= 15|RXSE;
-	HW::SPORT1->RCLKDIV = clkdiv*(SCLK_MHz/50)-1;
+	HW::SPORT1->RCLKDIV = dsc->st*(SCLK_MHz/50)-1;
 	HW::SPORT1->RFSDIV	= 24;
 
-	if (delay != 0)
+	u16 delay = dsc->sd*2;
+	u16 len = dsc->sl*2;
+
+	if (dsc->sd != 0)
 	{
-		dmaRxSp0.Read16(dst1, delay*2, len);
-		dmaRxSp1.Read16(dst2, delay*2, len);
+		dmaRxSp0.Read16(dsc->spd[0], delay, len);
+		dmaRxSp1.Read16(dsc->spd[1], delay, len);
 	}
 	else
 	{
-		dmaRxSp0.Read16(dst1, len); 
-		dmaRxSp1.Read16(dst2, len); 
+		dmaRxSp0.Read16(dsc->spd[0], len); 
+		dmaRxSp1.Read16(dsc->spd[1], len); 
 	};
 
-	//*pDMA1_START_ADDR = dst1;
-	//*pDMA1_X_COUNT = len1/2;
-	//*pDMA1_X_MODIFY = 2;
-
-	//*pDMA3_START_ADDR = dst2;
-	//*pDMA3_X_COUNT = len2/2;
-	//*pDMA3_X_MODIFY = 2;
-
-	//*pDMA1_CONFIG = FLOW_STOP|DI_EN|WDSIZE_16|SYNC|WNR|DMAEN;
-	//*pDMA3_CONFIG = FLOW_STOP|DI_EN|WDSIZE_16|SYNC|WNR|DMAEN;
-
+	curDscSPORT = dsc;
 
 	PIO_SYNC->ClearTriggerIRQ(BM_SYNC);
 	PIO_SYNC->SetMaskA(BM_SYNC);
 
-	//*pPORTFIO_CLEAR = 1<<12;
-	//*pPORTFIO_MASKA = 1<<12;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -22,7 +22,7 @@
 #define HUGE_BUF_LEN	0x4100    
 #endif
 #define	NUM_SMALL_BUF	16       
-#define	NUM_MEDIUM_BUF	8
+#define	NUM_MEDIUM_BUF	4
 #define	NUM_HUGE_BUF	8
 
 #include <MEM\mem_imp.h>

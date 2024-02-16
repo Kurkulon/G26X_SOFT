@@ -26,9 +26,9 @@ if EXIST %2mkoutdep del /Q %2mkoutdep
 for /R %1 %%i in ("*.cpp") do (
 	set TEMP=%%i
 	set LIST_CPP=!LIST_CPP! !TEMP!
-	set TEMP=!TEMP:.cpp=.o!
+	set TEMP=!TEMP:.cpp=.doj!
 	set TEMP=!TEMP:%1=%2!
-	set DEP=!TEMP:.o=.d!
+	set DEP=!TEMP:.doj=.d!
 	if NOT EXIST !DEP! echo !TEMP! : %%i > !DEP!
 	type !DEP! >> %2mkoutdep
 	set LIST_OBJ=!LIST_OBJ! !TEMP!

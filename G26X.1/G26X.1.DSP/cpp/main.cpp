@@ -1,6 +1,7 @@
 #include "hardware.h"
 #include "ComPort\ComPort.h"
 #include "CRC\CRC16.h"
+#include "CRC\CRC16_CCIT.h"
 #include "G_RCV.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -12,11 +13,11 @@ static ComPort com;
 //
 //static byte data[256*48];
 
-static u16 spd[2][1024*2];
-static byte spTime[3];
-static byte spGain[3];
-static u16	spLen[3];
-static u16	spDelay[3];
+//static u16 spd[2][1024*2];
+static byte spTime[RCV_FIRE_NUM];
+static byte spGain[RCV_FIRE_NUM];
+static u16	spLen[RCV_FIRE_NUM];
+static u16	spDelay[RCV_FIRE_NUM];
 
 static u16	maxAmp[4];
 static u16	power[4];
@@ -29,22 +30,21 @@ static u16	power[4];
 //static i16 ch3[512];
 //static i16 ch4[512];
 
-static bool ready1 = false, ready2 = false;
+//static bool ready1 = false, ready2 = false;
 
 //static u32 CRCOK = 0;
 //static u32 CRCER = 0;
 
-static byte sampleTime[3] = { 5, 10, 10};
-static byte gain[3] = { 0, 1, 1 };
-static u16 sampleLen[3] = {1024, 1024, 1024};
-static u16 sampleDelay[3] = { 200, 500, 500};
+static byte sampleTime[RCV_FIRE_NUM]	= { 10	};
+static byte gain[RCV_FIRE_NUM]			= { 0	};
+static u16 sampleLen[RCV_FIRE_NUM]		= { 512	};
+static u16 sampleDelay[RCV_FIRE_NUM]	= { 200	};
 
 
 //static byte netAdr = 1;
 
 static U32u fadc = 0;
 
-static byte sportState = 0;
 static byte fireN = 0;
 
 static u16 flashCRC = 0;
@@ -56,71 +56,6 @@ static u16 vectorCount = 0;
 
 static u16 lastErasedBlock = ~0;
 
-static void CheckFlash();
-
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-//struct Request
-//{
-//	byte adr;
-//	byte func;
-//	
-//	union
-//	{
-//		struct  { byte n; word crc; } f1;  // старт оцифровки
-//		struct  { byte n; byte chnl; word crc; } f2;  // чтение вектора
-//		struct  { u16 st[3]; u16 sl[3]; u16 sd[3]; word crc; } f3;  // установка периода дискретизации вектора и коэффициента усиления
-//		struct  { byte ka[3]; word crc; } f4;  // старт оцифровки с установкой периода дискретизации вектора и коэффициента усиления
-//
-////		struct  { byte subfunc; ka[3]; word crc; } fAD;  // Перепрошивка флэшки
-//	};
-//};
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-#pragma pack(1)
-
-//struct NewRequest
-//{
-//	byte len;
-//	byte adr;
-//	byte func;
-//	
-//	union
-//	{
-//		struct  { byte n; u16 vc; word crc; } f1;  // старт оцифровки
-//		struct  { byte n; byte chnl; word crc; } f2;  // чтение вектора
-//		struct  { u16 st[3]; u16 sl[3]; u16 sd[3]; word crc; } f3;  // установка шага и длины оцифровки вектора
-//		struct  { byte ka[3]; word crc; } f4;  // установка коэффициента усиления
-//	};
-//};
-
-#pragma pack()
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-//struct Response
-//{
-//	byte adr;
-//	byte func;
-//	
-//	union
-//	{
-//		struct  { word crc; } f1;  // старт оцифровки
-//		struct  { word crc; } f3;  // установка периода дискретизации вектора и коэффициента усиления
-//		struct  { u16 maxAmp[4]; u16 power[4]; word crc; } f4;  // старт оцифровки с установкой периода дискретизации вектора и коэффициента усиления
-//	};
-//};
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-#pragma pack(1)
-
-//struct Response02 { u16 rw; u32 cnt; u16 gain; u16 st; u16 len; u16 delay; u16 data[1024*4]; word crc; }; // чтение вектора
-
-#pragma pack()
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -142,24 +77,27 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	RspRcv01 &rsp = *((RspRcv01*)rspBuf);
 
 	byte n = req.n;
-	if (n > 2) n = 2;
+	if (n > RCV_FIRE_NUM) n = RCV_FIRE_NUM;
 
-	vectorCount = req.fc;
+	DSCSPORT *dsc = AllocDscSPORT();
 
-	spTime[n]	= sampleTime[n];
-	spGain[n]	= gain[n];
-	spLen[n]	= sampleLen[n];
+	if (dsc != 0)
+	{
+		dsc->vectorCount	= req.fc;
+		dsc->fireN			= n;
+		dsc->st				= sampleTime[n];
+		dsc->gain			= gain[n];
+		dsc->sl				= sampleLen[n];
 
-	u16 delay = sampleDelay[n] / sampleTime[n];
+		u16 delay = sampleDelay[n] / sampleTime[n];
 
-	spDelay[n]	= delay * sampleTime[n];
+		dsc->sd	= delay * sampleTime[n];
 
-	//SetGain(spGain[n]);
-	SyncReadSPORT(spd[0], spd[1], spLen[n]*2, spTime[n], delay, &ready1, &ready2);
-	//DisableADC();
+		SyncReadSPORT(dsc);
+	};
 
 	fireN = n;
-	sportState = 0;
+	//sportState = 0;
 
 	if (req.adr == 0) return  false;
 
@@ -200,27 +138,27 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 	if (rsp.hdr.rw == 0)
 	{
-		rsp.hdr.rw = 0xAA30 + (n<<4) + req.adr-1;
-		rsp.hdr.cnt		= vectorCount;
-		rsp.hdr.gain	= gain[n]; 
-		rsp.hdr.st		= sampleTime[n]; 
-		rsp.hdr.len		= len; 
-		rsp.hdr.delay	= sampleDelay[n];
+		//rsp.hdr.rw = 0xAA30 + (n<<4) + req.adr-1;
+		//rsp.hdr.cnt		= vectorCount;
+		//rsp.hdr.gain	= gain[n]; 
+		//rsp.hdr.st		= sampleTime[n]; 
+		//rsp.hdr.len		= len; 
+		//rsp.hdr.delay	= sampleDelay[n];
 
-		u16 *p1 = rsp.data+len*0;
-		u16 *p2 = rsp.data+len*1;
-		u16 *p3 = rsp.data+len*2;
-		u16 *p4 = rsp.data+len*3;
+		//u16 *p1 = rsp.data+len*0;
+		//u16 *p2 = rsp.data+len*1;
+		//u16 *p3 = rsp.data+len*2;
+		//u16 *p4 = rsp.data+len*3;
 
-		for (u16 i = 0; i < len; i++)
-		{
-			*p1++ = spd[0][i*2+0] - 0x8000;
-			*p2++ = spd[0][i*2+1] - 0x8000;
-			*p3++ = spd[1][i*2+0] - 0x8000;
-			*p4++ = spd[1][i*2+1] - 0x8000;
-		};
+		//for (u16 i = 0; i < len; i++)
+		//{
+		//	*p1++ = spd[0][i*2+0] - 0x8000;
+		//	*p2++ = spd[0][i*2+1] - 0x8000;
+		//	*p3++ = spd[1][i*2+0] - 0x8000;
+		//	*p4++ = spd[1][i*2+1] - 0x8000;
+		//};
 
-		rsp.data[len*4] = GetCRC16(&rsp, rsplen);
+		//rsp.data[len*4] = GetCRC16_CCIT(&rsp, rsplen);
 	};
 
 	//rsp.adr = netAdr;
@@ -406,12 +344,15 @@ static void UpdateBlackFin()
 
 static void UpdateSport()
 {
-	static byte n = 0;
-	static byte chnl = 0;
-	static u16 len = 0;
-	static byte st = 0;
-	static byte sg = 0;
-	static u16 sd = 0;
+	static byte sportState = 0;
+	//static byte n = 0;
+	//static byte chnl = 0;
+	//static u16 len = 0;
+	//static byte st = 0;
+	//static byte sg = 0;
+	//static u16 sd = 0;
+
+	static DSCSPORT *dsc = 0;
 
 	RspRcv02 &rsp = rsp02;
 
@@ -419,16 +360,15 @@ static void UpdateSport()
 	{
 		case 0:
 			
-			if (ready1 && ready2)
-			{
-				//EnableADC();
+			dsc = GetDscSPORT();
 
-				n = fireN;
-				chnl = 0;
-				len = spLen[n];
-				st = spTime[n];
-				sg = spGain[n];
-				sd = spDelay[n];
+			if (dsc != 0)
+			{
+				//n = fireN;
+				//len = spLen[n];
+				//st = spTime[n];
+				//sg = spGain[n];
+				//sd = spDelay[n];
 
 				sportState++;
 			};
@@ -437,25 +377,25 @@ static void UpdateSport()
 
 		case 1:
 
-			rsp.hdr.rw = 0xAA30 + (n<<4) + GetNetAdr()-1;
-			rsp.hdr.cnt = vectorCount;
-			rsp.hdr.gain = sg; 
-			rsp.hdr.st = st; 
-			rsp.hdr.len = len; 
-			rsp.hdr.delay = sd;
+			rsp.hdr.rw		= 0xAA30 + (dsc->fireN<<4) + GetNetAdr()-1;
+			rsp.hdr.cnt		= vectorCount;
+			rsp.hdr.gain	= dsc->gain; 
+			rsp.hdr.st		= dsc->st; 
+			rsp.hdr.len		= dsc->sl; 
+			rsp.hdr.delay	= dsc->sd;
 
 			*pPORTFIO_SET = 1<<8;
 
 			{
-				spd[0][0] = spd[0][2];
-				spd[0][1] =	spd[0][3];
-				spd[1][0] =	spd[1][2];
-				spd[1][1] =	spd[1][3];
+				//spd[0][0] = spd[0][2];
+				//spd[0][1] =	spd[0][3];
+				//spd[1][0] =	spd[1][2];
+				//spd[1][1] =	spd[1][3];
 
-				u16 *p1 = rsp.data+len*0;
-				u16 *p2 = rsp.data+len*1;
-				u16 *p3 = rsp.data+len*2;
-				u16 *p4 = rsp.data+len*3;
+				u16 *p1 = rsp.data + rsp.hdr.len*0;
+				u16 *p2 = rsp.data + rsp.hdr.len*1;
+				u16 *p3 = rsp.data + rsp.hdr.len*2;
+				u16 *p4 = rsp.data + rsp.hdr.len*3;
 
 				u16 max[4] = {0, 0, 0, 0};
 				u16 min[4] = {65535, 65535, 65535, 65535 };
@@ -466,9 +406,9 @@ static void UpdateSport()
 
 				i16 x;
 
-				for (u16 i = 0; i < len; i++)
+				for (u16 i = 0; i < rsp.hdr.len; i++)
 				{
-					t = spd[0][i*2+0];
+					t = dsc->spd[0][i*2+0];
 
 					if (t > max[0]) { max[0] = t; };
 					if (t < min[0]) { min[0] = t; };
@@ -477,7 +417,7 @@ static void UpdateSport()
 
 					pow[0] += (x > 0) ? x : (-x);
 
-					t = spd[0][i*2+1];
+					t = dsc->spd[0][i*2+1];
 
 					if (t > max[1]) { max[1] = t; };
 					if (t < min[1]) { min[1] = t; };
@@ -486,7 +426,7 @@ static void UpdateSport()
 
 					pow[1] += (x > 0) ? x : (-x);
 
-					t = spd[1][i*2+0];
+					t = dsc->spd[1][i*2+0];
 
 					if (t > max[2]) { max[2] = t; };
 					if (t < min[2]) { min[2] = t; };
@@ -495,7 +435,7 @@ static void UpdateSport()
 
 					pow[2] += (x > 0) ? x : (-x);
 
-					t = spd[1][i*2+1];
+					t = dsc->spd[1][i*2+1];
 
 					if (t > max[3]) { max[3] = t; };
 					if (t < min[3]) { min[3] = t; };
@@ -508,7 +448,7 @@ static void UpdateSport()
 				for (byte i = 0; i < 4; i++)
 				{
 					maxAmp[i] = max[i] - min[i];
-					power[i] = (len > 0) ? (pow[i] / len) : 0;
+					power[i] = (rsp.hdr.len > 0) ? (pow[i] / rsp.hdr.len) : 0;
 				};
 			};
 
@@ -520,16 +460,15 @@ static void UpdateSport()
 
 		case 2:
 
-			rsp.data[len*4] = GetCRC16(&rsp, sizeof(rsp) - sizeof(rsp.data) - sizeof(rsp.crc) + len*8);
+			rsp.data[rsp.hdr.len*4] = GetCRC16_CCIT(&rsp, sizeof(rsp) - sizeof(rsp.data) - sizeof(rsp.crc) + rsp.hdr.len*8);
 
-			sportState++;
+			FreeDscSPORT(dsc);
+
+			dsc = 0;
+
+			sportState = 0;
 
 			break;
-
-		case 3:
-
-			break;
-
 	};
 }
 

@@ -3,13 +3,29 @@
   
 #include "hw_conf.h"
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+struct DSCSPORT
+{
+	DSCSPORT	*next;
+	u32			vectorCount;
+	u16			readyMask;
+	u16			fireN;
+	u16			gain;
+	u16			sl;
+	u16			st;
+	u16			sd;
+	u16			spd[2][1024*2];
+};
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 extern void InitHardware();
 extern void UpdateHardware();
 
 //inline u32 GetRTT() { return *pTIMER0_COUNTER; }
 
-extern void SyncReadSPORT(void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool *ready0, bool *ready1);
+extern void SyncReadSPORT(DSCSPORT *dsc);
 //extern void ReadSPORT(void *dst1, void *dst2, u16 len1, u16 len2, u16 clkdiv, bool *ready0, bool *ready1);
 //inline void WritePGA(u16 v) { extern u16 pgaValue; extern bool pgaSet; pgaValue = v; pgaSet = true; }
 //inline void SetGain(byte g) { WritePGA(0x2A01|(g<<4)); }
@@ -18,6 +34,9 @@ extern void SyncReadSPORT(void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay
 //inline void DisableADC() { extern bool adcEnable; adcEnable = false; }
 
 extern u16 GetNetAdr();
+extern DSCSPORT* GetDscSPORT();
+extern void FreeDscSPORT(DSCSPORT* dsc);
+extern DSCSPORT* AllocDscSPORT();
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
