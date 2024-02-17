@@ -18,7 +18,7 @@
 const u32 coreCLK = CCLK;
 const u32 sysCLK = SCLK;
 
-static DSCSPORT *curDscSPORT = 0;
+static DSCSPORT *volatile curDscSPORT = 0;
 
 static DSCSPORT sportdsc[SPORT_BUF_NUM];
 

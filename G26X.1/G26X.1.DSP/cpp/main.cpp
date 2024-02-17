@@ -3,6 +3,8 @@
 #include "CRC\CRC16.h"
 #include "CRC\CRC16_CCIT.h"
 #include "G_RCV.h"
+#include "list.h"
+#include "pack.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -40,7 +42,6 @@ static byte gain[RCV_FIRE_NUM]			= { 0	};
 static u16 sampleLen[RCV_FIRE_NUM]		= { 512	};
 static u16 sampleDelay[RCV_FIRE_NUM]	= { 200	};
 
-
 //static byte netAdr = 1;
 
 static U32u fadc = 0;
@@ -52,16 +53,38 @@ static u32 flashLen = 0;
 static bool flashOK = false;
 static bool flashChecked = false;
 
-static u16 vectorCount = 0;
+static u16 packType = 0;
 
 static u16 lastErasedBlock = ~0;
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+struct DSCRSP02
+{
+	DSCRSP02 *next;
+
+	u16 len;
+
+	union 
+	{
+		RspRcv02 r02;
+		u16 data[sizeof(RspRcv02)/2];
+	};
+};
+
+static DSCRSP02 dscRsp02[1];
+
+#pragma instantiate List<DSCRSP02>
+static List<DSCRSP02> freeRSP02;
+static List<DSCRSP02> readyRSP02;
+
+static DSCRSP02 *wrDscRSP02 = 0;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 union RequestUnion { ReqRcv01	req01; ReqRcv02	req02; ReqRcv03	req03; ReqRcv04	req04; };
 				
-static RspRcv02 rsp02;
+//static RspRcv02 rsp02;
 
 static byte rspBuf[64];
 
@@ -115,6 +138,8 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
+	static u16 buf[2];
+
 	ReqRcv02::Req &req = *((ReqRcv02::Req*)data);
 
 	if (req.n > 2)
@@ -125,47 +150,24 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	if (req.adr == 0) return  false;
 
 	byte n = req.n;
-//	byte chnl = (req->f2.chnl)&3;
-
-	byte ch = 0;
-	byte cl = 0;
 	
-	len = sampleLen[n];
+	if (wrDscRSP02 == 0) wrDscRSP02 = readyRSP02.Get();
 
-	RspRcv02 &rsp = rsp02;
-
-	u16 rsplen = sizeof(rsp) - sizeof(rsp.data) - sizeof(rsp.crc) + len*8;
-
-	if (rsp.hdr.rw == 0)
+	if (wrDscRSP02 != 0)
 	{
-		//rsp.hdr.rw = 0xAA30 + (n<<4) + req.adr-1;
-		//rsp.hdr.cnt		= vectorCount;
-		//rsp.hdr.gain	= gain[n]; 
-		//rsp.hdr.st		= sampleTime[n]; 
-		//rsp.hdr.len		= len; 
-		//rsp.hdr.delay	= sampleDelay[n];
+		RspRcv02 &rsp = wrDscRSP02->r02;
 
-		//u16 *p1 = rsp.data+len*0;
-		//u16 *p2 = rsp.data+len*1;
-		//u16 *p3 = rsp.data+len*2;
-		//u16 *p4 = rsp.data+len*3;
+		wb->data = &rsp;
+		wb->len = wrDscRSP02->len;
+	}
+	else
+	{
+		buf[0] = 0xAA30 + (n<<4) + req.adr-1;
+		buf[1] = GetCRC16_CCIT(buf, 2);
 
-		//for (u16 i = 0; i < len; i++)
-		//{
-		//	*p1++ = spd[0][i*2+0] - 0x8000;
-		//	*p2++ = spd[0][i*2+1] - 0x8000;
-		//	*p3++ = spd[1][i*2+0] - 0x8000;
-		//	*p4++ = spd[1][i*2+1] - 0x8000;
-		//};
-
-		//rsp.data[len*4] = GetCRC16_CCIT(&rsp, rsplen);
+		wb->data = buf;
+		wb->len = sizeof(buf);
 	};
-
-	//rsp.adr = netAdr;
-	//rsp.func = 2;
-
-	wb->data = &rsp;
-	wb->len = rsplen + 2;
 
 	return true;
 }
@@ -333,6 +335,8 @@ static void UpdateBlackFin()
 
 			if (!com.Update())
 			{
+				if (wrDscRSP02 != 0) freeRSP02.Add(wrDscRSP02), wrDscRSP02 = 0;
+
 				i = 0;
 			};
 
@@ -353,8 +357,9 @@ static void UpdateSport()
 	//static u16 sd = 0;
 
 	static DSCSPORT *dsc = 0;
+	static DSCRSP02 *prsp = 0;
 
-	RspRcv02 &rsp = rsp02;
+	//RspRcv02 &rsp = rsp02;
 
 	switch(sportState)
 	{
@@ -377,20 +382,19 @@ static void UpdateSport()
 
 		case 1:
 
-			rsp.hdr.rw		= 0xAA30 + (dsc->fireN<<4) + GetNetAdr()-1;
-			rsp.hdr.cnt		= vectorCount;
-			rsp.hdr.gain	= dsc->gain; 
-			rsp.hdr.st		= dsc->st; 
-			rsp.hdr.len		= dsc->sl; 
-			rsp.hdr.delay	= dsc->sd;
+			prsp = freeRSP02.Get();
 
-			*pPORTFIO_SET = 1<<8;
-
+			if (prsp != 0)
 			{
-				//spd[0][0] = spd[0][2];
-				//spd[0][1] =	spd[0][3];
-				//spd[1][0] =	spd[1][2];
-				//spd[1][1] =	spd[1][3];
+				RspRcv02 &rsp = prsp->r02;
+
+				rsp.hdr.rw			= 0xAA30 + (dsc->fireN<<4) + GetNetAdr()-1;
+				rsp.hdr.cnt			= dsc->vectorCount;
+				rsp.hdr.gain		= dsc->gain; 
+				rsp.hdr.st			= dsc->st; 
+				rsp.hdr.len			= dsc->sl; 
+				rsp.hdr.delay		= dsc->sd;
+				rsp.hdr.packType	= packType;
 
 				u16 *p1 = rsp.data + rsp.hdr.len*0;
 				u16 *p2 = rsp.data + rsp.hdr.len*1;
@@ -450,25 +454,78 @@ static void UpdateSport()
 					maxAmp[i] = max[i] - min[i];
 					power[i] = (rsp.hdr.len > 0) ? (pow[i] / rsp.hdr.len) : 0;
 				};
+			
+				FreeDscSPORT(dsc);
+
+				dsc = 0;
+
+				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*8;
+
+				sportState = (rsp.hdr.packType == PACK_NO) ? 3 : (sportState+1);
 			};
-
-			*pPORTFIO_CLEAR = 1<<8;
-
-			sportState++;
 
 			break;
 
 		case 2:
+		{
+			RspRcv02 &rsp = prsp->r02;
 
-			rsp.data[rsp.hdr.len*4] = GetCRC16_CCIT(&rsp, sizeof(rsp) - sizeof(rsp.data) - sizeof(rsp.crc) + rsp.hdr.len*8);
+			if (rsp.hdr.packType == PACK_ULAW16)
+			{
+				Pack_uLaw_16Bit((i16*)rsp.data, (byte*)rsp.data, rsp.hdr.len*4);
+				rsp.hdr.packLen = rsp.hdr.len*2;
+				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*4;
+			}
+			else if (rsp.hdr.packType == PACK_ADPCMIMA)
+			{
+				i16	*src	= (i16*)rsp.data;
+				byte *dst	= (byte*)rsp.data;
 
-			FreeDscSPORT(dsc);
+				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.len); 
 
-			dsc = 0;
+				rsp.hdr.packLen = rsp.hdr.len;
+				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*2;
+			}
+			else if (rsp.hdr.packType >= PACK_DCT0)
+			{
+				u16 OVRLAP = (rsp.hdr.packType > PACK_DCT0) ? 7 : 3;
+				u16 shift = 4 - (rsp.hdr.packType - PACK_DCT0);
+
+				i16	*src	= (i16*)rsp.data;
+				byte *dst	= (byte*)rsp.data;
+				u16 packedLen = 0;
+				u16 pl = 0;
+
+				u16 sl =	Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &packedLen); src += rsp.hdr.len; dst += packedLen; pl += packedLen;
+							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &packedLen); src += rsp.hdr.len; dst += packedLen; pl += packedLen;
+							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &packedLen); src += rsp.hdr.len; dst += packedLen; pl += packedLen;
+							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &packedLen); pl += packedLen;
+
+				rsp.hdr.len = sl;
+
+				rsp.hdr.packLen = pl/2;
+				prsp->len = sizeof(rsp.hdr) + rsp.hdr.packLen*2;
+			};
+
+			sportState += 1;
+
+			break;
+		};
+
+		case 3:
+		{
+			RspRcv02 &rsp = prsp->r02;
+
+			prsp->data[prsp->len/2] = GetCRC16_CCIT(&prsp->r02, prsp->len);
+			prsp->len += 2;
 
 			sportState = 0;
 
 			break;
+		};
 	};
 }
 
@@ -503,7 +560,19 @@ void main( void )
 
 	InitHardware();
 
+	Pack_Init();
+
 	com.Connect(RCV_COM_BAUDRATE, RCV_COM_PARITY);
+
+	for (u16 i = 0; i < ArraySize(dscRsp02); i++)
+	{
+		DSCRSP02 &dsc = dscRsp02[i];
+
+		dsc.next = 0;
+
+		freeRSP02.Add(&dsc);
+	};
+
 
 //	InitNetAdr();
 

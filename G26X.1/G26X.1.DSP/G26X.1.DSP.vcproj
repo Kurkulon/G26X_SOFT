@@ -78,6 +78,10 @@
 				RelativePath=".\cpp\main.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\cpp\pack.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -90,6 +94,10 @@
 			</File>
 			<File
 				RelativePath=".\cpp\hw_conf.h"
+				>
+			</File>
+			<File
+				RelativePath=".\cpp\pack.h"
 				>
 			</File>
 		</Filter>

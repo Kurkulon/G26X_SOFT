@@ -86,7 +86,7 @@ compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-o
 
 ####################################################################################################################################################################################################
 
-link_options = -proc ADSP-BF592-A -si-revision 0.2 -T $(libdir)\LDF\BF592A.ldf -no-mem -flags-link -e,-MDNO_UTILITY_ROM,-MDADI_CCES -add-debug-libpaths -flags-link @$(objdir)\link_input.txt
+link_options = -proc ADSP-BF592-A -si-revision 0.2 -T $(libdir)\LDF\BF592A.ldf -no-mem -flags-link -e,-MDADI_CCES -add-debug-libpaths -flags-link @$(objdir)\link_input.txt
   
 ####################################################################################################################################################################################################
 
