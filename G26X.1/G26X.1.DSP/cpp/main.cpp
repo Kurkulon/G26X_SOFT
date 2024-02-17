@@ -2,11 +2,19 @@
 #include "ComPort\ComPort.h"
 #include "CRC\CRC16.h"
 #include "CRC\CRC16_CCIT.h"
-#include "G_RCV.h"
+#include "FLASH\at25df021.h"
+//#include "G_RCV.h"
 #include "list.h"
 #include "pack.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+enum { VERSION = 0x101 };
+
+static u16 numDevice = 0;
+static u16 numDevValid = 0;
+static u16 temp = 0;
+static u16 flashStatus = 0;
 
 //#include <bfrom.h>
 
@@ -16,10 +24,10 @@ static ComPort com;
 //static byte data[256*48];
 
 //static u16 spd[2][1024*2];
-static byte spTime[RCV_FIRE_NUM];
-static byte spGain[RCV_FIRE_NUM];
-static u16	spLen[RCV_FIRE_NUM];
-static u16	spDelay[RCV_FIRE_NUM];
+//static byte spTime[RCV_FIRE_NUM];
+//static byte spGain[RCV_FIRE_NUM];
+//static u16	spLen[RCV_FIRE_NUM];
+//static u16	spDelay[RCV_FIRE_NUM];
 
 static u16	maxAmp[4];
 static u16	power[4];
@@ -37,14 +45,14 @@ static u16	power[4];
 //static u32 CRCOK = 0;
 //static u32 CRCER = 0;
 
-static byte sampleTime[RCV_FIRE_NUM]	= { 10	};
-static byte gain[RCV_FIRE_NUM]			= { 0	};
-static u16 sampleLen[RCV_FIRE_NUM]		= { 512	};
-static u16 sampleDelay[RCV_FIRE_NUM]	= { 200	};
+//static byte sampleTime[RCV_FIRE_NUM]	= { 10	};
+static byte ngain[RCV_FIRE_NUM]			= { 0	};
+//static u16 sampleLen[RCV_FIRE_NUM]		= { 512	};
+//static u16 sampleDelay[RCV_FIRE_NUM]	= { 200	};
 
 //static byte netAdr = 1;
 
-static U32u fadc = 0;
+//static U32u fadc = 0;
 
 static byte fireN = 0;
 
@@ -52,6 +60,7 @@ static u16 flashCRC = 0;
 static u32 flashLen = 0;
 static bool flashOK = false;
 static bool flashChecked = false;
+static bool cmdSaveParams = false;
 
 static u16 packType = 0;
 
@@ -94,6 +103,13 @@ static byte build_date[sizeof(RequestUnion)+32] = "\n" "G26X_1_DSP" "\n" __DATE_
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+inline void SaveParams()
+{
+	cmdSaveParams = true;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
 	ReqRcv01::Req &req = *((ReqRcv01::Req*)data);
@@ -108,13 +124,19 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	{
 		dsc->vectorCount	= req.fc;
 		dsc->fireN			= n;
-		dsc->st				= sampleTime[n];
-		dsc->gain			= gain[n];
-		dsc->sl				= sampleLen[n];
+		dsc->gain			= ngain[n];
+		dsc->next_fireN		= req.next_n;
+		dsc->next_gain		= req.next_gain;
+		dsc->sl				= LIM(req.sl, 16, 1024);
+		dsc->st				= MAX(req.st, 2);
 
-		u16 delay = sampleDelay[n] / sampleTime[n];
+		#ifdef RCV_WAVEPACK
+		dsc->packType		= req.packType;
+		#endif
 
-		dsc->sd	= delay * sampleTime[n];
+		u16 delay = req.sd / dsc->st;
+
+		dsc->sd	= delay * dsc->st;
 
 		SyncReadSPORT(dsc);
 	};
@@ -179,27 +201,21 @@ static bool RequestFunc03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	ReqRcv03::Req &req	= *((ReqRcv03::Req*)data);
 	RspRcv03 &rsp		= *((RspRcv03*)rspBuf);
 
-	sampleTime[0] = MAX(req.st[0], 2);
-	sampleTime[1] = MAX(req.st[1], 2);
-	sampleTime[2] = MAX(req.st[2], 2);
+	for (byte i = 0; i < ArraySize(ngain); i++)	ngain[i] = req.gain[i];
 
-	sampleLen[0] = LIM(req.sl[0], 16, 1024);
-	sampleLen[1] = LIM(req.sl[1], 16, 1024);
-	sampleLen[2] = LIM(req.sl[2], 16, 1024);
-
-	//if (sampleLen[0] > 1024) { sampleLen[0] = 1024; };
-	//if (sampleLen[1] > 1024) { sampleLen[1] = 1024; };
-	//if (sampleLen[2] > 1024) { sampleLen[2] = 1024; };
-
-	sampleDelay[0] = req.sd[0];
-	sampleDelay[1] = req.sd[1];
-	sampleDelay[2] = req.sd[2];
+	if (req.numDevValid) numDevice = req.numDev, numDevValid = req.numDevValid;
 
 	if (req.adr == 0) return  false;
 
-	rsp.adr		= req.adr;
-	rsp.func	= req.func;
-	rsp.crc		= GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
+	rsp.adr			= req.adr;
+	rsp.func		= req.func;
+	rsp.temp		= temp;				// температура
+	rsp.numdev		= numDevice;		// номер модуля приёмников
+	rsp.verdev		= VERSION; 			// версия ПО модуля приёмников
+	rsp.numDevValid	= numDevValid;		// если не ноль, numDev считан из flash правильно или установлен запросом
+	rsp.flashStatus	= flashStatus; 		// бит 0 - запись в процессе, бит 1 - запись ОК, бит 2 - ошибка записи
+
+	rsp.crc			= GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
 
 	wb->data = &rsp;
 	wb->len = sizeof(rsp);
@@ -214,14 +230,17 @@ static bool RequestFunc04(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	ReqRcv04::Req	&req = *((ReqRcv04::Req*)data);
 	RspRcv04		&rsp = *((RspRcv04*)rspBuf);
 
-	gain[0] = req.ka[0];
-	gain[1] = req.ka[1];
-	gain[2] = req.ka[2];
+	if (req.saveParams) SaveParams();
 
 	if (req.adr == 0) return  false;
 
-	rsp.adr = req.adr;
-	rsp.func = 4;
+	rsp.adr			= req.adr;
+	rsp.func		= req.func;
+	rsp.temp		= temp;				// температура
+	rsp.numdev		= numDevice;		// номер модуля приёмников
+	rsp.verdev		= VERSION; 			// версия ПО модуля приёмников
+	rsp.numDevValid	= numDevValid;		// если не ноль, numDev считан из flash правильно или установлен запросом
+	rsp.flashStatus	= flashStatus; 		// бит 0 - запись в процессе, бит 1 - запись ОК, бит 2 - ошибка записи
 
 	rsp.maxAmp[0] = maxAmp[0];
 	rsp.maxAmp[1] = maxAmp[1];
@@ -394,7 +413,10 @@ static void UpdateSport()
 				rsp.hdr.st			= dsc->st; 
 				rsp.hdr.len			= dsc->sl; 
 				rsp.hdr.delay		= dsc->sd;
+
+				#ifdef RCV_WAVEPACK
 				rsp.hdr.packType	= packType;
+				#endif
 
 				u16 *p1 = rsp.data + rsp.hdr.len*0;
 				u16 *p2 = rsp.data + rsp.hdr.len*1;
@@ -461,10 +483,16 @@ static void UpdateSport()
 
 				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*8;
 
+				#ifdef RCV_WAVEPACK
 				sportState = (rsp.hdr.packType == PACK_NO) ? 3 : (sportState+1);
+				#else
+				sportState = 3;
+				#endif
 			};
 
 			break;
+
+	#ifdef RCV_WAVEPACK
 
 		case 2:
 		{
@@ -515,6 +543,8 @@ static void UpdateSport()
 			break;
 		};
 
+	#endif
+
 		case 3:
 		{
 			RspRcv02 &rsp = prsp->r02;
@@ -531,10 +561,37 @@ static void UpdateSport()
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//static void UpdateNetAdr()
-//{
-//	netAdr = (GetADC() / 398) + 1;
-//}
+static void UpdateSaveParams()
+{
+	static byte i = 0;
+
+	static ReqAT25 *req = 0;
+
+	switch (i)
+	{
+		case 0:
+
+			if (cmdSaveParams)
+			{
+				i++;
+			};
+
+			break;
+
+		case 1:
+
+			req = AllocReqAT25();
+
+			if (req != 0)
+			{
+				req->dataOffset = 0;
+				req->stAdr = 0;
+				//req->data
+			};
+
+			break;
+	};
+}
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -560,7 +617,11 @@ void main( void )
 
 	InitHardware();
 
+	FlashInit();
+
+#ifdef RCV_WAVEPACK
 	Pack_Init();
+#endif
 
 	com.Connect(RCV_COM_BAUDRATE, RCV_COM_PARITY);
 

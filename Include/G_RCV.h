@@ -1,7 +1,7 @@
 #ifndef G_RCV_H__27_12_2023__11_22
 #define G_RCV_H__27_12_2023__11_22
 
-#pragma once
+#pragma once 
 
 //#include "types.h"
 
@@ -25,6 +25,8 @@
 #define RCV_FltResist(v)	(((v) * 941 + 2048) / 4096)
 #define RCV_NetResist(v)	(((v) * 941 + 128) / 256)
 #define RCV_NetAdr(v)		(1 + (v)/1024)
+
+//#define RCV_WAVEPACK
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -51,7 +53,14 @@ __packed struct ReqRcv01	// старт оцифровки
 		byte 	func;
 		byte 	n; 
 		byte 	next_n; 
+		byte	next_gain;
 		u16		fc;		// fire count
+		u16		sl;
+		u16		st;
+		u16		sd;
+#ifdef RCV_WAVEPACK
+		u16		packType;
+#endif
 		word 	crc;  
 	}
 	r[3];
@@ -91,8 +100,11 @@ __packed struct RspRcvHdr02	// чтение вектора
 	u16 st;
 	u16 len;
 	u16 delay;
+
+#ifdef RCV_WAVEPACK
 	u16 packType;
 	u16 packLen;
+#endif
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -114,9 +126,9 @@ __packed struct  ReqRcv03	// установка периода дискретизации вектора и коэффицие
 		byte 	len;
 		byte 	adr;
 		byte 	func;
-		u16 	st[RCV_FIRE_NUM]; 
-		u16		sl[RCV_FIRE_NUM]; 
-		u16		sd[RCV_FIRE_NUM];
+		byte	numDevValid;		// если не ноль, numDev пральный и его нада записать в RAM
+		u16		numDev;				// номер модуля приёмников
+		u16 	gain[RCV_FIRE_NUM]; 
 		word	crc; 
 	}
 	r[2];
@@ -126,9 +138,14 @@ __packed struct  ReqRcv03	// установка периода дискретизации вектора и коэффицие
 
 __packed struct  RspRcv03	// установка периода дискретизации вектора и коэффициента усиления
 { 
-	byte adr;
-	byte func;
-	word crc; 
+	byte	adr;
+	byte	func;
+	u16		temp;			// температура
+	u16		numdev;			// номер модуля приёмников
+	u16		verdev; 		// версия ПО модуля приёмников
+	byte	numDevValid;	// если не ноль, numDev считан из flash правильно или установлен запросом
+	byte	flashStatus; 	// бит 0 - запись в процессе, бит 1 - запись ОК, бит 2 - ошибка записи
+	word	crc; 
 };  
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -140,7 +157,7 @@ __packed struct  ReqRcv04	// установка коэффициента усиления
 		byte 	len;
 		byte 	adr;
 		byte 	func;
-		byte 	ka[RCV_FIRE_NUM]; 
+		byte 	saveParams; // если не ноль, то записать параметры во flash
 		word 	crc; 
 	}
 	r[2];
@@ -152,6 +169,11 @@ __packed struct  RspRcv04	// установка периода дискретизации вектора и коэффицие
 { 
 	byte	adr;
 	byte	func;
+	byte	numDevValid;	// если не ноль, numDev считан из flash правильно или установлен запросом
+	byte	flashStatus; 	// бит 0 - запись в процессе, бит 1 - запись ОК, бит 2 - ошибка записи
+	u16		temp;			// температура
+	u16		numdev;			// номер модуля приёмников
+	u16		verdev; 		// версия ПО модуля приёмников
 	u16 	maxAmp[4];
 	u16		power[4];
 	word	crc; 

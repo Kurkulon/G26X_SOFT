@@ -50,18 +50,18 @@ initcode_name = $(libdir)\$(targetcpu)_$(version)\initcode_osc25.dxe
 
 ####################################################################################################################################################################################################
 
-startup_obj = $(objdir)\startup_BF592A.o
+startup_obj = $(objdir)\startup_BF592A.doj
 
 ####################################################################################################################################################################################################
 
 .ERASE
 .EXTENSIONS:
-.EXTENSIONS: .dxe .o .cpp .h .s .d
+.EXTENSIONS: .dxe .doj .cpp .h .s .d
 
 ####################################################################################################################################################################################################
 
 .cpp:	$(cppdir)
-.o:		$(objdir)
+.doj:	$(objdir)
 .dxe:	$(objdir)
 .h:		$(hdir)
 .s: 	$(cppdir);$(libdir)\cpp\ADSP
@@ -80,7 +80,7 @@ asm_options = -proc ADSP-BF592-A -g -si-revision 0.2 -DADI_CCES
 
 ####################################################################################################################################################################################################
 
-compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-overlap -save-temps -path-output $(objdir) -no-multiline &
+compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-overlap -no-multiline &
 	-double-size-32 -decls-strong -warn-protos -si-revision 0.2 -proc ADSP-BF592-A -DCPU_$(targetcpu) -DBOOTLOADER -Wterse -I$(incdir)
 
 ####################################################################################################################################################################################################
@@ -141,13 +141,13 @@ $(target_name).dxe : $(startup_obj) $(modules_obj) $(libname)
 
 ####################################################################################################################################################################################################
 
-.cpp.o: .AUTODEPEND
+.cpp.doj:
 	@echo Compiling $[. ...
-	@$(libdir)\ccbl.bat $(compiler_options) -MD -Mo="$^*.d" -o "$^@" $[@
+	@$(libdir)\ccbl.bat $(compiler_options) -save-temps -path-output $^: -i -gnu-style-dependencies -absolute-path-dependencies -MD -Mo="$^*.d" -o "$^@" $[@
 
 ####################################################################################################################################################################################################
 
-.s.o:
+.s.doj:
 	@echo Assembling $[. ...
 	@$(libdir)\easmbl.bat $(asm_options) -l $^*.lst  -o $^@ $[@	
 

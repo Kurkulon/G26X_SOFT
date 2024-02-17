@@ -99,6 +99,22 @@ static u16 resistValue = 0;
 static u16 voltage = 0;
 static byte transIndex[RCV_FIRE_NUM] = {0, 1, 2, 2};
 
+static u16  numDevTrm = 0;
+static byte numDevTrmValid = 0;
+static u16  verDevTrm = 0;
+static byte verDevTrmValid = 0;
+
+static u16  numDevRcv = 0;
+static byte numDevRcvValid = 0;
+static u16  verDevRcv = 0;
+static byte verDevRcvValid = 0;
+
+static u16  arrRcvNumDev[RCV_MAX_NUM_STATIONS] = {0};
+static u16  arrRcvTemp[RCV_MAX_NUM_STATIONS] = {0};
+static u16  arrRcvVerDev[RCV_MAX_NUM_STATIONS] = {0};
+static byte arrRcvNumDevValid[RCV_MAX_NUM_STATIONS] = {0};
+static byte arrRcvFlashStatus[RCV_MAX_NUM_STATIONS] = {0};
+
 u32 req30_count1 = 0;
 u32 req30_count2 = 0;
 u32 req30_count3 = 0;
@@ -175,6 +191,7 @@ static byte nextFireType = 0;
 static bool cmdWriteStart_00 = false;
 static bool cmdWriteStart_10 = false;
 static bool cmdWriteStart_20 = false;
+static bool cmdRcvSaveParams = false;
 
 //static u32 dspRcv40 = 0;
 //static u32 dspRcv50 = 0;
@@ -303,13 +320,24 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
 
-	req.r[2].len	= req.r[1].len		= req.r[0].len		= sizeof(req.r[0]) - 1;
-	req.r[2].adr	= req.r[1].adr		= req.r[0].adr		= 0;
-	req.r[2].func	= req.r[1].func		= req.r[0].func		= 1;
-	req.r[2].n		= req.r[1].n		= req.r[0].n		= n;
-	req.r[2].next_n	= req.r[1].next_n	= req.r[0].next_n	= next_n;
-	req.r[2].fc		= req.r[1].fc		= req.r[0].fc		= fc;
-	req.r[2].crc	= req.r[1].crc		= req.r[0].crc		= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
+	Transmiter	&trans = mv.trans[transIndex[next_n]];
+
+	req.r[2].len		= req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
+	req.r[2].adr		= req.r[1].adr			= req.r[0].adr			= 0;
+	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
+	req.r[2].n			= req.r[1].n			= req.r[0].n			= n;
+	req.r[2].next_n		= req.r[1].next_n		= req.r[0].next_n		= next_n;
+	req.r[2].next_gain	= req.r[1].next_gain	= req.r[0].next_gain	= next_n;
+	req.r[2].st 		= req.r[1].st 			= req.r[0].st 			= trans.st;
+	req.r[2].sl 		= req.r[1].sl 			= req.r[0].sl 			= trans.sl;
+	req.r[2].sd 		= req.r[1].sd 			= req.r[0].sd 			= trans.sd;
+	req.r[2].fc			= req.r[1].fc			= req.r[0].fc			= fc;
+
+#ifdef RCV_WAVEPACK
+	req.r[2].packType	= req.r[1].packType		= req.r[0].packType		= mv.packType;
+#endif
+
+	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return &q;
 }
@@ -391,7 +419,7 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 	ReqRcv02 &req = *((ReqRcv02*)rq->reqData);
 
 	adr = (adr-1)&15; 
-	n %= 3; //chnl &= 3; 
+	//n &= 3; //chnl &= 3; 
 
 	rq->rsp->len = 0;
 	
@@ -431,6 +459,18 @@ static bool CallBackRcvReq03(Ptr<REQ> &q)
 			q->tryCount--;
 			qRcv.Add(q);
 		};
+	}
+	else
+	{
+		RspRcv03 &rsp = *((RspRcv03*)q->rb.data);
+
+		byte n = rsp.adr - 1;
+
+		arrRcvTemp[n]			= rsp.temp;
+		arrRcvNumDev[n]			= rsp.numdev;
+		arrRcvVerDev[n]			= rsp.verdev;
+		arrRcvNumDevValid[n]	= rsp.numDevValid;
+		arrRcvFlashStatus[n]	= rsp.flashStatus;
 	};
 
 	return true;
@@ -468,17 +508,17 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	q.rb.data = (adr != 0) ? &rsp : 0;
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 
-	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
-	req.r[1].adr	= req.r[0].adr	= adr;
-	req.r[1].func	= req.r[0].func	= 3;
+	req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
+	req.r[1].adr			= req.r[0].adr			= adr;
+	req.r[1].func			= req.r[0].func			= 3;
+	req.r[1].numDevValid	= req.r[0].numDevValid	= numDevRcvValid;
+	req.r[1].numDev			= req.r[0].numDev		= numDevRcv;
 
 	for (u16 i = 0; i < RCV_FIRE_NUM; i++)
 	{
 		byte n = transIndex[i];
 
-		req.r[1].st[i] 	= req.r[0].st[i] = mv.trans[n].st;
-		req.r[1].sl[i] 	= req.r[0].sl[i] = mv.trans[n].sl;
-		req.r[1].sd[i] 	= req.r[0].sd[i] = mv.trans[n].sd;
+		req.r[1].gain[i] = req.r[0].gain[i] = mv.trans[n].st;
 	};
 
 	req.r[1].crc = req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
@@ -506,9 +546,15 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 
 		u16 i = rsp.adr - 1;
 
-		if (fireType <= 2 && i <= 7)
+		arrRcvTemp[i]			= rsp.temp;
+		arrRcvNumDev[i]			= rsp.numdev;
+		arrRcvVerDev[i]			= rsp.verdev;
+		arrRcvNumDevValid[i]	= rsp.numDevValid;
+		arrRcvFlashStatus[i]	= rsp.flashStatus;
+
+		if (fireType < RCV_FIRE_NUM && i < RCV_MAX_NUM_STATIONS)
 		{
-			i = fireType*32 + i*4;
+			i = fireType*(RCV_MAX_NUM_STATIONS*4) + i*4;
 
 			rspMan60.maxAmp[i + 0] = rsp.maxAmp[0];
 			rspMan60.maxAmp[i + 1] = rsp.maxAmp[1];
@@ -527,7 +573,7 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateRcvReq04(byte adr, u16 tryCount)
+static Ptr<REQ> CreateRcvReq04(byte adr, byte saveParams, u16 tryCount)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
@@ -557,14 +603,11 @@ static Ptr<REQ> CreateRcvReq04(byte adr, u16 tryCount)
 	q.rb.data = (adr != 0) ? &rsp : 0;
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 
-	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
-	req.r[1].adr	= req.r[0].adr	= adr;
-	req.r[1].func	= req.r[0].func	= 4;
+	req.r[1].len		= req.r[0].len			= sizeof(req.r[0]) - 1;
+	req.r[1].adr		= req.r[0].adr			= adr;
+	req.r[1].func		= req.r[0].func			= 4;
+	req.r[1].saveParams	= req.r[0].saveParams	= saveParams;
 						 
-	req.r[1].ka[0] 	= req.r[0].ka[0] = mv.trans[0].gain;
-	req.r[1].ka[1] 	= req.r[0].ka[1] = mv.trans[1].gain;
-	req.r[1].ka[2] 	= req.r[0].ka[2] = mv.trans[1].gain;
-	   
 	req.r[1].crc	= req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return &q;
@@ -2165,6 +2208,8 @@ static void MainMode()
 	static CTM32 ctm;
 	static CTM32 ctm2;
 
+	static byte saveRcvParams = 0;
+
 	static Ptr<REQ> req;
 //	REQ *rm = 0;
 
@@ -2180,7 +2225,20 @@ static void MainMode()
 				{
 					qRcv.Add(req);
 
+					if (cmdRcvSaveParams) saveRcvParams = 1;
+
 					mainModeState++;
+				};
+			}
+			else if (cmdRcvSaveParams) 
+			{
+				req = CreateRcvReq04(0, 1, 0);
+
+				if (req.Valid())
+				{
+					qRcv.Add(req);
+
+					cmdRcvSaveParams = false;
 				};
 			};
 
@@ -2280,7 +2338,7 @@ static void MainMode()
 
 		case 6:
 
-			req = CreateRcvReq04(rcv, 2);
+			req = CreateRcvReq04(rcv, saveRcvParams, 2);
 
 			if (req.Valid())
 			{
@@ -2303,6 +2361,9 @@ static void MainMode()
 				}
 				else
 				{
+					cmdRcvSaveParams = false;
+					saveRcvParams = 0;
+
 					mainModeState++;
 				};
 			};
@@ -2313,19 +2374,19 @@ static void MainMode()
 
 			if (ctm.Check(MS2CTM(mv.firePeriod/16)))
 			{
-				fireType = (fireType+1) % 3; 
+				fireType += 1; 
 
 				fireCounter += 1;
 
-				if (fireType == 0)
+				if (fireType < RCV_FIRE_NUM)
+				{
+					mainModeState = 9;
+				}
+				else
 				{
 					mainModeState = 10;
 
 					cmdWriteStart_20 = true;
-				}
-				else
-				{
-					mainModeState = 9;
 				};
 			};
 

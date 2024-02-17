@@ -71,6 +71,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\cpp\flash.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\cpp\hardware.cpp"
 				>
 			</File>

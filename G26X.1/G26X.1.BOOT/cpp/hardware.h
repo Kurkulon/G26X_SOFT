@@ -1,7 +1,7 @@
 #ifndef HARDWARE_H__15_05_2009__14_35
 #define HARDWARE_H__15_05_2009__14_35
   
-#include <types.h>
+#include "types.h"
 
 #include "hw_conf.h"
 

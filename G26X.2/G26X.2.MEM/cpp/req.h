@@ -246,8 +246,8 @@ __packed struct RspMan60
 {
 	u16 rw; 
 	u32 cnt; 
-	u16 maxAmp[96]; 
-	u16 power[96];
+	u16 maxAmp[RCV_MAX_NUM_STATIONS*RCV_FIRE_NUM]; 
+	u16 power[RCV_MAX_NUM_STATIONS*RCV_FIRE_NUM];
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
