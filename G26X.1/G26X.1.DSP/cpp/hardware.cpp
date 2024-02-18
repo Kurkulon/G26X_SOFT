@@ -18,6 +18,8 @@
 const u32 coreCLK = CCLK;
 const u32 sysCLK = SCLK;
 
+static u16 temp = 0;
+
 static DSCSPORT *volatile curDscSPORT = 0;
 
 static DSCSPORT sportdsc[SPORT_BUF_NUM];
@@ -196,7 +198,7 @@ static void InitSPORT()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void SyncReadSPORT(DSCSPORT *dsc) // (void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool *ready0, bool *ready1)
+void SyncReadSPORT(DSCSPORT *dsc, u16 delay) // (void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool *ready0, bool *ready1)
 {
 	if (dsc == 0) return;
 
@@ -218,19 +220,11 @@ void SyncReadSPORT(DSCSPORT *dsc) // (void *dst1, void *dst2, u16 len, u16 clkdi
 	HW::SPORT1->RCLKDIV = dsc->st*(SCLK_MHz/50)-1;
 	HW::SPORT1->RFSDIV	= 24;
 
-	u16 delay = dsc->sd*2;
+	delay = (delay+1)*2;
 	u16 len = dsc->sl*2;
 
-	if (dsc->sd != 0)
-	{
-		dmaRxSp0.Read16(dsc->spd[0], delay, len);
-		dmaRxSp1.Read16(dsc->spd[1], delay, len);
-	}
-	else
-	{
-		dmaRxSp0.Read16(dsc->spd[0], len); 
-		dmaRxSp1.Read16(dsc->spd[1], len); 
-	};
+	dmaRxSp0.Read16(dsc->spd[0], delay+1, len);
+	dmaRxSp1.Read16(dsc->spd[1], delay+1, len);
 
 	curDscSPORT = dsc;
 
@@ -241,21 +235,18 @@ void SyncReadSPORT(DSCSPORT *dsc) // (void *dst1, void *dst2, u16 len, u16 clkdi
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//void WritePGA(u16 v)
-//{
-//	
-//	*pSPI1_BAUD = 7; // SCLK=7MHz
-//	*pSPI1_FLG = 0;//FLS5|FLS2;
-//	*pSPI1_CTL = SPE|MSTR|SIZE|(TIMOD & 1);    // MSTR=1, CPOL=0, CPHA=0, LSBF=0, SIZE=1, EMISO=0, PSSE=0, GM=0, SZ=0, TIMOD=01
-//	*pPORTGIO_CLEAR = 1<<11;
-//	*pSPI1_TDBR = v;
-//
-//	while((*pSPI1_STAT&1) == 0) ;
-//
-//	*pPORTGIO_SET = 1<<11;
-//
-//	*pSPI1_CTL = 0;
-//}
+void SetGain(u16 v)
+{
+	PIO_GAIN->WBIT(BM_GAIN, v == 0);
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void InitGain()
+{
+	PIO_GAIN->ClrFER(BM_GAIN);
+	PIO_GAIN->DirSet(BM_GAIN);
+}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -276,6 +267,8 @@ void InitHardware()
 
 	InitSPORT();
 
+	InitGain();
+
 	CTM32 tm;
 
 	tm.Reset();
@@ -285,9 +278,84 @@ void InitHardware()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+u16 GetTemp()
+{
+	return temp;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void UpdateTemp()
+{
+	static byte i = 0;
+
+	static DSCI2C dsc;
+
+	static u16 rbuf = 0;
+	static byte buf[2];
+
+	static CTM32 tm;
+
+	switch (i)
+	{
+		case 0:
+
+			if (tm.Check(MS2CTM(100)))
+			{
+				buf[0] = 0;
+
+				dsc.adr = 0x49;
+				dsc.wdata = buf;
+				dsc.wlen = 1;
+				dsc.rdata = &rbuf;
+				dsc.rlen = 2;
+				dsc.wdata2 = 0;
+				dsc.wlen2 = 0;
+
+				if (I2C_AddRequest(&dsc))
+				{
+					i++;
+				};
+			};
+
+			break;
+
+		case 1:
+
+			if (dsc.ready)
+			{
+				if (dsc.ack && dsc.readedLen == dsc.rlen)
+				{
+					i32 t = (i16)ReverseWord(rbuf);
+
+					temp = (t * 10 + 64) / 128;
+				};
+
+				i = 0;
+			};
+
+			break;
+	};
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 void UpdateHardware()
 {
-	UpdateADC();
+		static byte i = 0;
+
+		#define CALL(p) case (__LINE__-S): p; break;
+
+		enum C { S = (__LINE__+3) };
+		switch(i++)
+		{
+			CALL( UpdateADC()	);
+			CALL( UpdateTemp()	);
+		};
+
+		i = (i > (__LINE__-S-3)) ? 0 : i;
+
+		#undef CALL
 
 	*pWDOG_STAT = 0; //Reset WDT
 }

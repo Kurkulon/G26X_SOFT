@@ -13,7 +13,7 @@ enum { VERSION = 0x101 };
 
 static u16 numDevice = 0;
 static u16 numDevValid = 0;
-static u16 temp = 0;
+//static u16 temp = 0;
 static u16 flashStatus = 0;
 
 //#include <bfrom.h>
@@ -138,7 +138,7 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 		dsc->sd	= delay * dsc->st;
 
-		SyncReadSPORT(dsc);
+		SyncReadSPORT(dsc, delay);
 	};
 
 	fireN = n;
@@ -164,7 +164,7 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 	ReqRcv02::Req &req = *((ReqRcv02::Req*)data);
 
-	if (req.n > 2)
+	if (req.n > RCV_FIRE_NUM)
 	{
 		return false;
 	};
@@ -185,7 +185,7 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	else
 	{
 		buf[0] = 0xAA30 + (n<<4) + req.adr-1;
-		buf[1] = GetCRC16_CCIT(buf, 2);
+		buf[1] = GetCRC16_CCIT_refl(buf, 2);
 
 		wb->data = buf;
 		wb->len = sizeof(buf);
@@ -209,7 +209,7 @@ static bool RequestFunc03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 	rsp.adr			= req.adr;
 	rsp.func		= req.func;
-	rsp.temp		= temp;				// температура
+	rsp.temp		= GetTemp();		// температура
 	rsp.numdev		= numDevice;		// номер модуля приёмников
 	rsp.verdev		= VERSION; 			// версия ПО модуля приёмников
 	rsp.numDevValid	= numDevValid;		// если не ноль, numDev считан из flash правильно или установлен запросом
@@ -236,7 +236,7 @@ static bool RequestFunc04(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 	rsp.adr			= req.adr;
 	rsp.func		= req.func;
-	rsp.temp		= temp;				// температура
+	rsp.temp		= GetTemp();		// температура
 	rsp.numdev		= numDevice;		// номер модуля приёмников
 	rsp.verdev		= VERSION; 			// версия ПО модуля приёмников
 	rsp.numDevValid	= numDevValid;		// если не ноль, numDev считан из flash правильно или установлен запросом
@@ -394,6 +394,8 @@ static void UpdateSport()
 				//sg = spGain[n];
 				//sd = spDelay[n];
 
+				SetGain(dsc->next_gain);
+
 				sportState++;
 			};
 
@@ -549,8 +551,10 @@ static void UpdateSport()
 		{
 			RspRcv02 &rsp = prsp->r02;
 
-			prsp->data[prsp->len/2] = GetCRC16_CCIT(&prsp->r02, prsp->len);
+			prsp->data[prsp->len/2] = GetCRC16_CCIT_refl(&prsp->r02, prsp->len);
 			prsp->len += 2;
+
+			readyRSP02.Add(prsp); prsp = 0;
 
 			sportState = 0;
 

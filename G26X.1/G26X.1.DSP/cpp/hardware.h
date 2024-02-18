@@ -31,7 +31,7 @@ extern void UpdateHardware();
 
 //inline u32 GetRTT() { return *pTIMER0_COUNTER; }
 
-extern void SyncReadSPORT(DSCSPORT *dsc);
+extern void SyncReadSPORT(DSCSPORT *dsc, u16 delay);
 //extern void ReadSPORT(void *dst1, void *dst2, u16 len1, u16 len2, u16 clkdiv, bool *ready0, bool *ready1);
 //inline void WritePGA(u16 v) { extern u16 pgaValue; extern bool pgaSet; pgaValue = v; pgaSet = true; }
 //inline void SetGain(byte g) { WritePGA(0x2A01|(g<<4)); }
@@ -43,6 +43,10 @@ extern u16 GetNetAdr();
 extern DSCSPORT* GetDscSPORT();
 extern void FreeDscSPORT(DSCSPORT* dsc);
 extern DSCSPORT* AllocDscSPORT();
+
+extern u16 GetTemp();
+extern void SetGain(u16 v);
+
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

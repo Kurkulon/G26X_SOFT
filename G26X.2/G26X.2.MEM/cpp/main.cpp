@@ -185,7 +185,8 @@ static u16 verMemDevice = 0x100;
 
 static byte mainModeState = 0;
 static byte fireType = 0;
-static byte nextFireType = 0;
+static u16	fireMask = 13;//(1UL<<RCV_FIRE_NUM)-1;
+static byte nextFireType = 1;
 //static byte dspStatus = 0;
 
 static bool cmdWriteStart_00 = false;
@@ -320,14 +321,14 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
 
-	Transmiter	&trans = mv.trans[transIndex[next_n]];
+	Transmiter	&trans = mv.trans[transIndex[n]];
 
 	req.r[2].len		= req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
 	req.r[2].adr		= req.r[1].adr			= req.r[0].adr			= 0;
 	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
 	req.r[2].n			= req.r[1].n			= req.r[0].n			= n;
 	req.r[2].next_n		= req.r[1].next_n		= req.r[0].next_n		= next_n;
-	req.r[2].next_gain	= req.r[1].next_gain	= req.r[0].next_gain	= next_n;
+	req.r[2].next_gain	= req.r[1].next_gain	= req.r[0].next_gain	= mv.trans[transIndex[next_n]].gain;
 	req.r[2].st 		= req.r[1].st 			= req.r[0].st 			= trans.st;
 	req.r[2].sl 		= req.r[1].sl 			= req.r[0].sl 			= trans.sl;
 	req.r[2].sd 		= req.r[1].sd 			= req.r[0].sd 			= trans.sd;
@@ -432,7 +433,7 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
-	q.crcType = REQ::CRC16;
+	q.crcType = REQ::CRC16_CCIT;
 	
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
@@ -518,7 +519,7 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	{
 		byte n = transIndex[i];
 
-		req.r[1].gain[i] = req.r[0].gain[i] = mv.trans[n].st;
+		req.r[1].gain[i] = req.r[0].gain[i] = mv.trans[n].gain;
 	};
 
 	req.r[1].crc = req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
@@ -1625,10 +1626,10 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 		case 0x19:	mv.trans[0].sl				= MIN(data[2],			1024	);	break;	//0x19 - Монополь. Длина оцифровки (0..512)
 		case 0x1A:	mv.trans[0].sd				= MIN(data[2],			1024	);	break;	//0x1A - Монополь. Задержка оцифровки 
 
-		case 0x20:	mv.trans[1].gain			= MIN(data[2],			7		);	break;	//0x20 - Диполь. КУ (0..7 = 1..128)
-		case 0x28:	mv.trans[1].st				= MIN(data[2],			255		);	break;	//0x28 - Диполь. Шаг оцифровки (1..50)
-		case 0x29:	mv.trans[1].sl				= MIN(data[2],			1024	);	break;	//0x29 - Диполь. Длина оцифровки (0..512)
-		case 0x2A:	mv.trans[1].sd				= MIN(data[2],			1024	);	break;	//0x2A - Диполь. Задержка оцифровки 
+		case 0x20:	mv.trans[2].gain			= MIN(data[2],			7		);	break;	//0x20 - Диполь. КУ (0..7 = 1..128)
+		case 0x28:	mv.trans[2].st				= MIN(data[2],			255		);	break;	//0x28 - Диполь. Шаг оцифровки (1..50)
+		case 0x29:	mv.trans[2].sl				= MIN(data[2],			1024	);	break;	//0x29 - Диполь. Длина оцифровки (0..512)
+		case 0x2A:	mv.trans[2].sd				= MIN(data[2],			1024	);	break;	//0x2A - Диполь. Задержка оцифровки 
 
 		case 0x30:	mv.disableFireNoVibration	= data[2];							break;	//0x30 - Отключение регистрации на стоянке(0 - нет, 1 - да)
 		case 0x31:	mv.levelNoVibration			= data[2];							break;	//0x31 - Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
@@ -2296,9 +2297,11 @@ static void MainMode()
 					
 					if (r02.hdr.rw != rw || r02.hdr.cnt != fireCounter)
 					{
-						r02.hdr.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
-						r02.hdr.cnt = fireCounter;
-						crc = true;
+						//__breakpoint(0);
+
+						//r02.hdr.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
+						//r02.hdr.cnt = fireCounter;
+						//crc = true;
 					};
 
 					if (!RequestFlashWrite(req->rsp, r02.hdr.rw, crc)) __breakpoint(0);
@@ -2374,11 +2377,15 @@ static void MainMode()
 
 			if (ctm.Check(MS2CTM(mv.firePeriod/16)))
 			{
-				fireType += 1; 
+				byte pft = fireType;
+
+				fireType = nextFireType; 
+
+				do nextFireType = (nextFireType+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<nextFireType)) == 0);
 
 				fireCounter += 1;
 
-				if (fireType < RCV_FIRE_NUM)
+				if (fireType > pft)
 				{
 					mainModeState = 9;
 				}
