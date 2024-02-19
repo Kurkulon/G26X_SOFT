@@ -403,6 +403,17 @@
 	#define GMDC			(1UL<<PIN_GMDC) 
 	#define GMDIO			(1UL<<PIN_GMDIO) 
 
+	// ++++++++++++++	ADC		++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define PIO_ARID			HW::PIOB
+	#define PIO_AVMAN 			HW::PIOB
+
+	#define PIN_ARID			8
+	#define PIN_AVMAN			9 
+	
+	#define ARID				(1UL<<PIN_ARID	) 
+	#define AVMAN				(1UL<<PIN_AVMAN	) 
+
 	// ++++++++++++++	PIO INIT	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	#define PIOA_INIT_DIR		(PA11|PA16|PA24|PA25|PA27)

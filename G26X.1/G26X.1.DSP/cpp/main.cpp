@@ -3,11 +3,13 @@
 #include "CRC\CRC16.h"
 #include "CRC\CRC16_CCIT.h"
 #include "FLASH\at25df021.h"
+#include "BOOT\boot_req.h"
 //#include "G_RCV.h"
 #include "list.h"
 #include "pack.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+static void CheckFlash();
 
 enum { VERSION = 0x101 };
 
@@ -15,6 +17,9 @@ static u16 numDevice = 0;
 static u16 numDevValid = 0;
 //static u16 temp = 0;
 static u16 flashStatus = 0;
+
+static const u16 bootReqWord = RCV_BOOT_REQ_WORD;
+static const u16 bootReqMask = RCV_BOOT_REQ_MASK;
 
 //#include <bfrom.h>
 
@@ -60,11 +65,15 @@ static u16 flashCRC = 0;
 static u32 flashLen = 0;
 static bool flashOK = false;
 static bool flashChecked = false;
+static bool flashCRCOK = false;
 static bool cmdSaveParams = false;
+static bool cmdReboot = false;
 
 static u16 packType = 0;
 
 static u16 lastErasedBlock = ~0;
+
+static u32 curWriteReqAdr = 0;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -91,15 +100,15 @@ static DSCRSP02 *wrDscRSP02 = 0;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-union RequestUnion { ReqRcv01	req01; ReqRcv02	req02; ReqRcv03	req03; ReqRcv04	req04; };
+//union RequestUnion { ReqRcv01	req01; ReqRcv02	req02; ReqRcv03	req03; ReqRcv04	req04; };
 				
 //static RspRcv02 rsp02;
 
-static byte rspBuf[64];
+static byte rspBuf[64] = "\n" "G26X_1_DSP" "\n" __DATE__ "\n" __TIME__ "\n";
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static byte build_date[sizeof(RequestUnion)+32] = "\n" "G26X_1_DSP" "\n" __DATE__ "\n" __TIME__ "\n";
+//static byte build_date[sizeof(RequestUnion)+32] = "\n" "G26X_1_DSP" "\n" __DATE__ "\n" __TIME__ "\n";
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -122,6 +131,8 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 	if (dsc != 0)
 	{
+		if (wrDscRSP02 != 0) freeRSP02.Add(wrDscRSP02), wrDscRSP02 = 0;
+
 		dsc->vectorCount	= req.fc;
 		dsc->fireN			= n;
 		dsc->gain			= ngain[n];
@@ -309,20 +320,197 @@ static bool RequestFunc(const ComPort::ReadBuffer *rb, ComPort::WriteBuffer *wb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+static void Reboot()
+{
+	if (!flashChecked)
+	{
+		CheckFlash();
+
+		if (flashOK && flashCRCOK) bfrom_SysControl(SYSCTRL_SOFTRESET, NULL, NULL);
+	};
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool RequestBoot_00(ReqAT25 *r, ComPort::WriteBuffer *wb)
+{
+	const BootReqV1 &req = *((BootReqV1*)(r->GetDataPtr()));
+	static BootRspV1 rsp;
+
+	if (req.F0.adr == 0 || r->len < sizeof(req.F0)) return  false;
+
+	rsp.F0.adr		= req.F0.adr;
+	rsp.F0.rw		= req.F0.rw;
+	rsp.F0.ver		= rsp.VERSION;
+	rsp.F0.maxFunc	= rsp.FUNC_MAX;
+	rsp.F0.guid		= RCV_BOOT_SGUID;
+	rsp.F0.startAdr = FLASH_START_ADR;
+	rsp.F0.pageLen	= FLASH_PAGE_SIZE;
+
+	rsp.F0.crc = GetCRC16(&rsp.F0, sizeof(rsp.F0)-sizeof(rsp.F0.crc));
+
+	wb->data = &rsp.F0;
+	wb->len = sizeof(rsp.F0);
+
+	FreeReqAT25(r);
+
+	return true;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool RequestBoot_01(ReqAT25 *r, ComPort::WriteBuffer *wb)
+{
+	const BootReqV1 &req = *((BootReqV1*)(r->GetDataPtr()));
+	static BootRspV1 rsp;
+
+	if (req.F1.adr == 0 || r->len < sizeof(req.F1)) return  false;
+
+	rsp.F1.adr		= req.F1.adr;
+	rsp.F1.rw		= req.F1.rw;
+	rsp.F1.flashLen	= flashLen;
+	rsp.F1.flashCRC = flashCRC;
+
+	rsp.F1.crc = GetCRC16(&rsp.F1, sizeof(rsp.F1)-sizeof(rsp.F1.crc));
+
+	wb->data = &rsp.F1;
+	wb->len = sizeof(rsp.F1);
+
+	FreeReqAT25(r);
+
+	return true;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool RequestBoot_02(ReqAT25 *r, ComPort::WriteBuffer *wb)
+{
+	const BootReqV1 &req = *((BootReqV1*)(r->GetDataPtr()));
+	static BootRspV1 rsp;
+
+	u16 xl = req.F2.plen + sizeof(req.F2) - sizeof(req.F2.pdata);
+
+	if (r->len < xl) return  false;
+
+	u16 adr = req.F2.adr;
+
+	if (req.F2.padr >= curWriteReqAdr)
+	{
+		curWriteReqAdr = req.F2.padr + req.F2.plen;
+	
+		r->dataOffset = (byte*)req.F2.pdata - r->data;
+		r->stAdr = req.F2.padr;
+		r->len = req.F2.plen;
+
+		FlashWriteReq(r);
+	}
+	else
+	{
+		FreeReqAT25(r);
+	};
+
+	if (adr == 0) return false;
+
+	rsp.F2.adr	= req.F2.adr;
+	rsp.F2.rw	= req.F2.rw;
+	rsp.F2.res	= GetLastError();
+
+	rsp.F2.crc = GetCRC16(&rsp.F2, sizeof(rsp.F2)-sizeof(rsp.F2.crc));
+
+	wb->data = &rsp.F2;
+	wb->len = sizeof(rsp.F2);
+
+	flashChecked = flashOK = flashCRCOK = false;
+
+	return true;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool RequestBoot_03(ReqAT25 *r, ComPort::WriteBuffer *wb)
+{
+	const BootReqV1 &req = *((BootReqV1*)(r->GetDataPtr()));
+	static BootRspV1 rsp;
+
+	if (r->len < sizeof(req.F3)) return  false;
+
+	cmdReboot = true;
+
+	if (req.F3.adr == 0) return  false;
+
+	rsp.F3.adr		= req.F3.adr;
+	rsp.F3.rw		= req.F3.rw;
+
+	rsp.F3.crc = GetCRC16(&rsp.F3, sizeof(rsp.F3)-sizeof(rsp.F3.crc));
+
+	wb->data = &rsp.F3;
+	wb->len = sizeof(rsp.F3);
+
+	FreeReqAT25(r);
+
+	return true;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool RequestBoot(ReqAT25 *r, ComPort::WriteBuffer *wb)
+{
+	bool result = false;
+
+	BootReqV1 &req = *((BootReqV1*)(r->GetDataPtr()));
+
+	u16 t = req.F0.rw;
+	u16 adr = GetNetAdr();
+
+	bool cm = (t & bootReqWord) == bootReqWord;
+	bool ca = req.F0.adr == adr || req.F0.adr == 0;
+
+	if (!ca || !cm || r->len < 2)
+	{
+		FreeReqAT25(r);
+		return false;
+	};
+
+	t &= 0xFF;
+
+	switch (t)
+	{
+		case 0: 	result = RequestBoot_00(r, wb); break;
+		case 1: 	result = RequestBoot_01(r, wb); break;
+		case 2: 	result = RequestBoot_02(r, wb); break;
+		case 3: 	result = RequestBoot_03(r, wb); break;
+
+		default:	FreeReqAT25(r); break;
+	};
+
+	return result;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 static void UpdateBlackFin()
 {
 	static byte i = 0;
 	static ComPort::WriteBuffer wb;
 	static ComPort::ReadBuffer rb;
 
+	static ReqAT25 *req = 0;
+
 	switch(i)
 	{
 		case 0:
 
-			rb.data = build_date;
-			rb.maxLen = sizeof(build_date);
-			com.Read(&rb, ~0, US2COM(45+62500000/RCV_COM_BAUDRATE));
-			i++;
+			req = AllocReqAT25();
+
+			if (req != 0)
+			{
+				req->len = 0;
+				req->dataOffset = 0;
+				rb.data = req->GetDataPtr();
+				rb.maxLen = req->MaxLen();
+				com.Read(&rb, ~0, US2COM(45+62500000/RCV_COM_BAUDRATE));
+				i++;
+			};
 
 			break;
 
@@ -332,18 +520,31 @@ static void UpdateBlackFin()
 			{
 				if (rb.recieved && rb.len > 0)
 				{
-					if (RequestFunc(&rb, &wb))
+					req->len = rb.len;
+					
+					if (GetCRC16(rb.data, rb.len) == 0 && RequestBoot(req, &wb))
 					{
 						com.Write(&wb);
 						i++;
 					}
-					else
+					else 
 					{
-						i = 0;
+						if (RequestFunc(&rb, &wb))
+						{
+							com.Write(&wb);
+							i++;
+						}
+						else
+						{
+							i = 0;
+						};
+
+						FreeReqAT25(req);
 					};
 				}
 				else
 				{
+					FreeReqAT25(req);
 					i = 0;
 				};
 			};
@@ -354,7 +555,7 @@ static void UpdateBlackFin()
 
 			if (!com.Update())
 			{
-				if (wrDscRSP02 != 0) freeRSP02.Add(wrDscRSP02), wrDscRSP02 = 0;
+				if (cmdReboot) Reboot(), cmdReboot = false;
 
 				i = 0;
 			};
@@ -599,17 +800,63 @@ static void UpdateSaveParams()
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//static void InitNetAdr()
-//{
-//	u32 t = GetRTT();
-//
-//	while ((GetRTT()-t) < 10000000)
-//	{
-//		UpdateHardware();
-//	};
-//
-////	UpdateNetAdr();
-//}
+static void CheckFlash()
+{
+	static ADI_BOOT_HEADER bh;
+	static u16 crc = 0;
+
+	while (FlashBusy()) FlashUpdate();
+
+	u32 *p = (u32*)&bh;
+
+	u32 adr = 0;
+	
+	flashOK = flashChecked = flashCRCOK = false;
+
+	//at25df021_Read(buf, 0, sizeof(buf));
+
+	while (1)
+	{
+		at25df021_Read(&bh, FLASH_START_ADR + adr, sizeof(bh));
+
+		u32 x = p[0] ^ p[1] ^ p[2] ^ p[3];
+		x ^= x >> 16; 
+		x = (x ^ (x >> 8)) & 0xFF; 
+
+		if (((u32)(bh.dBlockCode) >> 24) == 0xAD && x == 0)
+		{
+			adr += sizeof(bh);
+
+			if ((bh.dBlockCode & BFLAG_FILL) == 0)
+			{
+				adr += bh.dByteCount;	
+			};
+
+			if (bh.dBlockCode & BFLAG_FINAL)
+			{
+				flashOK = true;
+
+				break;
+			};
+		}
+		else
+		{
+			break;
+		};
+	};
+
+	flashLen = adr;
+
+	at25df021_Read(&crc, FLASH_START_ADR + adr, sizeof(crc));
+
+	if (flashLen > 0) flashCRC = at25df021_GetCRC16(FLASH_START_ADR, flashLen), flashCRCOK = (flashCRC == crc);
+
+	if (!flashCRCOK) flashLen = 0;
+
+	flashChecked = true;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -622,6 +869,8 @@ void main( void )
 	InitHardware();
 
 	FlashInit();
+
+	CheckFlash();
 
 #ifdef RCV_WAVEPACK
 	Pack_Init();
@@ -655,6 +904,7 @@ void main( void )
 			CALL( UpdateBlackFin()	);
 			CALL( UpdateHardware()	);
 			CALL( UpdateSport()		);
+			CALL( FlashUpdate()		);
 		};
 
 		i = (i > (__LINE__-S-3)) ? 0 : i;

@@ -22,7 +22,7 @@
 #define CLKIN_MHz			25
 #define CLKIN_DIV			1	// 1, 2
 
-#define PLL_MUL				8	// 5...64
+#define PLL_MUL				16	// 5...64
 #define SCLK_DIV			2	// 1...15
 #define CCLK_CSEL			0	// 0...3
 #define CCLK_DIV			(1UL<<CCLK_CSEL)

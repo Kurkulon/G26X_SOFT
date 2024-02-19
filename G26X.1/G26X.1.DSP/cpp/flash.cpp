@@ -1,7 +1,7 @@
 #include "hw_conf.h" 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#define FLASH_REQ_NUM 	4
+#define FLASH_REQ_NUM 	32
 
 #define AT25_SPI_BAUD_RATE 10000000
 

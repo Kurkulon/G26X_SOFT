@@ -551,6 +551,54 @@ i32	Get_FRAM_I2C_SessionsAdr() { return FRAM_I2C_SESSIONS_ADR; }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+static void Init_ADC()
+{
+	HW::GCLK->PCHCTRL[GCLK_ADC0] = GEN_MCK|GCLK_CHEN; 
+	HW::GCLK->PCHCTRL[GCLK_ADC1] = GEN_MCK|GCLK_CHEN; 
+	HW::MCLK->ClockEnable(PID_ADC0); 
+	HW::MCLK->ClockEnable(PID_ADC1); 
+
+	PIO_ARID->SetWRCONFIG(ARID,		PORT_PMUX_B|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
+	PIO_AVMAN->SetWRCONFIG(AVMAN,	PORT_PMUX_B|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
+
+	HW::ADC0->CTRLB = ADC_RESSEL_16BIT|ADC_FREERUN;
+	HW::ADC1->CTRLB = ADC_RESSEL_16BIT|ADC_FREERUN;
+
+	HW::ADC0->REFCTRL = ADC_REFSEL_VDDANA|ADC_REFCOMP;
+	HW::ADC1->REFCTRL = ADC_REFSEL_VDDANA|ADC_REFCOMP;
+
+	HW::ADC0->INPUTCTRL = ADC_MUXPOS_AIN2;
+	HW::ADC1->INPUTCTRL = ADC_MUXPOS_AIN1;
+
+	HW::ADC0->AVGCTRL = ADC_SAMPLENUM_1024;
+	HW::ADC1->AVGCTRL = ADC_SAMPLENUM_1024;
+
+	HW::ADC0->SAMPCTRL = ADC_SAMPLEN(0);
+	HW::ADC1->SAMPCTRL = ADC_SAMPLEN(0);
+
+	HW::ADC0->CTRLA = ADC_PRESCALER_DIV16|ADC_ENABLE; 
+	HW::ADC1->CTRLA = ADC_PRESCALER_DIV16|ADC_ENABLE; 
+
+	HW::ADC0->SWTRIG = ADC_START;
+	HW::ADC1->SWTRIG = ADC_START;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+u16 Get_NetResist()
+{
+	return (HW::ADC0->RESULT * 14823) >> 16;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+u16 Get_AVMAN()
+{
+	return (HW::ADC1->RESULT * 1617) >> 16;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 void InitHardware()
 {
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "Hardware Init ... ");
@@ -602,6 +650,8 @@ void InitHardware()
 
 	InitManRecieve();
 	InitManTransmit();
+
+	Init_ADC();
 
 	//Init_CRC_CCITT_DMA();
 

@@ -30,6 +30,8 @@ extern void UpdateHardware();
 extern void InitHardware();
 extern void UpdateHardware();
 
+extern u16 Get_NetResist();
+extern u16 Get_AVMAN();
 
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

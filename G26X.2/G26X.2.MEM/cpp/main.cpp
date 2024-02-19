@@ -46,6 +46,8 @@ enum { VERSION = 0x105 };
 //#define NS2DSP(v) (((v)+10)/20)
 //#define US2DSP(v) ((((v)*1000)+10)/20)
 
+static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount);
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //#ifdef CPU_SAME53
@@ -201,13 +203,16 @@ static bool cmdRcvSaveParams = false;
 //static u16 dspNotRcv = 0;
 
 static u16 rcvStatus = 0;
-static u32 crcErr02[13] = {0};
+static u32 crcErr02[RCV_MAX_NUM_STATIONS] = {0};
 static u32 crcErr03 = 0;
 static u32 crcErr04 = 0;
 static u32 rcv02rejVec = 0;
+static u32 okRcv02 = 0;
 
-static u32 notRcv02[13] = {0};
-static u32 lenErr02[13] = {0};
+static u32 notRcv02[RCV_MAX_NUM_STATIONS] = {0};
+static u32 lenErr02[RCV_MAX_NUM_STATIONS] = {0};
+static u32 rejRcv02[RCV_MAX_NUM_STATIONS] = {0};
+static u32 retryRcv02[RCV_MAX_NUM_STATIONS] = {0};
 
 //static u32 rcvCRCER = 0;
 
@@ -350,28 +355,41 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 	ReqRcv02 &req = *((ReqRcv02*)q->wb.data);
 	RspRcv02 &rsp = *((RspRcv02*)q->rb.data);
 	 
-	bool crcOK = q->crcOK;
+	//bool crcOK = q->crcOK;
 
-	if (crcOK)
-	{
-		rcvStatus |= 1 << (rsp.hdr.rw & 15);
-		
-		q->rsp->len = q->rb.len;
-	}
-	else
-	{
-		byte a = (req.r[0].adr-1) & 15;
+	q->rsp->len = 0;
 
+	byte a = (req.r[0].adr-1) & 15;
+
+	if (q->crcOK)
+	{
+		#ifdef RCV_WAVEPACK
+			u16 len = (sizeof(rsp.hdr) + rsp.hdr.len * 8);
+		#else
+			u16 len = sizeof(rsp.hdr) + rsp.hdr.len * 8 + sizeof(rsp.crc);
+		#endif
+
+		if (q->rb.len < sizeof(rsp.hdr) || (rsp.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
+		{
+			q->crcOK = false;
+			q->rsp->len = 0;
+			lenErr02[a]++;
+		}
+		else
+		{
+			okRcv02 += 1;
+
+			rcvStatus |= 1 << (rsp.hdr.rw & 15);
+			
+			q->rsp->len = q->rb.len;
+		};
+	};
+
+	if (!q->crcOK)
+	{
 		if (q->rb.recieved)
 		{
-			if ((rsp.hdr.rw & manReqMask) != manReqWord || (sizeof(rsp.hdr) + rsp.hdr.len * 8) != q->rb.len)
-			{
-				lenErr02[a]++;
-			}
-			else
-			{
-				crcErr02[a]++;
-			};
+			crcErr02[a]++;
 		}
 		else
 		{
@@ -382,11 +400,14 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		{
 			q->tryCount--;
 			qRcv.Add(q);
+
+			retryRcv02[a] += 1;
 		}
 		else
 		{
 			rcvStatus &= ~(1 << (a)); 
 			rcv02rejVec += 1;
+			rejRcv02[a] += 1;
 		};
 	};
 
@@ -533,6 +554,8 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
+		if(!q->rb.recieved) qRcv.Add(CreateRcvBootReq03(0, 0));
+
 		crcErr04++;
 
 		if (q->tryCount > 0)
@@ -725,7 +748,7 @@ static Ptr<REQ> CreateRcvBootReq00(u16 adr, BootRspV1::SF0 *rspdata, u16 tryCoun
 
 	if (!rq.Valid()) return rq;
 
-	if (rspdata == 0)
+	if (rspdata == 0 && adr != 0)
 	{
 		rq->rsp = AllocMemBuffer(sizeof(*rspdata));
 		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
@@ -748,7 +771,7 @@ static Ptr<REQ> CreateRcvBootReq00(u16 adr, BootRspV1::SF0 *rspdata, u16 tryCoun
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 	
-	q.rb.data = &rsp;
+	q.rb.data = (adr == 0) ? 0 : &rsp;
 	q.rb.maxLen = sizeof(rsp);
 
 	req.adr	= adr;
@@ -786,9 +809,11 @@ static Ptr<REQ> CreateRcvBootReq01(u16 adr, u32 len, u16 tryCount)
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF1));
-
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	if (adr != 0)
+	{
+		rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF1));
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	};
 
 	BootReqV1::SF1 &req = *((BootReqV1::SF1*)rq->reqData);
 	BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)(rq->rsp->GetDataPtr()));
@@ -806,7 +831,7 @@ static Ptr<REQ> CreateRcvBootReq01(u16 adr, u32 len, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 	
-	q.rb.data = &rsp;
+	q.rb.data = (adr == 0) ? 0 : &rsp;
 	q.rb.maxLen = sizeof(rsp);
 
 	req.adr	= adr;
@@ -867,7 +892,7 @@ static Ptr<REQ> CreateRcvBootReq02(u16 adr, u16 stAdr, u16 count, void* data, u1
 	REQ &q = *rq;
 
 	q.CallBack = CallBackRcvBootReq02;
-	q.preTimeOut = MS2COM(500);
+	q.preTimeOut = MS2COM(50);
 	q.postTimeOut = US2COM(100);
 	q.ready = false;
 	q.tryCount = tryCount;
@@ -951,9 +976,11 @@ static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount)
 
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF3));
-
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	if (adr != 0)
+	{
+		rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF3));
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	};
 
 	BootReqV1::SF3 &req = *((BootReqV1::SF3*)rq->reqData);
 	BootRspV1::SF3 &rsp = *((BootRspV1::SF3*)(rq->rsp->GetDataPtr()));
@@ -1355,15 +1382,29 @@ static bool RequestMan_10(u16 *data, u16 len, MTB* mtb)
 
 static u32 InitRspMan_20(__packed u16 *data)
 {
+	i16 max = -32767;
+	i16 min = 32767;
+
+	for (byte i = 0; i < RCV_MAX_NUM_STATIONS; i++)
+	{
+		if (rcvStatus & (1UL<<i))
+		{
+			i16 t = arrRcvTemp[i];
+
+			if (t > max) max = t;
+			if (t < min) min = t;
+		};
+	};
+
 	__packed u16 *start = data;
 
 	*(data++) = manReqWord|0x20;						//	1. 	ответное слово
 	*(data++) = GD(&fireCounter, u16, 0);				//	2. 	счётчик. младшие 2 байта
 	*(data++) = GD(&fireCounter, u16, 1);				//	3. 	счётчик. старшие 2 байта
-	*(data++) = voltage;								//	4. 	напряжение передатчика
-	*(data++) = numStations|(((u16)rcvStatus)<<8);		//	5. 	мл.байт - к-во приемников, ст.байт-статус приёмников
-	*(data++) = rcvStatus;//resistValue;							//	6. 	сопротивление IdLine
-	*(data++) = (temp+5)/10;							//	7. 	ТЕМПЕРАТУРА CPU
+	*(data++) = Get_AVMAN();//voltage;								//	4. 	напряжение передатчика
+	*(data++) = ((Get_NetResist()/1000)&0xFF)/*numStations*/|(((u16)rcvStatus)<<8);		//	5. 	мл.байт - к-во приемников, ст.байт-статус приёмников
+	*(data++) = Get_NetResist(); //rcvStatus;							//	6. 	сопротивление IdLine
+	*(data++) = (max+5)/10;								//	7. 	ТЕМПЕРАТУРА CPU
 	*(data++) = ax;										//	8. 	AX
 	*(data++) = ay;										//	9. 	AY
 	*(data++) = az;										//	10.	AZ
@@ -1693,7 +1734,13 @@ static bool RequestMan(u16 *buf, u16 len, MTB* mtb)
 		case 0xF:	r = RequestMan_F0(buf, len, mtb); break;
 	};
 
-	if (r) { mtb->baud = manTrmBaud; };
+	if (r)
+	{ 
+		mtb->baud = manTrmBaud; 
+	
+		if (mtb->data1 != 0 && !HW::RamCheck(mtb->data1)) __breakpoint(0);
+		if (mtb->data2 != 0 && !HW::RamCheck(mtb->data2)) __breakpoint(0);
+	};
 
 	return r;
 }
@@ -1998,6 +2045,10 @@ static void UpdateMan()
 				//manTrmData[1] = 0;
 				//mtb.len1 = 2;
 				//mtb.data1 = manTrmData;
+
+				if (mtb.data1 != 0 && !HW::RamCheck(mtb.data1)) __breakpoint(0);
+				if (mtb.data2 != 0 && !HW::RamCheck(mtb.data2)) __breakpoint(0);
+
 				SendManData(&mtb);
 
 				i++;
@@ -2271,7 +2322,7 @@ static void MainMode()
 
 		case 3:
 
-			req = CreateRcvReq02(rcv, fireType, 1);
+			req = CreateRcvReq02(rcv, fireType, 2);
 
 			if (req.Valid())
 			{
@@ -2306,7 +2357,13 @@ static void MainMode()
 
 					if (!RequestFlashWrite(req->rsp, r02.hdr.rw, crc)) __breakpoint(0);
 
-					if (curRcv[fireType] == rcv) manVec30[fireType] = req->rsp;
+					u16 n = ((r02.hdr.rw >> 4) & 0xF) - 3;
+					u16 r = r02.hdr.rw & 0xF;
+
+					if ((r02.hdr.rw & manReqMask) == manReqWord && n < RCV_FIRE_NUM && r < RCV_MAX_NUM_STATIONS)
+					{
+						if (curRcv[n] == (r+1)) manVec30[n] = req->rsp;
+					};
 
 					manCounter++;
 				};
@@ -3187,9 +3244,11 @@ static void FlashRcv()
 	rcvStatus = 0;
 	byte N = RCV_MAX_NUM_STATIONS;
 
-	comRcv.Disconnect();
+	CTM32 tm;
 
-	comRcv.Connect(ComPort::ASYNC, RCV_BOOT_COM_BAUDRATE, RCV_BOOT_COM_PARITY, 1);
+	//comRcv.Disconnect();
+
+	//comRcv.Connect(ComPort::ASYNC, RCV_BOOT_COM_BAUDRATE, RCV_BOOT_COM_PARITY, 1);
 
 	while (tryCount > 0)
 	{
@@ -3213,7 +3272,7 @@ static void FlashRcv()
 							rcvStatus |= 1 << (i-1);
 						};
 
-						if (tryCount > RCV_MAX_NUM_STATIONS) tryCount = RCV_MAX_NUM_STATIONS;
+						if (tryCount > 2) tryCount = 2;
 					};
 
 					rq.Free();
@@ -3274,21 +3333,27 @@ static void FlashRcv()
 				};
 			};
 
-			rq = CreateRcvBootReq03(i, 2);
+			tm.Reset();	while (!tm.Check(MS2CTM(1)));
 
-			qRcv.Add(rq); while(!rq->ready) qRcv.Update();
+			//rq = CreateRcvBootReq03(i, 2);
 
-			rq.Free();
+			//qRcv.Add(rq); while(!rq->ready) qRcv.Update();
+
+			//rq.Free();
 		};
 	};
+
+	tm.Reset(); while (!tm.Check(MS2CTM(1)));
 
 	rq = CreateRcvBootReq03(0, 2);
 
 	qRcv.Add(rq); while(!rq->ready) qRcv.Update();
 
 	rq.Free();
+
+	tm.Reset();	while (!tm.Check(MS2CTM(10)));
 	
-	comRcv.Disconnect();
+	//comRcv.Disconnect();
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -4065,6 +4130,7 @@ int main()
 
 	comTrm.Connect(ComPort::ASYNC, TRM_COM_BAUDRATE, TRM_COM_PARITY, TRM_COM_STOPBITS);
 
+	comRcv.Connect(ComPort::ASYNC, RCV_COM_BAUDRATE, RCV_COM_PARITY, 1);
 
 	//__breakpoint(0);
 
@@ -4072,7 +4138,6 @@ int main()
 
 	FlashRcv();
 
-	comRcv.Connect(ComPort::ASYNC, RCV_COM_BAUDRATE, RCV_COM_PARITY, 1);
 
 #endif
 
