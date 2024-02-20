@@ -6,7 +6,7 @@
 //#include "..\..\G_LIBS_BF592\cpp\mdct.h"
 //#include "G.722.1\defs.h"
 
-enum PackType { PACK_NO = 0, PACK_ULAW16, PACK_ADPCMIMA, PACK_DCT0, PACK_DCT1, PACK_DCT2, PACK_DCT3 };
+enum PackType { PACK_NO = 0, PACK_ULAW12, PACK_ULAW16, PACK_ADPCMIMA, PACK_DCT0, PACK_DCT1, PACK_DCT2, PACK_DCT3 };
 
 extern void Pack_uLaw_16Bit(i16* src, byte* dst, u16 len);
 extern void Pack_ADPCMIMA(i16* src, byte* dst, u16 len);

@@ -69,7 +69,7 @@ static bool flashCRCOK = false;
 static bool cmdSaveParams = false;
 static bool cmdReboot = false;
 
-static u16 packType = 0;
+//static u16 packType = 0;
 
 static u16 lastErasedBlock = ~0;
 
@@ -127,22 +127,37 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	byte n = req.n;
 	if (n > RCV_FIRE_NUM) n = RCV_FIRE_NUM;
 
+	if (wrDscRSP02 != 0) freeRSP02.Add(wrDscRSP02), wrDscRSP02 = 0;
+
 	DSCSPORT *dsc = AllocDscSPORT();
 
 	if (dsc != 0)
 	{
-		if (wrDscRSP02 != 0) freeRSP02.Add(wrDscRSP02), wrDscRSP02 = 0;
-
 		dsc->vectorCount	= req.fc;
 		dsc->fireN			= n;
 		dsc->gain			= ngain[n];
 		dsc->next_fireN		= req.next_n;
 		dsc->next_gain		= req.next_gain;
-		dsc->sl				= LIM(req.sl, 16, 1024);
+		dsc->sl				= LIM(req.sl, 64, 1024);
 		dsc->st				= MAX(req.st, 2);
 
 		#ifdef RCV_WAVEPACK
-		dsc->packType		= req.packType;
+
+			dsc->packType	= req.packType;
+
+			if (req.packType == PACK_ULAW12 || req.packType == PACK_ULAW16)
+			{
+				dsc->sl = (dsc->sl+1) & ~1;	
+			}
+			else if (req.packType == PACK_ADPCMIMA)
+			{
+				dsc->sl = (dsc->sl+3) & ~3;	
+			}
+			else if (req.packType >= PACK_DCT0)
+			{
+				dsc->sl = (req.packType == PACK_DCT0) ? (((dsc->sl-64+60)/61)*61+64) : (((dsc->sl-64+56)/57)*57+64);	
+			};
+
 		#endif
 
 		u16 delay = req.sd / dsc->st;
@@ -618,7 +633,11 @@ static void UpdateSport()
 				rsp.hdr.delay		= dsc->sd;
 
 				#ifdef RCV_WAVEPACK
-				rsp.hdr.packType	= packType;
+				rsp.hdr.packType	= dsc->packType;
+				rsp.hdr.packLen1	= 0;
+				rsp.hdr.packLen2	= 0;
+				rsp.hdr.packLen3	= 0;
+				rsp.hdr.packLen4	= 0;
 				#endif
 
 				u16 *p1 = rsp.data + rsp.hdr.len*0;
@@ -704,7 +723,10 @@ static void UpdateSport()
 			if (rsp.hdr.packType == PACK_ULAW16)
 			{
 				Pack_uLaw_16Bit((i16*)rsp.data, (byte*)rsp.data, rsp.hdr.len*4);
-				rsp.hdr.packLen = rsp.hdr.len*2;
+				rsp.hdr.packLen1 = rsp.hdr.len/2;
+				rsp.hdr.packLen2 = rsp.hdr.packLen1;
+				rsp.hdr.packLen3 = rsp.hdr.packLen1;
+				rsp.hdr.packLen4 = rsp.hdr.packLen1;
 				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*4;
 			}
 			else if (rsp.hdr.packType == PACK_ADPCMIMA)
@@ -712,12 +734,16 @@ static void UpdateSport()
 				i16	*src	= (i16*)rsp.data;
 				byte *dst	= (byte*)rsp.data;
 
-				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len;
-				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len;
-				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len/2;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len/2;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len/2;
 				Pack_ADPCMIMA(src, dst, rsp.hdr.len); 
 
-				rsp.hdr.packLen = rsp.hdr.len;
+				rsp.hdr.packLen1 = rsp.hdr.len/4;
+				rsp.hdr.packLen2 = rsp.hdr.packLen1;
+				rsp.hdr.packLen3 = rsp.hdr.packLen1;
+				rsp.hdr.packLen4 = rsp.hdr.packLen1;
+
 				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*2;
 			}
 			else if (rsp.hdr.packType >= PACK_DCT0)
@@ -727,18 +753,22 @@ static void UpdateSport()
 
 				i16	*src	= (i16*)rsp.data;
 				byte *dst	= (byte*)rsp.data;
-				u16 packedLen = 0;
+				//u16 packedLen = 0;
 				u16 pl = 0;
 
-				u16 sl =	Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &packedLen); src += rsp.hdr.len; dst += packedLen; pl += packedLen;
-							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &packedLen); src += rsp.hdr.len; dst += packedLen; pl += packedLen;
-							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &packedLen); src += rsp.hdr.len; dst += packedLen; pl += packedLen;
-							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &packedLen); pl += packedLen;
+				u16 sl =	Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &rsp.hdr.packLen1); src += rsp.hdr.len; dst += rsp.hdr.packLen1;
+							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &rsp.hdr.packLen2); src += rsp.hdr.len; dst += rsp.hdr.packLen2; 
+							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &rsp.hdr.packLen3); src += rsp.hdr.len; dst += rsp.hdr.packLen3; 
+							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &rsp.hdr.packLen4); 
 
 				rsp.hdr.len = sl;
 
-				rsp.hdr.packLen = pl/2;
-				prsp->len = sizeof(rsp.hdr) + rsp.hdr.packLen*2;
+				prsp->len = sizeof(rsp.hdr) + rsp.hdr.packLen1 + rsp.hdr.packLen2 + rsp.hdr.packLen3 + rsp.hdr.packLen4;
+
+				rsp.hdr.packLen1 /= 2;
+				rsp.hdr.packLen2 /= 2;
+				rsp.hdr.packLen3 /= 2;
+				rsp.hdr.packLen4 /= 2;
 			};
 
 			sportState += 1;

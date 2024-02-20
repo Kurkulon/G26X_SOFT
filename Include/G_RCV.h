@@ -26,7 +26,8 @@
 #define RCV_NetResist(v)	(((v) * 941 + 128) / 256)
 #define RCV_NetAdr(v)		(1 + (v)/1024)
 
-//#define RCV_WAVEPACK
+#define RCV_WAVEPACK
+#define RCV_13AD
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -103,7 +104,10 @@ __packed struct RspRcvHdr02	// чтение вектора
 
 #ifdef RCV_WAVEPACK
 	u16 packType;
-	u16 packLen;
+	u16 packLen1;
+	u16 packLen2;
+	u16 packLen3;
+	u16 packLen4;
 #endif
 };
 
@@ -113,7 +117,7 @@ __packed struct RspRcv02	// чтение вектора
 {
 	RspRcvHdr02 hdr;
 
-	u16 data[1024*4]; 
+	u16 data[1040*4]; 
 	u16 crc;
 };  
 
@@ -191,6 +195,7 @@ __packed struct Transmiter
 	u16 duty;
 	u16 amp;
 	u16 pulseCount;
+	u16 packType;
 };
 	
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

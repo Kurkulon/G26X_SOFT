@@ -31,7 +31,11 @@
 #define __TEST__
 #endif
 
+#ifdef RCV_13AD
+enum { VERSION = 0x100 };
+#else
 enum { VERSION = 0x105 };
+#endif
 
 //#pragma O3
 //#pragma Otime
@@ -83,7 +87,6 @@ __packed struct MainVars // NonVolatileVars
 	u16 levelNoVibration;
 	u16 firePeriod;
 	u16 lfMnplEnabled;
-	u16 packType;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -94,11 +97,13 @@ static MainVars mv;
 
 static bool runMainMode = true;
 static bool startFire = false;
-static u32 fireCounter = 0;
-static u32 manCounter = 0;
+static u32  fireCounter = 0;
+static u32  manCounter = 0;
 static byte numStations = RCV_MAX_NUM_STATIONS;
-static u16 resistValue = 0;
-static u16 voltage = 0;
+static u16  resistValue = 0;
+static u16  trmVoltage = 0;
+static u16  trmTemp = 0;
+static u16  trmCount = 0;
 static byte transIndex[RCV_FIRE_NUM] = {0, 1, 2, 2};
 
 static u16  numDevTrm = 0;
@@ -173,7 +178,7 @@ static byte curRcv[3] = { 0 };
 static u16 manReqWord = RCV_MAN_REQ_WORD;
 static u16 manReqMask = RCV_MAN_REQ_MASK;
 
-static u16 memReqWord = 0x3D00;
+static u16 memReqWord = 0x3B00;
 static u16 memReqMask = 0xFF00;
 
 //static u16 numDevice = 0;
@@ -207,7 +212,7 @@ static u32 crcErr02[RCV_MAX_NUM_STATIONS] = {0};
 static u32 crcErr03 = 0;
 static u32 crcErr04 = 0;
 static u32 rcv02rejVec = 0;
-static u32 okRcv02 = 0;
+static u16 okRcv02 = 0;
 
 static u32 notRcv02[RCV_MAX_NUM_STATIONS] = {0};
 static u32 lenErr02[RCV_MAX_NUM_STATIONS] = {0};
@@ -340,7 +345,7 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 	req.r[2].fc			= req.r[1].fc			= req.r[0].fc			= fc;
 
 #ifdef RCV_WAVEPACK
-	req.r[2].packType	= req.r[1].packType		= req.r[0].packType		= mv.packType;
+	req.r[2].packType	= req.r[1].packType		= req.r[0].packType		= trans.packType;
 #endif
 
 	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
@@ -364,7 +369,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 	if (q->crcOK)
 	{
 		#ifdef RCV_WAVEPACK
-			u16 len = (sizeof(rsp.hdr) + rsp.hdr.len * 8);
+			u16 len = sizeof(rsp.hdr) + sizeof(rsp.crc) + ((rsp.hdr.packType == 0) ? (rsp.hdr.len * 8) : ((rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4) * 2));
 		#else
 			u16 len = sizeof(rsp.hdr) + rsp.hdr.len * 8 + sizeof(rsp.crc);
 		#endif
@@ -1288,10 +1293,17 @@ static u32 InitRspMan_00(__packed u16 *data)
 {
 	__packed u16 *start = data;
 
-	*(data++)	= (manReqWord & manReqMask) | 0;
-	*(data++)	= mv.numDevice;
-	*(data++)	= verDevice;
-	
+	*(data++)	= (manReqWord & manReqMask) | 0;	//1. ответное слово
+	*(data++)	= mv.numDevice;						//2. номер прибора
+	*(data++)	= verDevice;						//3. версия прибора 
+
+#ifdef RCV_13AD
+	*(data++)	= numDevRcv;						//4. номер модуля приёмников
+	*(data++)	= verDevRcv;						//5. версия модуля приёмников
+	*(data++)	= numDevTrm;						//6. номер модуля излучателей
+	*(data++)	= verDevTrm;						//7. версия модуля излучателей
+#endif
+
 	return data - start;
 }
 
@@ -1312,10 +1324,10 @@ static bool RequestMan_00(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
-	InitRspMan_00(manTrmData);
+	len = InitRspMan_00(manTrmData);
 
 	mtb->data1 = manTrmData;
-	mtb->len1 = 3;
+	mtb->len1 = len;
 	mtb->data2 = 0;
 	mtb->len2 = 0;
 
@@ -1327,8 +1339,10 @@ static bool RequestMan_00(u16 *data, u16 len, MTB* mtb)
 static u32 InitRspMan_10(__packed u16 *data)
 {
 	__packed u16 *start = data;
-
+	
 	*(data++)	= (manReqWord & manReqMask) | 0x10;		//	1.	Ответное слово		
+
+#ifndef RCV_13AD
 	*(data++)  	= mv.trmVoltage;						//	2.	Напряжение излучателей (0..1000 В)
 	*(data++)  	= mv.trans[0].pulseCount;				//	3.	Количество импульсов монополь (1..5)
 	*(data++)  	= mv.trans[1].pulseCount;				//	4.	Количество импульсов диполь (1..5)
@@ -1347,6 +1361,34 @@ static u32 InitRspMan_10(__packed u16 *data)
 	*(data++)  	= mv.disableFireNoVibration;			//	17.	Отключение регистрации на стоянке(0 - нет, 1 - да)
 	*(data++)  	= mv.levelNoVibration;					//	18.	Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
 	*(data++)  	= mv.firePeriod;						//	19.	Период опроса(мс)(ushort)
+#else
+	*(data++)  	= mv.trans[0].freq;						//	2.  Монополь1. Частота излучателя (1000..30000 шаг 1Гц)
+	*(data++)  	= mv.trans[0].amp;						//	3.  Монополь1. Амплитуда излучателя (0..3000 вольт)
+	*(data++)  	= mv.trans[1].freq;						//	4.  Монополь2. Частота импульсов излучателя (10000..30000 шаг 1Гц)
+	*(data++)  	= mv.trans[1].amp;						//	5.  Монополь2. Амплитуда излучателя (0..3000 вольт)
+	*(data++)  	= mv.trans[2].pulseCount;				//	6.  Диполь. Количество импульсов (1..5)
+	*(data++)  	= mv.trans[2].freq;						//	7.  Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
+	*(data++)  	= mv.trans[2].duty;						//	8.  Диполь. Скважность импульсов излучателя (0..60 шаг 0.01%)
+	*(data++)  	= mv.trans[0].gain;						//	9.  Монополь1. Предусилитель(0..1)
+	*(data++)  	= mv.trans[0].st;						//	10. Монополь1. Шаг оцифровки (2..50)
+	*(data++)  	= mv.trans[0].sl;						//	11. Монополь1. Длина оцифровки (16..1024)
+	*(data++)  	= mv.trans[0].sd;						//	12. Монополь1. Задержка оцифровки 
+	*(data++)  	= mv.trans[0].packType;					//	13. Монополь1. Тип упаковки (0-нет,1,2,3,4,5,6)	
+	*(data++)  	= mv.trans[1].gain;						//	14. Монополь2. Предусилитель(0..1)
+	*(data++)  	= mv.trans[1].st;						//	15. Монополь2. Шаг оцифровки (2..50)
+	*(data++)  	= mv.trans[1].sl;						//	16. Монополь2. Длина оцифровки (16..1024)
+	*(data++)  	= mv.trans[1].sd;						//	17. Монополь2. Задержка оцифровки 
+	*(data++)  	= mv.trans[1].packType;					//	18. Монополь2. Тип упаковки (0-нет,1,2,3,4,5,6)	
+	*(data++)  	= mv.trans[2].gain;						//	19. Диполь. Предусилитель(0..1)
+	*(data++)  	= mv.trans[2].st;						//	20. Диполь. Шаг оцифровки (2..50)
+	*(data++)  	= mv.trans[2].sl;						//	21. Диполь. Длина оцифровки (16..1024)
+	*(data++)  	= mv.trans[2].sd;						//	22. Диполь. Задержка оцифровки 
+	*(data++)  	= mv.trans[2].packType;					//	23. Диполь. Тип упаковки (0-нет,1,2,3,4,5,6)	
+	*(data++)  	= mv.trmVoltage;						//	24. Напряжение излучателя (0...950 вольт)
+	*(data++)  	= mv.disableFireNoVibration;			//	25. Отключение регистрации на стоянке(0 - нет, 1 - да)
+	*(data++)  	= mv.levelNoVibration;					//	26. Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
+	*(data++)  	= mv.firePeriod;						//	27. Период опроса(мс)(ushort)
+#endif
 
 	return data - start;
 }
@@ -1380,7 +1422,7 @@ static bool RequestMan_10(u16 *data, u16 len, MTB* mtb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static u32 InitRspMan_20(__packed u16 *data)
+static u32 InitRspMan_20(u16 rw, __packed u16 *data)
 {
 	i16 max = -32767;
 	i16 min = 32767;
@@ -1398,19 +1440,43 @@ static u32 InitRspMan_20(__packed u16 *data)
 
 	__packed u16 *start = data;
 
-	*(data++) = manReqWord|0x20;						//	1. 	ответное слово
-	*(data++) = GD(&fireCounter, u16, 0);				//	2. 	счётчик. младшие 2 байта
-	*(data++) = GD(&fireCounter, u16, 1);				//	3. 	счётчик. старшие 2 байта
-	*(data++) = Get_AVMAN();//voltage;								//	4. 	напряжение передатчика
+	*(data++) = rw; //manReqWord|0x20;														//	1. 	ответное слово
+	*(data++) = GD(&fireCounter, u16, 0);												//	2. 	счётчик. младшие 2 байта
+	*(data++) = GD(&fireCounter, u16, 1);												//	3. 	счётчик. старшие 2 байта
+
+#ifndef RCV_13AD
+
+	*(data++) = GetRcvManQuality();//voltage;											//	4. 	напряжение передатчика
 	*(data++) = ((Get_NetResist()/1000)&0xFF)/*numStations*/|(((u16)rcvStatus)<<8);		//	5. 	мл.байт - к-во приемников, ст.байт-статус приёмников
-	*(data++) = Get_NetResist(); //rcvStatus;							//	6. 	сопротивление IdLine
-	*(data++) = (max+5)/10;								//	7. 	ТЕМПЕРАТУРА CPU
-	*(data++) = ax;										//	8. 	AX
-	*(data++) = ay;										//	9. 	AY
-	*(data++) = az;										//	10.	AZ
-	*(data++) = at;										//	11.	AT
-	*(data++) = temp;									//	12.	Температура в приборе (short)(0.1гр)
-	*(data++) = vibration;								//	13.	Вибрация (у.е)(ushort)
+	*(data++) = Get_NetResist(); //rcvStatus;											//	6. 	сопротивление IdLine
+	*(data++) = (max+5)/10;																//	7. 	ТЕМПЕРАТУРА CPU
+	*(data++) = ax;																		//	8. 	AX
+	*(data++) = ay;																		//	9. 	AY
+	*(data++) = az;																		//	10.	AZ
+	*(data++) = at;																		//	11.	AT
+	*(data++) = temp;																	//	12.	Температура в приборе (short)(0.1гр)
+	*(data++) = vibration;																//	13.	Вибрация (у.е)(ushort)
+
+#else
+
+	*(data++) = Get_NetResist()/1000;	//5. к-во приемников
+	*(data++) = rcvStatus;			 	//6. статус приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
+	*(data++) = Get_NetResist();	 	//7. сопротивление IdLine
+	*(data++) = okRcv02;			 	//8. Счётчик запросов приёмников
+	*(data++) = ax;						//10. AX													
+	*(data++) = ay;						//11. AY													
+	*(data++) = az;						//12. AZ													
+	*(data++) = at;					 	//13. AT
+	*(data++) = temp;				 	//14. Температура в приборе (short)(0.1гр)
+	*(data++) = min;				 	//15. Минимальное значение температуры в приёмниках (short)(0.1гр)
+	*(data++) = max;				 	//16. Максимальное значение температуры в приёмниках (short)(0.1гр)
+	*(data++) = vibration;			 	//17. Вибрация (у.е)(ushort)
+	*(data++) = trmVoltage;			 	//18. напряжение излучателя (1 Вольт)
+	*(data++) = trmTemp;			 	//19. Температура излучателя (short)(0.1гр)
+	*(data++) = trmCount;			 	//20. Счётчик запросов излучателя
+	*(data++) = GetRcvManQuality();	 	//21. Качество сигнала запроса телеметрии (%)
+
+#endif
 
 	return data - start;
 }
@@ -1421,7 +1487,7 @@ static void RequestFlashWrite_20(Ptr<MB> &flwb)
 {
 	__packed u16* data = (__packed u16*)(flwb->GetDataPtr());
 
-	flwb->len = InitRspMan_20(data) * 2;
+	flwb->len = InitRspMan_20(manReqWord|0x20|(fireMask&0xF), data) * 2;
 
 	RequestFlashWrite(flwb, data[0], true);
 }
@@ -1432,7 +1498,7 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
-	len = InitRspMan_20(manTrmData);
+	len = InitRspMan_20(data[0], manTrmData);
 
 	mtb->data1 = manTrmData;
 	mtb->len1 = len;
@@ -1490,7 +1556,11 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 		{
 			RspRcv02 &rsp = *((RspRcv02*)(curManVec30->GetDataPtr()));
 
-			u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + rsp.hdr.len * 4;
+			#ifdef RCV_WAVEPACK
+				u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + ((rsp.hdr.packType == 0) ? (rsp.hdr.len * 4) : (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4));
+			#else
+				u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + rsp.hdr.len * 4;
+			#endif
 
 			mtb->data2 = ((u16*)&rsp)+1;
 
@@ -1532,7 +1602,11 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 			len = data[2];
 		};
 
-		u16 sz = (sizeof(rsp.hdr) - sizeof(rsp.hdr.rw)) / 2 + rsp.hdr.len * 4;
+		#ifdef RCV_WAVEPACK
+			u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + ((rsp.hdr.packType == 0) ? (rsp.hdr.len * 4) : (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4));
+		#else
+			u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + rsp.hdr.len * 4;
+		#endif
 
 		if (sz >= off)
 		{
@@ -3539,42 +3613,44 @@ static void FlashMoto()
 
 static void InitMainVars()
 {
-	mv.numDevice		= 11111;
-	mv.numMemDevice		= 11111;
+	mv.numDevice			= 11111;
+	mv.numMemDevice			= 11111;
 
 	mv.trans[0].gain		= 0;
-	mv.trans[0].st 		= 5;	
-	mv.trans[0].sl 		= 512;	
-	mv.trans[0].sd 		= 200;	
+	mv.trans[0].st 			= 5;	
+	mv.trans[0].sl 			= 512;	
+	mv.trans[0].sd 			= 200;	
 	mv.trans[0].freq		= 16000;
 	mv.trans[0].duty		= 50;
-	mv.trans[0].amp		= 1200;
-	mv.trans[0].pulseCount = 1;
+	mv.trans[0].amp			= 1200;
+	mv.trans[0].pulseCount	= 1;
+	mv.trans[0].packType	= 0;
 
 	mv.trans[1].gain		= 1;
-	mv.trans[1].st 		= 10;	
-	mv.trans[1].sl 		= 512;	
-	mv.trans[1].sd 		= 200;	
+	mv.trans[1].st 			= 10;	
+	mv.trans[1].sl 			= 512;	
+	mv.trans[1].sd 			= 200;	
 	mv.trans[1].freq		= 3000;
 	mv.trans[1].duty		= 50;
-	mv.trans[1].amp		= 1200;
-	mv.trans[1].pulseCount = 1;
+	mv.trans[1].amp			= 1200;
+	mv.trans[1].pulseCount	= 1;
+	mv.trans[1].packType	= 0;
 
 	mv.trans[2].gain		= 1;
-	mv.trans[2].st 		= 10;	
-	mv.trans[2].sl 		= 512;	
-	mv.trans[2].sd 		= 500;	
+	mv.trans[2].st 			= 10;	
+	mv.trans[2].sl 			= 512;	
+	mv.trans[2].sd 			= 500;	
 	mv.trans[2].freq		= 1000;
 	mv.trans[2].duty		= 50;
-	mv.trans[2].amp		= 1200;
-	mv.trans[2].pulseCount = 1;
+	mv.trans[2].amp			= 1200;
+	mv.trans[2].pulseCount	= 1;
+	mv.trans[2].packType	= 0;
 
 	mv.trmVoltage				= 800;
 	mv.disableFireNoVibration	= 1;
-	mv.levelNoVibration		= 100;
+	mv.levelNoVibration			= 100;
 	mv.firePeriod				= 1000;
 	mv.lfMnplEnabled			= 0;
-	mv.packType				= 0;
 
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_CYAN "Init Main Vars Vars ... OK\n");
 }

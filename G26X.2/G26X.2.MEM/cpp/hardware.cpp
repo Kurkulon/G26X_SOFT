@@ -10,6 +10,7 @@
 #include "hw_rtm.h"
 #include "MANCH\manch.h"
 #include "DMA\DMA.h"
+#include "G_RCV.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -17,7 +18,7 @@
 #define MEDIUM_BUF_LEN	1536
 
 #ifndef WIN32
-#define HUGE_BUF_LEN	(0x2000+128) //2034
+#define HUGE_BUF_LEN	(sizeof(RspRcv02)+32) //2034
 #else
 #define HUGE_BUF_LEN	0x4100    
 #endif
