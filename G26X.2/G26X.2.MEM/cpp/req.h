@@ -242,12 +242,13 @@ union ReqUnion
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct RspMan60
+__packed struct RspMan71
 {
 	u16 rw; 
 	u32 cnt; 
-	u16 maxAmp[RCV_MAX_NUM_STATIONS*RCV_FIRE_NUM*4]; 
-	u16 power[RCV_MAX_NUM_STATIONS*RCV_FIRE_NUM*4];
+	u16 n;
+	u16 maxAmp[RCV_MAX_NUM_STATIONS*4]; 
+	u16 power[RCV_MAX_NUM_STATIONS*4];
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

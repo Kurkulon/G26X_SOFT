@@ -148,9 +148,8 @@ static Ptr<MB> curManVec60;
 
 //static ListPtr<MB> readyR01;
 
-static RspMan60 rspMan60;
-static byte curRcv[3] = { 0 };
-
+static RspMan71 rspMan71[RCV_FIRE_NUM];
+static byte curRcv[RCV_FIRE_NUM] = { 0 };
 
 
 //static u16 motoEnable = 0;		// двигатель включить или выключить
@@ -583,17 +582,17 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 
 		if (fireType < RCV_FIRE_NUM && i < RCV_MAX_NUM_STATIONS)
 		{
-			i = fireType*(RCV_MAX_NUM_STATIONS*4) + i*4;
+			i = i*4;
 
-			rspMan60.maxAmp[i + 0] = rsp.maxAmp[0];
-			rspMan60.maxAmp[i + 1] = rsp.maxAmp[1];
-			rspMan60.maxAmp[i + 2] = rsp.maxAmp[2];
-			rspMan60.maxAmp[i + 3] = rsp.maxAmp[3];
+			rspMan71[fireType].maxAmp[i + 0] = rsp.maxAmp[0];
+			rspMan71[fireType].maxAmp[i + 1] = rsp.maxAmp[1];
+			rspMan71[fireType].maxAmp[i + 2] = rsp.maxAmp[2];
+			rspMan71[fireType].maxAmp[i + 3] = rsp.maxAmp[3];
 
-			rspMan60.power[i + 0] = rsp.power[0];
-			rspMan60.power[i + 1] = rsp.power[1];
-			rspMan60.power[i + 2] = rsp.power[2];
-			rspMan60.power[i + 3] = rsp.power[3];
+			rspMan71[fireType].power[i + 0] = rsp.power[0];
+			rspMan71[fireType].power[i + 1] = rsp.power[1];
+			rspMan71[fireType].power[i + 2] = rsp.power[2];
+			rspMan71[fireType].power[i + 3] = rsp.power[3];
 		};
 	};
 
@@ -1498,6 +1497,8 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
+	fireMask = data[0] & 0xF;
+
 	len = InitRspMan_20(data[0], manTrmData);
 
 	mtb->data1 = manTrmData;
@@ -1520,8 +1521,8 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 
 	if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
 
-	byte nf = ((req.rw >> 4) - 3) & 3;
-	byte nr = req.rw & 7;
+	byte nf = ((req.rw >> 4) - 3) & 7;
+	byte nr = req.rw & 15;
 
 	curRcv[nf] = nr+1;
 
@@ -1543,14 +1544,16 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 
 	if (reqlen == 1 || (reqlen >= 2 && data[1] == 0))
 	{
+		curManVec30.Free();
+
 		if (manVec30[nf].Valid())
 		{
 			RspRcv02& rsp = *((RspRcv02*)manVec30[nf]->GetDataPtr());
 
 			if (rsp.hdr.rw == req.rw) curManVec30 = manVec30[nf];
-		}
-		
-		manVec30[nf].Free();
+			
+			manVec30[nf].Free();
+		};
 
 		if (curManVec30.Valid())
 		{
@@ -1626,11 +1629,12 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool RequestMan_60(u16 *data, u16 len, MTB* mtb)
+static bool RequestMan_71(u16 *data, u16 len, MTB* mtb)
 {
 	struct Rsp { u16 rw; };
-	
 	static Rsp rsp; 
+
+	static byte index = 0;
 
 	if (data == 0 || len == 0 || len > 4 || mtb == 0) return false;
 
@@ -1639,43 +1643,66 @@ static bool RequestMan_60(u16 *data, u16 len, MTB* mtb)
 
 	if (len < 3)
 	{
-		rspMan60.rw = manReqWord|0x60;
-		rspMan60.cnt = fireCounter;
+		index = (index+1) % RCV_FIRE_NUM; 
 
-		mtb->data1 = (u16*)&rspMan60;
-		mtb->len1 = sizeof(rspMan60)/2;
+		rspMan71[index].rw = manReqWord|0x71;
+		rspMan71[index].cnt = fireCounter;
+
+		mtb->data1 = (u16*)&rspMan71[index];
+		mtb->len1 = sizeof(rspMan71[index])/2;
 	}
 	else if (data[1] == 0)
 	{
-		rspMan60.rw = manReqWord|0x60;
-		rspMan60.cnt = fireCounter;
+		index = (index+1) % RCV_FIRE_NUM; 
 
-		u16 maxlen = sizeof(rspMan60)/2;
+		rspMan71[index].rw = manReqWord|0x71;
+		rspMan71[index].cnt = fireCounter;
+
+		u16 maxlen = sizeof(rspMan71[index])/2;
 		u16 len = data[2]+1;
 
 		if (len > maxlen) len = maxlen;
 
-		mtb->data1 = (u16*)&rspMan60;
+		mtb->data1 = (u16*)&rspMan71[index];
 		mtb->len1 = len;
 	}
 	else
 	{
-		rsp.rw = manReqWord|0x60;
+		rsp.rw = manReqWord|0x71;
 
 		mtb->data1 = (u16*)&rsp;
 		mtb->len1 = sizeof(rsp)/2;
 
-		if (sizeof(rspMan60)/2 > data[1])
+		if (sizeof(rspMan71[index])/2 > data[1])
 		{
-			u16 maxlen = sizeof(rspMan60)/2 - data[1] - 1;
+			u16 maxlen = sizeof(rspMan71[index])/2 - data[1] - 1;
 			u16 len = data[2];
 
 			if (len > maxlen) len = maxlen;
 
-			mtb->data2 = ((u16*)&rspMan60) + data[1]+1;
+			mtb->data2 = ((u16*)&rspMan71[index]) + data[1]+1;
 			mtb->len2 = len;
 		};
 	};
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool RequestMan_72(u16 *data, u16 len, MTB* mtb)
+{
+	struct Rsp { u16 rw; };
+	static Rsp rsp; 
+
+	if (data == 0 || len == 0 || len > 4 || mtb == 0) return false;
+
+	rsp.rw = manReqWord|0x72;
+
+	mtb->data1 = (u16*)&rsp;
+	mtb->len1 = sizeof(rsp)/2;
+	mtb->data2 = 0;
+	mtb->len2 = 0;
 
 	return true;
 }
@@ -1728,27 +1755,38 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 
 	switch(nr)
 	{
-		case 0x0:	mv.trmVoltage				= MIN(data[2],			950		);	break;	//0x00 - Напряжение излучателей (0..1000 В)
-		case 0x1:	mv.trans[0].pulseCount		= LIM(data[2],	1,		5		);	break;	//0x01 - Монополь. Количество импульсов (1..5)
-		case 0x2:	mv.trans[1].pulseCount		= LIM(data[2],	1,		5		);	break;	//0x02 - Диполь. Количество импульсов (1..5)
-		case 0x3:	mv.trans[0].freq			= LIM(data[2],	10000,	30000	);	break;	//0x03 - Монополь. Частота импульсов излучателя (10000..30000 шаг 1Гц)
-		case 0x4:	mv.trans[1].freq			= LIM(data[2],	1000,	10000	);	break;	//0x04 - Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
-		case 0x5:	mv.trans[0].duty			= MIN(data[2],			6000	);	break;	//0x05 - Монополь. Скважность импульсов излучателя (0..60 шаг 0.01%)
-		case 0x6:	mv.trans[1].duty			= MIN(data[2],			6000	);	break;	//0x06 - Диполь. Скважность импульсов излучателя (0..60 шаг 0.01%)
-
-		case 0x10:	mv.trans[0].gain			= MIN(data[2],			7		);	break;	//0x10 - Монополь. КУ (0..7 = 1..128)
-		case 0x18:	mv.trans[0].st				= MIN(data[2],			255		);	break;	//0x18 - Монополь. Шаг оцифровки (1..50)
-		case 0x19:	mv.trans[0].sl				= MIN(data[2],			1024	);	break;	//0x19 - Монополь. Длина оцифровки (0..512)
-		case 0x1A:	mv.trans[0].sd				= MIN(data[2],			1024	);	break;	//0x1A - Монополь. Задержка оцифровки 
-
-		case 0x20:	mv.trans[2].gain			= MIN(data[2],			7		);	break;	//0x20 - Диполь. КУ (0..7 = 1..128)
-		case 0x28:	mv.trans[2].st				= MIN(data[2],			255		);	break;	//0x28 - Диполь. Шаг оцифровки (1..50)
-		case 0x29:	mv.trans[2].sl				= MIN(data[2],			1024	);	break;	//0x29 - Диполь. Длина оцифровки (0..512)
-		case 0x2A:	mv.trans[2].sd				= MIN(data[2],			1024	);	break;	//0x2A - Диполь. Задержка оцифровки 
-
-		case 0x30:	mv.disableFireNoVibration	= data[2];							break;	//0x30 - Отключение регистрации на стоянке(0 - нет, 1 - да)
-		case 0x31:	mv.levelNoVibration			= data[2];							break;	//0x31 - Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
-		case 0x32:	mv.firePeriod				= MAX(data[2],	300);				break;	//0x32 - Период опроса(мс)(ushort)
+		case 0x00:	mv.trans[0].freq			= LIM(data[2],	10000,	30000	);	break;	//	0x00 - Монополь1. Частота излучателя (1000..30000 шаг 1Гц)
+		case 0x01:	mv.trans[0].amp				= MIN(data[2],			3000	);	break;	//	0x01 - Монополь1. Амплитуда излучателя (0..3000 вольт)
+																							
+		case 0x10:	mv.trans[1].freq			= LIM(data[2],	1000,	10000	);	break;	//	0x10 - Монополь2. Частота импульсов излучателя (10000..30000 шаг 1Гц)
+		case 0x11:	mv.trans[1].amp				= MIN(data[2],			3000	);	break;	//	0x11 - Монополь2. Амплитуда излучателя (0..3000 вольт)
+																							
+		case 0x20:	mv.trans[2].pulseCount		= LIM(data[2],	1,		5		);	break;	//	0x20 - Диполь. Количество импульсов (1..5)
+		case 0x21:	mv.trans[2].freq			= LIM(data[2],	1000,	10000	);	break;	//	0x21 - Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
+		case 0x22:	mv.trans[2].duty			= MIN(data[2],			6000	);	break;	//	0x22 - Диполь. Скважность импульсов излучателя (0..60 шаг 0.01%)
+																							
+		case 0x30:	mv.trans[0].gain			= MIN(data[2],			1		);	break;	//	0x30 - Монополь1. Предусилитель(0..1)
+		case 0x31:	mv.trans[0].st				= LIM(data[2],	2,		50		);	break;	//	0x31 - Монополь1. Шаг оцифровки (2..50)
+		case 0x32:	mv.trans[0].sl				= LIM(data[2],	16,		1024	);	break;	//	0x32 - Монополь1. Длина оцифровки (16..1024)
+		case 0x33:	mv.trans[0].sd				= MIN(data[2],			1024	);	break;	//	0x33 - Монополь1. Задержка оцифровки 
+		case 0x34:	mv.trans[0].packType		= MIN(data[2],			7		);	break;	//	0x34 - Монополь1. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+																							
+		case 0x40:	mv.trans[1].gain			= MIN(data[2],			1		);	break;	//	0x40 - Монополь2. Предусилитель(0..1)
+		case 0x41:	mv.trans[1].st				= LIM(data[2],	2,		50		);	break;	//	0x41 - Монополь2. Шаг оцифровки (2..50)
+		case 0x42:	mv.trans[1].sl				= LIM(data[2],	16,		1024	);	break;	//	0x42 - Монополь2. Длина оцифровки (16..1024)
+		case 0x43:	mv.trans[1].sd				= MIN(data[2],			1024	);	break;	//	0x43 - Монополь2. Задержка оцифровки 
+		case 0x44:	mv.trans[1].packType		= MIN(data[2],			7		);	break;	//	0x44 - Монополь2. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+																							
+		case 0x50:	mv.trans[2].gain			= MIN(data[2],			1		);	break;	//	0x50 - Диполь. Предусилитель(0..1)
+		case 0x51:	mv.trans[2].st				= LIM(data[2],	2,		50		);	break;	//	0x51 - Диполь. Шаг оцифровки (2..50)
+		case 0x52:	mv.trans[2].sl				= LIM(data[2],	16,		1024	);	break;	//	0x52 - Диполь. Длина оцифровки (16..1024)
+		case 0x53:	mv.trans[2].sd				= MIN(data[2],			1024	);	break;	//	0x53 - Диполь. Задержка оцифровки 
+		case 0x54:	mv.trans[2].packType		= MIN(data[2],			7		);	break;	//	0x54 - Диполь. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+																							
+		case 0x60:	mv.trmVoltage				= MIN(data[2],			950		);	break;	//	0x60 - Напряжение излучателя (0...950 вольт)
+		case 0x61:	mv.disableFireNoVibration	= data[2];							break;	//	0x61 - Отключение регистрации на стоянке(0 - нет, 1 - да)
+		case 0x62:	mv.levelNoVibration			= data[2];							break;	//	0x62 - Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
+		case 0x63:	mv.firePeriod				= MAX(data[2],			300);		break;	//	0x63 - Период опроса(мс)(ushort)
 
 		default:	return false;
 	};
@@ -1791,21 +1829,22 @@ static bool RequestMan(u16 *buf, u16 len, MTB* mtb)
 
 	bool r = false;
 
-	byte i = (buf[0]>>4)&0xF;
+	byte i = buf[0] & ~manReqMask;
+
+	if ((i & 0xF0) == 0x20) i = 0x20;
+	if (i >= 0x30 && i <= 0x6F) i = 0x30;
 
 	switch (i)
 	{
-		case 0: 	r = RequestMan_00(buf, len, mtb); break;
-		case 1: 	r = RequestMan_10(buf, len, mtb); break;
-		case 2: 	r = RequestMan_20(buf, len, mtb); break;
-		case 3:
-		case 4:
-		case 5:		r = RequestMan_30(buf, len, mtb); break;
-
-		case 6: 	r = RequestMan_60(buf, len, mtb); break;
-		case 8: 	r = RequestMan_80(buf, len, mtb); break;
-		case 9:		r = RequestMan_90(buf, len, mtb); break;
-		case 0xF:	r = RequestMan_F0(buf, len, mtb); break;
+		case 0x00: 	r = RequestMan_00(buf, len, mtb); break;
+		case 0x10: 	r = RequestMan_10(buf, len, mtb); break;
+		case 0x20: 	r = RequestMan_20(buf, len, mtb); break;
+		case 0x30:	r = RequestMan_30(buf, len, mtb); break;
+		case 0x71: 	r = RequestMan_71(buf, len, mtb); break;
+		case 0x72: 	r = RequestMan_72(buf, len, mtb); break;
+		case 0x80: 	r = RequestMan_80(buf, len, mtb); break;
+		case 0x90:	r = RequestMan_90(buf, len, mtb); break;
+		case 0xF0:	r = RequestMan_F0(buf, len, mtb); break;
 	};
 
 	if (r)
@@ -2294,7 +2333,7 @@ static void UpdateRcvTrm()
 
 				byte tn = transIndex[n];
 
-				u32 t = 1000 + (u32)mv.trans[tn].sl * mv.trans[tn].st + mv.trans[tn].sd;
+				u32 t = 2000 + (u32)mv.trans[tn].sl * mv.trans[tn].st + mv.trans[tn].sd;
 
 				fireTime = US2CTM(t);
 
@@ -3511,102 +3550,102 @@ u16 motoFlashCRC = 0;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static void FlashMoto()
-{
-	static BootReqHS	reqHS;
-	static BootRspHS	rspHS;
-	static ComPort::WriteBuffer wb;
-	static ComPort::ReadBuffer	rb;
-
-	const unsigned __int64 masterGUID = TRM_BOOT_MGUID;
-	const unsigned __int64 slaveGUID = TRM_BOOT_SGUID;
-
-	CTM32 ctm;
-
-	Ptr<REQ> req;
-
-	motoFlashLen = sizeof(motoFlashPages);
-	motoFlashCRC = GetCRC16(motoFlashPages, motoFlashLen);
-
-	ctm.Reset();
-
-	bool hs = false;
-
-	while (!ctm.Check(MS2CTM(200)))
-	{
-		reqHS.guid = masterGUID;
-		reqHS.crc = GetCRC16(&reqHS, sizeof(reqHS) - sizeof(reqHS.crc));
-		wb.data = &reqHS;
-		wb.len = sizeof(reqHS);
-
-		comTrm.Write(&wb);
-
-		while (comTrm.Update()) HW::WDT->Update(); 
-
-		rb.data = &rspHS;
-		rb.maxLen = sizeof(rspHS);
-		comTrm.Read(&rb, MS2COM(5), US2COM(100));
-
-		while (comTrm.Update()) HW::WDT->Update();;
-
-		if (rb.recieved && rb.len == sizeof(rspHS) && GetCRC16(&rspHS, sizeof(rspHS)) == 0 && rspHS.guid == slaveGUID)
-		{
-			hs = true;
-			break;
-		};
-	};
-
-	if (hs)
-	{
-		req = CreateBootMotoReq01(motoFlashLen, 2);
-
-		qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update(); };
-
-		if (req->crcOK)
-		{
-			BootRspMes *rsp = (BootRspMes*)req->rb.data;
-
-			if (rsp->F1.sCRC != motoFlashCRC || rsp->F1.len != motoFlashLen)
-			{
-				u16 count = motoFlashLen/4;
-				u32 adr = 0;
-				const u32 *p = motoFlashPages;
-
-				while (count > 0)
-				{
-					u16 len = (count > 16) ? 16 : count;
-
-					for(u32 i = 3; i > 0; i--)
-					{
-						req = CreateBootMotoReq03(adr, len, p, 3);
-
-						qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update(); };
-
-						BootRspMes *rsp = (BootRspMes*)req->rb.data;
-
-						if (req->crcOK && rsp->F3.status) { break;	}
-					};
-
-					ctm.Reset();
-
-					while (!ctm.Check(MS2CTM(1))) HW::WDT->Update();
-
-					count -= len;
-					p += len;
-					adr += len*4;
-				};
-			};
-		};
-
-		req = CreateBootMotoReq02();
-
-		qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update();	};
-
-		ctm.Reset();
-
-		while (!ctm.Check(MS2CTM(1))) HW::WDT->Update();
-	};
-}
+//static void FlashMoto()
+//{
+//	static BootReqHS	reqHS;
+//	static BootRspHS	rspHS;
+//	static ComPort::WriteBuffer wb;
+//	static ComPort::ReadBuffer	rb;
+//
+//	const unsigned __int64 masterGUID = TRM_BOOT_MGUID;
+//	const unsigned __int64 slaveGUID = TRM_BOOT_SGUID;
+//
+//	CTM32 ctm;
+//
+//	Ptr<REQ> req;
+//
+//	motoFlashLen = sizeof(motoFlashPages);
+//	motoFlashCRC = GetCRC16(motoFlashPages, motoFlashLen);
+//
+//	ctm.Reset();
+//
+//	bool hs = false;
+//
+//	while (!ctm.Check(MS2CTM(200)))
+//	{
+//		reqHS.guid = masterGUID;
+//		reqHS.crc = GetCRC16(&reqHS, sizeof(reqHS) - sizeof(reqHS.crc));
+//		wb.data = &reqHS;
+//		wb.len = sizeof(reqHS);
+//
+//		comTrm.Write(&wb);
+//
+//		while (comTrm.Update()) HW::WDT->Update(); 
+//
+//		rb.data = &rspHS;
+//		rb.maxLen = sizeof(rspHS);
+//		comTrm.Read(&rb, MS2COM(5), US2COM(100));
+//
+//		while (comTrm.Update()) HW::WDT->Update();;
+//
+//		if (rb.recieved && rb.len == sizeof(rspHS) && GetCRC16(&rspHS, sizeof(rspHS)) == 0 && rspHS.guid == slaveGUID)
+//		{
+//			hs = true;
+//			break;
+//		};
+//	};
+//
+//	if (hs)
+//	{
+//		req = CreateBootMotoReq01(motoFlashLen, 2);
+//
+//		qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update(); };
+//
+//		if (req->crcOK)
+//		{
+//			BootRspMes *rsp = (BootRspMes*)req->rb.data;
+//
+//			if (rsp->F1.sCRC != motoFlashCRC || rsp->F1.len != motoFlashLen)
+//			{
+//				u16 count = motoFlashLen/4;
+//				u32 adr = 0;
+//				const u32 *p = motoFlashPages;
+//
+//				while (count > 0)
+//				{
+//					u16 len = (count > 16) ? 16 : count;
+//
+//					for(u32 i = 3; i > 0; i--)
+//					{
+//						req = CreateBootMotoReq03(adr, len, p, 3);
+//
+//						qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update(); };
+//
+//						BootRspMes *rsp = (BootRspMes*)req->rb.data;
+//
+//						if (req->crcOK && rsp->F3.status) { break;	}
+//					};
+//
+//					ctm.Reset();
+//
+//					while (!ctm.Check(MS2CTM(1))) HW::WDT->Update();
+//
+//					count -= len;
+//					p += len;
+//					adr += len*4;
+//				};
+//			};
+//		};
+//
+//		req = CreateBootMotoReq02();
+//
+//		qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update();	};
+//
+//		ctm.Reset();
+//
+//		while (!ctm.Check(MS2CTM(1))) HW::WDT->Update();
+//	};
+//}
 
 #endif
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

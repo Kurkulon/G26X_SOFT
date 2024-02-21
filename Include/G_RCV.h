@@ -26,6 +26,8 @@
 #define RCV_NetResist(v)	(((v) * 941 + 128) / 256)
 #define RCV_NetAdr(v)		(1 + (v)/1024)
 
+//#define RCV_TEST_WAVEPACK 16
+
 #define RCV_WAVEPACK
 #define RCV_13AD
 

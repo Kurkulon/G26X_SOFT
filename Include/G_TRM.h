@@ -14,6 +14,10 @@
 #define TRM_COM_PARITY		2
 #define TRM_COM_STOPBITS	2
 
+#define TRM_BOOT_REQ_WORD	0X6600
+#define TRM_BOOT_REQ_MASK	0xFF00
+#define TRM_BOOT_NET_ADR	1
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifndef BOOTLOADER

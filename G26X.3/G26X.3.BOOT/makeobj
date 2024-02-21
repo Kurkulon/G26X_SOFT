@@ -9,7 +9,7 @@ version = Release
 
 curdir = $+ $(%cdrive):$(%cwd) $-
 hdir = cpp
-libdir = $(curdir)\..\..\..\G_LIBS_ARM
+libdir = $(curdir)\..\..\..\G_LIBS
 bindir = $(%ARMCC50BIN)
 ghdir = $(curdir)\..\..\Include,$(curdir)\..\Include
 
@@ -39,7 +39,7 @@ cpu_compiler_options = --cpu=CORTEX-M4.fp.sp --thumb
 cpu_asm_options = --cpu CORTEX-M4.fp.sp --apcs /interwork	--pd "__PROGNAME__ SETS \"BOOT G26X.3.1(13AD90_IZL_UPR)-1.1\nBuild:$(%buildnumvar)\""
 cpu_link_options = --cpu CORTEX-M4.fp.sp
 cpu_obj = $(objdir)\startup_CM4.o
-cpu_scatter = $(libdir)\SAME53_18_BOOT.sct
+cpu_scatter = $(libdir)\Scatter\SAME53_18_BOOT.sct
 
 !else
 
@@ -142,7 +142,7 @@ $(objdir)\$(target_name).axf : $(cpu_obj) $(modules_obj)
 	
 ##################################################################################################
 
-#$(objdir)\startup_CM4.o : $(curdir)\..\G26R_1_MEM\cpp\startup_CM4.s
+#$(objdir)\ARM\startup_CM4.o : $(curdir)\..\G26R_1_MEM\cpp\startup_CM4.s
 #	@echo Assembling $[. ...
 #	@$(bindir)\armasm $(asm_options) --list $(objdir)\$^&.lst  -o $(objdir)\$^. $[@	
 
