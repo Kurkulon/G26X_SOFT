@@ -724,10 +724,10 @@ static void UpdateSport()
 				rsp.hdr.packLen4	= dsc->sl;
 				#endif
 
-				u16 *p2 = rsp.data + rsp.hdr.len*0;
-				u16 *p1 = rsp.data + rsp.hdr.len*1;
-				u16 *p4 = rsp.data + rsp.hdr.len*2;
-				u16 *p3 = rsp.data + rsp.hdr.len*3;
+				u16 *p1 = rsp.data + rsp.hdr.len*0;
+				u16 *p2 = rsp.data + rsp.hdr.len*1;
+				u16 *p3 = rsp.data + rsp.hdr.len*2;
+				u16 *p4 = rsp.data + rsp.hdr.len*3;
 
 				u16 max[4] = {0, 0, 0, 0};
 				u16 min[4] = {65535, 65535, 65535, 65535 };
@@ -740,7 +740,7 @@ static void UpdateSport()
 
 				for (u16 i = 0; i < rsp.hdr.len; i++)
 				{
-					t = dsc->spd[0][i*2+0];
+					t = dsc->spd[0][i*2+1];
 
 					if (t > max[0]) { max[0] = t; };
 					if (t < min[0]) { min[0] = t; };
@@ -749,7 +749,7 @@ static void UpdateSport()
 
 					pow[0] += (x > 0) ? x : (-x);
 
-					t = dsc->spd[0][i*2+1];
+					t = dsc->spd[0][i*2+0];
 
 					if (t > max[1]) { max[1] = t; };
 					if (t < min[1]) { min[1] = t; };
@@ -758,7 +758,7 @@ static void UpdateSport()
 
 					pow[1] += (x > 0) ? x : (-x);
 
-					t = dsc->spd[1][i*2+0];
+					t = dsc->spd[1][i*2+1];
 
 					if (t > max[2]) { max[2] = t; };
 					if (t < min[2]) { min[2] = t; };
@@ -767,7 +767,7 @@ static void UpdateSport()
 
 					pow[2] += (x > 0) ? x : (-x);
 
-					t = dsc->spd[1][i*2+1];
+					t = dsc->spd[1][i*2+0];
 
 					if (t > max[3]) { max[3] = t; };
 					if (t < min[3]) { min[3] = t; };

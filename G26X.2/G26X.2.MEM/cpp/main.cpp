@@ -410,8 +410,12 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		else
 		{
 			rcvStatus &= ~(1 << (a)); 
-			rcv02rejVec += 1;
-			rejRcv02[a] += 1;
+
+			if (q->rb.recieved)
+			{
+				rcv02rejVec += 1;
+				rejRcv02[a] += 1;
+			};
 		};
 	};
 
@@ -1015,83 +1019,9 @@ static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount)
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static void CallBackMotoReq(Ptr<REQ> &q)
-{
-	//if (!q->crcOK) 
-	//{
-	//	if (q->tryCount > 0)
-	//	{
-	//		q->tryCount--;
-	//		qTrm.Add(q);
-	//	};
-	//}
-	//else
-	//{
-	//	RspMoto &rsp = *((RspMoto*)q->rb.data);
-
-	//	if (rsp.rw == 0x101)
-	//	{
-	//		motoRPS		= rsp.rpm;
-	//		motoCur		= rsp.current;
-	//		motoCurLow	= rsp.currentLow;
-	//		motoStat	= rsp.mororStatus;
-	//		motoCounter = rsp.motoCounter;
-	//		auxVoltage	= rsp.auxVoltage;
-	//		motoVoltage	= rsp.motoVoltage;
-	//		motoRcvCount++;
-	//	};
-	//};
-}
-
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateMotoReq()
-{
-	Ptr<REQ> rq(AllocREQ());
-	
-	//rq.Alloc();
-
-	if (!rq.Valid()) return rq;
-
-	//rq->rsp = AllocMemBuffer(sizeof(RspMoto));
-
-	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
-
-	//ReqMoto &req = *((ReqMoto*)rq->reqData);
-	//RspMoto &rsp = *((RspMoto*)(rq->rsp->GetDataPtr()));
-	//
-	//REQ &q = *rq;
-
-	//q.CallBack = CallBackMotoReq;
-	////q.rb = &rb;
-	////q.wb = &wb;
-	//q.preTimeOut = MS2COM(1);
-	//q.postTimeOut = US2COM(100);
-	//q.ready = false;
-	//q.checkCRC = true;
-	//q.updateCRC = false;
-	//q.tryCount = 1;
-	//
-	//q.wb.data = &req;
-	//q.wb.len = sizeof(req);
-
-	//q.rb.data = &rsp;
-	//q.rb.maxLen = sizeof(rsp);
-	//
-	//req.rw = 0x101;
-	//req.enableMotor	= 1;
-	//req.tRPM = motoTargetRPS;
-	//req.limCurrent = mv.motoLimCur;
-	//req.maxCurrent = mv.motoMaxCur;
-	//req.crc	= GetCRC16(&req, sizeof(req)-2);
-
-	return rq;
-}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static void CallBackBootMotoReq01(Ptr<REQ> &q)
+static bool CallBackTrmBootReq(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
@@ -1101,190 +1031,238 @@ static void CallBackBootMotoReq01(Ptr<REQ> &q)
 			qTrm.Add(q);
 		};
 	};
+
+	return true;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateBootMotoReq01(u16 flashLen, u16 tryCount)
+static Ptr<REQ> CreateTrmBootReq00(u16 adr, BootRspV1::SF0 *rspdata, u16 tryCount)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
-	//rq.Alloc();
-
 	if (!rq.Valid()) return rq;
 
-	//rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
-
-	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
-
-	//ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
-	//RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
-	//
-	//REQ &q = *rq;
-
-	//q.CallBack = CallBackBootMotoReq01;
-	//q.preTimeOut = MS2COM(10);
-	//q.postTimeOut = US2COM(100);
-	////q.rb = &rb;
-	////q.wb = &wb;
-	//q.ready = false;
-	//q.tryCount = tryCount;
-	//q.checkCRC = true;
-	//q.updateCRC = false;
-	//
-	//q.wb.data = &req;
-	//q.wb.len = sizeof(req.F1);
-	//
-	//q.rb.data = &rsp;
-	//q.rb.maxLen = sizeof(rsp);
-
-	//req.F1.func = 1;
-	//req.F1.len = flashLen;
-	//req.F1.align = ~flashLen;
-
-	//req.F1.crc	= GetCRC16(&req, sizeof(req.F1) - sizeof(req.F1.crc));
-
-	return rq;
-}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static void CallBackBootMotoReq03(Ptr<REQ> &q)
-{
-	if (!q->crcOK) 
+	if (rspdata == 0 && adr != 0)
 	{
-		if (q->tryCount > 0)
-		{
-			q->tryCount--;
-			qTrm.Add(q);
-		};
+		rq->rsp = AllocMemBuffer(sizeof(*rspdata));
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+		rspdata = (BootRspV1::SF0*)(rq->rsp->GetDataPtr());
 	};
-}
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static Ptr<REQ> CreateBootMotoReq03(u16 stAdr, u16 count, const u32* data, u16 tryCount)
-{
-	Ptr<REQ> rq(AllocREQ());
+	BootReqV1::SF0 &req = *((BootReqV1::SF0*)rq->reqData);
+	BootRspV1::SF0 &rsp = *rspdata;
 	
-	//rq.Alloc();
+	REQ &q = *rq;
 
-	if (!rq.Valid()) return rq;
+	q.CallBack = CallBackTrmBootReq;
+	q.preTimeOut = MS2COM(10);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+	
+	q.rb.data = (adr == 0) ? 0 : &rsp;
+	q.rb.maxLen = sizeof(rsp);
 
-	//rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
-
-	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
-
-	//ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
-	//RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
-	//
-	//REQ &q = *rq;
-
-	//q.CallBack = CallBackBootMotoReq03;
-	//q.preTimeOut = MS2COM(300);
-	//q.postTimeOut = US2COM(100);
-	////q.rb = &rb;
-	////q.wb = &wb;
-	//q.ready = false;
-	//q.tryCount = tryCount;
-	//q.checkCRC = true;
-	//q.updateCRC = false;
-	//
-	//q.rb.data = &rsp;
-	//q.rb.maxLen = sizeof(rsp);
-
-	//req.F3.func = 3;
-
-	//u16 max = ArraySize(req.F3.pdata);
-
-	//if (count > max)
-	//{
-	//	count = max;
-	//};
-
-	//u32 count2 = max - count;
-
-	//req.F3.padr = stAdr;
-
-	//u32 *d = req.F3.pdata;
-
-	//while(count > 0)
-	//{
-	//	*d++ = *data++;
-	//	count--;
-	//};
-
-	//if (count2 > 0)
-	//{
-	//	*d++ = ~0;
-	//	count2--;
-	//};
-
-	//u16 len = sizeof(req.F3) - sizeof(req.F3.crc);
-
-	//req.F3.align = 0xAAAA;
-	//req.F3.crc = GetCRC16(&req, len);
-
-	//q.wb.data = &req;
-	//q.wb.len = len+sizeof(req.F3.crc);
+	req.adr	= adr;
+	req.rw	= TRM_BOOT_REQ_WORD|0;
+	req.crc	= GetCRC16(&req, sizeof(req)-sizeof(req.crc));
 
 	return rq;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static Ptr<REQ> CreateBootMotoReq02()
+static Ptr<REQ> CreateTrmBootReq01(u16 adr, u32 len, u16 tryCount)
 {
 	Ptr<REQ> rq(AllocREQ());
 	
-	//rq.Alloc();
-
 	if (!rq.Valid()) return rq;
 
-	//rq->rsp = AllocMemBuffer(sizeof(RspBootMoto));
+	if (adr != 0)
+	{
+		rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF1));
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	};
 
-	//if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	BootReqV1::SF1 &req = *((BootReqV1::SF1*)rq->reqData);
+	BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)(rq->rsp->GetDataPtr()));
+	
+	REQ &q = *rq;
 
-	//ReqBootMoto &req = *((ReqBootMoto*)rq->reqData);
-	//RspBootMoto &rsp = *((RspBootMoto*)(rq->rsp->GetDataPtr()));
-	//
-	//REQ &q = *rq;
+	q.CallBack = CallBackTrmBootReq;
+	q.preTimeOut = MS2COM(10);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+	
+	q.rb.data = (adr == 0) ? 0 : &rsp;
+	q.rb.maxLen = sizeof(rsp);
 
-	//q.CallBack = 0;
-	//q.preTimeOut = MS2COM(10);
-	//q.postTimeOut = US2COM(100);
-	////q.rb = &rb;
-	////q.wb = &wb;
-	//q.ready = false;
-	//q.tryCount = 1;
-	//q.checkCRC = true;
-	//q.updateCRC = false;
-	//
-	//q.rb.data = &rsp;
-	//q.rb.maxLen = sizeof(rsp);
-	//
-	//req.F2.func = 2;
-	//req.F2.align += 1; 
-
-	//u16 len = sizeof(req.F2) - sizeof(req.F2.crc);
-
-	//req.F2.crc = GetCRC16(&req, len);
-
-	//q.wb.data = &req;
-	//q.wb.len = len + sizeof(req.F2.crc);
+	req.adr	= adr;
+	req.rw	= TRM_BOOT_REQ_WORD|1;
+	req.len = len;
+	req.crc	= GetCRC16(&req, sizeof(req)-sizeof(req.crc));
 
 	return rq;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//static void InitRmemList()
-//{
-//	for (u16 i = 0; i < ArraySize(r02); i++)
-//	{
-//		freeR01.Add(&r02[i]);
-//	};
-//}
+static Ptr<REQ> CreateTrmBootReq02(u16 adr, u16 stAdr, u16 count, void* data, u16 pageLen, u16 tryCount)
+{
+	Ptr<REQ> rq(AllocREQ());
+	
+	if (!rq.Valid()) return rq;
+
+	rq->rsp = AllocMemBuffer(sizeof(BootReqV1::SF2) + pageLen);
+
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+
+	BootRspV1::SF2 &rsp = *((BootRspV1::SF2*)rq->reqData);
+	BootReqV1::SF2 &req = *((BootReqV1::SF2*)(rq->rsp->GetDataPtr()));
+	
+	REQ &q = *rq;
+
+	q.CallBack = CallBackTrmBootReq;
+	q.preTimeOut = MS2COM(50);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	
+	q.rb.data = &rsp;
+	q.rb.maxLen = sizeof(rsp);
+
+	req.adr	= adr;
+	req.rw	= TRM_BOOT_REQ_WORD|2;
+
+	u16 max = pageLen;
+
+	if (count > max)
+	{
+		count = max;
+//		count2 = 0;
+	}
+	//else if ((count + count2) > max)
+	//{
+	//	count2 = max - count;
+	//};
+
+	req.padr = stAdr;
+	req.plen = count;//+count2;
+
+	byte *d = (byte*)req.pdata;
+	byte *s = (byte*)data;
+
+	while(count > 0) *d++ = *s++, count--;
+
+	//if (data2 != 0)	{ s = (byte*)data2;	while(count2 > 0) *d++ = *s++, count2--; };
+
+	u16 len = sizeof(req) - sizeof(req.pdata) + req.plen;
+
+	u16 crc = GetCRC16(&req, len);
+
+	*(d++) = crc;
+	*(d++) = crc>>8;
+
+	q.wb.data = &req;
+	q.wb.len = len+2;
+
+	return rq;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateTrmBootReq03(u16 adr, u16 tryCount)
+{
+	Ptr<REQ> rq(AllocREQ());
+	
+	if (!rq.Valid()) return rq;
+
+	if (adr != 0)
+	{
+		rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF3));
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	};
+
+	BootReqV1::SF3 &req = *((BootReqV1::SF3*)rq->reqData);
+	BootRspV1::SF3 &rsp = *((BootRspV1::SF3*)(rq->rsp->GetDataPtr()));
+	
+	REQ &q = *rq;
+
+	q.CallBack = CallBackTrmBootReq;
+	q.preTimeOut = MS2COM(10);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+	
+	q.rb.data = (adr == 0) ? 0 : &rsp;
+	q.rb.maxLen = sizeof(rsp);
+
+	req.adr	= adr;
+	req.rw	= TRM_BOOT_REQ_WORD|3;
+	req.crc	= GetCRC16(&req, sizeof(req)-sizeof(req.crc));
+
+	return rq;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateTrmBootReq04(u16 adr, u32 timeOut, u16 tryCount)
+{
+	Ptr<REQ> rq(AllocREQ());
+	
+	if (!rq.Valid()) return rq;
+
+	if (adr != 0)
+	{
+		rq->rsp = AllocMemBuffer(sizeof(BootRspV1::SF4));
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	};
+
+	BootReqV1::SF4 &req = *((BootReqV1::SF4*)rq->reqData);
+	BootRspV1::SF4 &rsp = *((BootRspV1::SF4*)(rq->rsp->GetDataPtr()));
+	
+	REQ &q = *rq;
+
+	q.CallBack = CallBackTrmBootReq;
+	q.preTimeOut = MS2COM(10);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+	
+	q.rb.data = (adr == 0) ? 0 : &rsp;
+	q.rb.maxLen = sizeof(rsp);
+
+	req.adr			= adr;
+	req.rw			= TRM_BOOT_REQ_WORD|4;
+	req.timeOutMS	= timeOut;
+	req.crc			= GetCRC16(&req, sizeof(req)-sizeof(req.crc));
+
+	return rq;
+}
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1643,20 +1621,22 @@ static bool RequestMan_71(u16 *data, u16 len, MTB* mtb)
 
 	if (len < 3)
 	{
-		index = (index+1) % RCV_FIRE_NUM; 
+		do index = (index+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<index)) == 0);
 
-		rspMan71[index].rw = manReqWord|0x71;
+		rspMan71[index].rw	= manReqWord|0x71;
 		rspMan71[index].cnt = fireCounter;
+		rspMan71[index].n	= index;
 
 		mtb->data1 = (u16*)&rspMan71[index];
 		mtb->len1 = sizeof(rspMan71[index])/2;
 	}
 	else if (data[1] == 0)
 	{
-		index = (index+1) % RCV_FIRE_NUM; 
+		do index = (index+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<index)) == 0);
 
 		rspMan71[index].rw = manReqWord|0x71;
 		rspMan71[index].cnt = fireCounter;
+		rspMan71[index].n	= index;
 
 		u16 maxlen = sizeof(rspMan71[index])/2;
 		u16 len = data[2]+1;
@@ -3202,128 +3182,6 @@ static void UpdateDSP_Com()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#ifdef DSPSPI
-
-static void UpdateDSP_SPI()
-{
-	static Ptr<MB> mb;
-
-	//static RspDsp01 rsp;
-
-	static byte i = 0;
-	static u16 len = 0;
-	static bool crc = false;
-	//static u32 ptime = 0;
-
-	static S_SPIS::RBUF rb;
-
-	switch (i)
-	{
-		case 0:
-
-			if (!mb.Valid())
-			{
-				mb = AllocFlashWriteBuffer(sizeof(RspDsp01)+6);
-			};
-
-			if (mb.Valid())
-			{
-				mb->dataOffset = (mb->dataOffset + 3) & ~3;
-
-				rb.data = mb->GetDataPtr();
-				rb.maxLen = mb->GetDataMaxLen() & ~3;
-
-				spidsp.Read(&rb, ~0, US2SPIS(50));
-
-				HW::PIOC->BSET(19);
-				PIO_SS->BCLR(PIN_SS);
-
-				i++;
-			};
-
-			break;
-
-		case 1:
-
-			if (!spidsp.Update())
-			{
-				PIO_SS->BSET(PIN_SS);
-				HW::PIOC->BCLR(19);
-
-				bool c = false;
-
-				RspDsp01 &rsp = *((RspDsp01*)rb.data);
-
-				if (rsp.CM.hdr.rw == (dspReqWord|0x40))
-				{
-					if (rsp.CM.hdr.packType == 0)
-					{
-						len = rsp.CM.hdr.sl*2 + sizeof(rsp.CM.hdr) + 2;
-						crc = (GetCRC16(&rsp.CM.hdr, sizeof(rsp.CM.hdr)) == rsp.CM.data[rsp.CM.hdr.sl]);
-					}
-					else
-					{
-						len = rsp.CM.hdr.packLen*2 + sizeof(rsp.CM.hdr) + 2;
-						crc = (GetCRC16(&rsp.CM.hdr, sizeof(rsp.CM.hdr)) == rsp.CM.data[rsp.CM.hdr.packLen]);
-					};
-
-					c = /*(rb.len >= len) &&*/ crc;
-
-					if (c)
-					{
-						mb->len = rb.len - 2;
-
-						dspRcv40++;
-						//dspRcvCount++;
-					};
-				}
-				else if (rsp.IM.hdr.rw == (dspReqWord|0x50))
-				{
-					if (rb.len == (rsp.IM.hdr.dataLen*4 + sizeof(rsp.IM.hdr) + 2))
-					{
-						if (rsp.IM.data[rsp.IM.hdr.dataLen] == GetCRC16(&rsp.IM.hdr, sizeof(rsp.IM.hdr)))
-						{
-							mb->len = rb.len - 2;
-							
-							dspRcv50++;
-							//dspRcvCount++;
-
-							//dspMMSEC = rsp.IM.hdr.time;
-							//shaftMMSEC = rsp.IM.hdr.hallTime;
-
-							c = true;
-						};
-					};
-				};
-
-				if (c)
-				{
-					readyR01.Add(mb);
-
-					mb.Free();
-				}
-				else if (rb.len != 0)
-				{
-					HW::PIOC->BSET(18);
-					dspRcvErr++;
-					HW::PIOC->BCLR(18);
-				}
-				else
-				{
-					HW::PIOC->BSET(17);
-					dspNotRcv++;
-					HW::PIOC->BCLR(17);
-				};
-
-				i = 0;
-
-			};
-
-			break;
-	};
-}
-#endif
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifndef WIN32
 
@@ -3352,7 +3210,7 @@ static void FlashRcv()
 
 	BootRspV1::SF0	rspF0[RCV_MAX_NUM_STATIONS];
 
-	u16 tryCount = 100;
+	u16 tryCount = 4;
 	
 	rcvStatus = 0;
 	byte N = RCV_MAX_NUM_STATIONS;
@@ -3470,182 +3328,101 @@ static void FlashRcv()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-/*
-static void FlashDSP()
+
+static const u32 trmFlashPages[] = {
+#include "G26X.3.TRM.BIN.H"
+};
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void FlashTrm()
 {
-	TM32 tm;
+	CTM32 tm;
 
-	Ptr<REQ> req;
+	Ptr<REQ> rq;
 
-	tm.Reset();
+	u16 flashLen = sizeof(trmFlashPages);
+	u16 flashCRC = GetCRC16(trmFlashPages, flashLen);
 
-	while (!tm.Check(100)) HW::WDT->Update();
+	BootRspV1::SF0	rspF0;
 
-	while (!req.Valid()) req = CreateRcvBootReq00(2);
+	u16 tryCount = 4;
 
-	qRcv.Add(req); while(!req->ready) { qRcv.Update(); HW::WDT->Update(); };
+	bool hs = false;
 
-	if (req->crcOK)
+	while (tryCount > 0)
 	{
-		RspDsp05 *rsp = (RspDsp05*)req->rb.data;
+		rq = CreateTrmBootReq00(TRM_BOOT_NET_ADR, &rspF0, 2);
 
-		u16 flen = sizeof(dspFlashPages);
-		const u32 *fpages = dspFlashPages;
-
-		u16 fcrc = GetCRC16(fpages, flen);
-
-		if (rsp->flashCRC != fcrc || rsp->flashLen != flen)
+		if (rq.Valid())
 		{
-			u16 count = flen+2;
+			qTrm.Add(rq); while(!rq->ready) qTrm.Update();
+
+			if (rq->crcOK)
+			{
+				BootReqV1::SF0 &req = *((BootReqV1::SF0*)rq->wb.data);
+				BootRspV1::SF0 &rsp = rspF0;
+
+				if (rsp.adr == TRM_BOOT_NET_ADR && rsp.rw == req.rw)
+				{
+					hs = true;
+					break;
+				};
+
+				if (tryCount > 2) tryCount = 2;
+			};
+
+			rq.Free();
+		};
+		
+		tryCount--;
+	};
+
+	if (hs)
+	{
+		rq = CreateTrmBootReq01(TRM_BOOT_NET_ADR, flashLen, 2);
+
+		qTrm.Add(rq); while(!rq->ready) { qTrm.Update(); };
+
+		BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)rq->rb.data);
+
+		if (rsp.flashCRC != flashCRC || rsp.flashLen != flashLen)
+		{
+			u16 count = flashLen;
 			u16 adr = 0;
-			byte *p = (byte*)fpages;
+			byte *p = (byte*)trmFlashPages;
+
+			u16 max = rspF0.pageLen;
+
+			u16 len;
 
 			while (count > 0)
 			{
-				u16 len;
-				
-				if (count > 256)
-				{
-					len = 256;
+				len = (count > max) ? max : count;
 
-					req = CreateDspReq06(adr, len, p, 0, 0, 10);
-				}
-				else
-				{
-					len = count;
+				rq = CreateTrmBootReq02(TRM_BOOT_NET_ADR, adr, len, p, max, 2);
 
-					if (len > 2)
-					{
-						req = CreateDspReq06(adr, len-2, p, sizeof(fcrc), &fcrc, 10);
-					}
-					else
-					{
-						req = CreateDspReq06(adr, sizeof(fcrc), &fcrc, 0, 0, 10);
-					};
-				};
-
-				qRcv.Add(req); while(!req->ready) { qRcv.Update(); HW::WDT->Update(); };
+				qTrm.Add(rq); while(!rq->ready) qTrm.Update();
 
 				count -= len;
 				p += len;
 				adr += len;
 			};
-
-			req = CreateDspReq07();
-
-			qRcv.Add(req); while(!req->ready) { qRcv.Update();	};
 		};
+
+		tm.Reset();	while (!tm.Check(MS2CTM(1)));
 	};
+
+	tm.Reset(); while (!tm.Check(MS2CTM(1)));
+
+	rq = CreateTrmBootReq03(0, 2);
+
+	qTrm.Add(rq); while(!rq->ready) qTrm.Update();
+
+	rq.Free();
+
+	tm.Reset();	while (!tm.Check(MS2CTM(10)));
 }
-*/
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-static const u32 motoFlashPages[] = {
-//#include "G26K2_V2_LPC824.BIN.H"
-};
-
-u16 motoFlashLen = 0;
-u16 motoFlashCRC = 0;
-
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-//static void FlashMoto()
-//{
-//	static BootReqHS	reqHS;
-//	static BootRspHS	rspHS;
-//	static ComPort::WriteBuffer wb;
-//	static ComPort::ReadBuffer	rb;
-//
-//	const unsigned __int64 masterGUID = TRM_BOOT_MGUID;
-//	const unsigned __int64 slaveGUID = TRM_BOOT_SGUID;
-//
-//	CTM32 ctm;
-//
-//	Ptr<REQ> req;
-//
-//	motoFlashLen = sizeof(motoFlashPages);
-//	motoFlashCRC = GetCRC16(motoFlashPages, motoFlashLen);
-//
-//	ctm.Reset();
-//
-//	bool hs = false;
-//
-//	while (!ctm.Check(MS2CTM(200)))
-//	{
-//		reqHS.guid = masterGUID;
-//		reqHS.crc = GetCRC16(&reqHS, sizeof(reqHS) - sizeof(reqHS.crc));
-//		wb.data = &reqHS;
-//		wb.len = sizeof(reqHS);
-//
-//		comTrm.Write(&wb);
-//
-//		while (comTrm.Update()) HW::WDT->Update(); 
-//
-//		rb.data = &rspHS;
-//		rb.maxLen = sizeof(rspHS);
-//		comTrm.Read(&rb, MS2COM(5), US2COM(100));
-//
-//		while (comTrm.Update()) HW::WDT->Update();;
-//
-//		if (rb.recieved && rb.len == sizeof(rspHS) && GetCRC16(&rspHS, sizeof(rspHS)) == 0 && rspHS.guid == slaveGUID)
-//		{
-//			hs = true;
-//			break;
-//		};
-//	};
-//
-//	if (hs)
-//	{
-//		req = CreateBootMotoReq01(motoFlashLen, 2);
-//
-//		qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update(); };
-//
-//		if (req->crcOK)
-//		{
-//			BootRspMes *rsp = (BootRspMes*)req->rb.data;
-//
-//			if (rsp->F1.sCRC != motoFlashCRC || rsp->F1.len != motoFlashLen)
-//			{
-//				u16 count = motoFlashLen/4;
-//				u32 adr = 0;
-//				const u32 *p = motoFlashPages;
-//
-//				while (count > 0)
-//				{
-//					u16 len = (count > 16) ? 16 : count;
-//
-//					for(u32 i = 3; i > 0; i--)
-//					{
-//						req = CreateBootMotoReq03(adr, len, p, 3);
-//
-//						qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update(); };
-//
-//						BootRspMes *rsp = (BootRspMes*)req->rb.data;
-//
-//						if (req->crcOK && rsp->F3.status) { break;	}
-//					};
-//
-//					ctm.Reset();
-//
-//					while (!ctm.Check(MS2CTM(1))) HW::WDT->Update();
-//
-//					count -= len;
-//					p += len;
-//					adr += len*4;
-//				};
-//			};
-//		};
-//
-//		req = CreateBootMotoReq02();
-//
-//		qTrm.Add(req); while(!req->ready) { qTrm.Update(); HW::WDT->Update();	};
-//
-//		ctm.Reset();
-//
-//		while (!ctm.Check(MS2CTM(1))) HW::WDT->Update();
-//	};
-//}
 
 #endif
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -4249,9 +4026,9 @@ int main()
 
 	//__breakpoint(0);
 
-	//FlashMoto();
+	//FlashTrm();
 
-	FlashRcv();
+	//FlashRcv();
 
 
 #endif

@@ -25,6 +25,9 @@
 #define BOOT_MAN_REQ_MASK 			TRM_BOOT_REQ_MASK
 
 #define BOOT_MAX_NETADR				TRM_BOOT_NET_ADR
+#define BOOT_TIMEOUT				(2000)
+#define BOOT_MAIN_TIMEOUT			(10000)
+#define BOOT_COM_ERROR_TIMEOUT		(2000)
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

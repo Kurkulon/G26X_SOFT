@@ -144,7 +144,7 @@ win32_link_options = -NOLOGO -SUBSYSTEM:CONSOLE -DEBUG -MACHINE:X86 kernel32.lib
 ##################################################################################################
 !ifneq version Win32_Debug
 
-$(objdir)\$(target_name).axf : $(cppdir)\G26X.1.DSP.LDR.H $(cpu_obj) $(modules_obj) $(libname)			# $(cppdir)\G26K2_V2_LPC824.BIN.H
+$(objdir)\$(target_name).axf : $(cppdir)\G26X.1.DSP.LDR.H $(cppdir)\G26X.3.TRM.BIN.H $(cpu_obj) $(modules_obj) $(libname)			# $(cppdir)\G26K2_V2_LPC824.BIN.H
 	@echo Linking ...
 	@$(bindir)\armlink	$(link_options) &
 	--feedback "$^*.fed" &
@@ -172,7 +172,7 @@ $(cppdir)\G26X.1.DSP.LDR.H : ..\..\G26X.1\G26X.1.DSP\BF592_Release\G26X.1.DSP.ld
 
 ##################################################################################################
 
-$(cppdir)\G26K2_V2_LPC824.BIN.H : ..\..\G26X.1\G26K2_V2_LPC824\OBJ\G26K2_V2_LPC824.bin
+$(cppdir)\G26X.3.TRM.BIN.H : ..\..\G26X.3\G26X.3.TRM\OBJ\G26X.3.TRM.bin
 	@bin2cpp $[@ $^@
 
 ##################################################################################################
