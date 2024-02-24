@@ -2,7 +2,7 @@
 #include <core.h>
 #include <SEGGER_RTT\SEGGER_RTT.h>
 #include <list.h>
-#include <FLASH\flash.h>
+#include <FLASH\NandFlash.h>
 
 #include "hardware.h"
 #include "hw_conf.h"
@@ -76,6 +76,6 @@ static const bool forceEraseWrite = true;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <FLASH\flash_imp.h>
+#include <FLASH\NandFlash_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

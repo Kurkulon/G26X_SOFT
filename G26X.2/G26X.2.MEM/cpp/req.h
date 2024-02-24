@@ -7,7 +7,7 @@
 #include <ComPort\ComPort.h>
 
 #include <list.h>
-#include <FLASH\flash.h>
+//#include <FLASH\flash.h>
 #include <BOOT\boot_req.h>
 
 #include "G_TRM.h"
