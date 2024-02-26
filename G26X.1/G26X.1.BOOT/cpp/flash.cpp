@@ -1,9 +1,11 @@
 #include "hw_conf.h" 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#ifndef BOOT_NEW
 
-//#define AT25_SPI_BAUD_RATE 10000000
+#define AT25_SPI_BAUD_RATE 10000000
 
-//#include "FLASH\at25df021_imp_v2.h"
+#include "FLASH\at25df021_imp_v2.h"
 
+#endif
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
