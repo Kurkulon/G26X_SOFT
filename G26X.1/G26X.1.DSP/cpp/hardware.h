@@ -18,9 +18,9 @@ struct DSCSPORT
 	u16			sd;
 	u16			next_fireN;
 	u16			next_gain;
-#ifdef RCV_WAVEPACK
 	u16			packType;
-#endif
+	u16			math;
+
 	u16			spd[2][1040*2];
 };
 

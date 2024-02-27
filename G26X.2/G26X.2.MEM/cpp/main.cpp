@@ -141,7 +141,7 @@ u16 txbuf[128 + 512 + 16];
 static RequestQuery qTrm(&comTrm);
 static RequestQuery qRcv(&comRcv);
 
-static Ptr<MB> manVec30[3];
+static Ptr<MB> manVec30[RCV_FIRE_NUM];
 static Ptr<MB> curManVec30;
 static Ptr<MB> manVec60;
 static Ptr<MB> curManVec60;
@@ -342,10 +342,8 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 	req.r[2].sl 		= req.r[1].sl 			= req.r[0].sl 			= trans.sl;
 	req.r[2].sd 		= req.r[1].sd 			= req.r[0].sd 			= trans.sd;
 	req.r[2].fc			= req.r[1].fc			= req.r[0].fc			= fc;
-
-#ifdef RCV_WAVEPACK
 	req.r[2].packType	= req.r[1].packType		= req.r[0].packType		= trans.packType;
-#endif
+	req.r[2].math		= req.r[1].math			= req.r[0].math			= trans.math;
 
 	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
@@ -367,11 +365,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 	if (q->crcOK)
 	{
-		#ifdef RCV_WAVEPACK
-			u16 len = sizeof(rsp.hdr) + sizeof(rsp.crc) + ((rsp.hdr.packType == 0) ? (rsp.hdr.len * 8) : ((rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4) * 2));
-		#else
-			u16 len = sizeof(rsp.hdr) + rsp.hdr.len * 8 + sizeof(rsp.crc);
-		#endif
+		u16 len = sizeof(rsp.hdr) + sizeof(rsp.crc) + ((rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4) * 2);
 
 		if (q->rb.len < sizeof(rsp.hdr) || (rsp.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
 		{
@@ -1540,11 +1534,7 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 		{
 			RspRcv02 &rsp = *((RspRcv02*)(curManVec30->GetDataPtr()));
 
-			#ifdef RCV_WAVEPACK
-				u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + ((rsp.hdr.packType == 0) ? (rsp.hdr.len * 4) : (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4));
-			#else
-				u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + rsp.hdr.len * 4;
-			#endif
+			u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4);
 
 			mtb->data2 = ((u16*)&rsp)+1;
 
@@ -1586,11 +1576,7 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 			len = data[2];
 		};
 
-		#ifdef RCV_WAVEPACK
-			u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + ((rsp.hdr.packType == 0) ? (rsp.hdr.len * 4) : (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4));
-		#else
-			u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + rsp.hdr.len * 4;
-		#endif
+		u16 sz = (sizeof(rsp.hdr)-sizeof(rsp.hdr.rw))/2 + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4);
 
 		if (sz >= off)
 		{
@@ -3472,7 +3458,7 @@ static void InitMainVars()
 	mv.trans[2].math		= 0;
 
 	mv.trmVoltage				= 800;
-	mv.disableFireNoVibration	= 1;
+	mv.disableFireNoVibration	= 0;
 	mv.levelNoVibration			= 100;
 	mv.firePeriod				= 1000;
 	mv.lfMnplEnabled			= 0;
@@ -4035,9 +4021,9 @@ int main()
 
 	//__breakpoint(0);
 
-	FlashTrm();
+	//FlashTrm();
 
-	//FlashRcv();
+	FlashRcv();
 
 
 #endif

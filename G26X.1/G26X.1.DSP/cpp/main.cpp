@@ -7,6 +7,7 @@
 //#include "G_RCV.h"
 #include "list.h"
 #include "pack.h"
+#include <builtins.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 static void CheckFlash();
@@ -217,24 +218,21 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 		dsc->sl				= LIM(req.sl, 64, 1024);
 		dsc->st				= MAX(req.st, 2);
 
-		#ifdef RCV_WAVEPACK
+		dsc->packType		= req.packType;
+		dsc->math			= req.math;
 
-			dsc->packType	= req.packType;
-
-			if (req.packType == PACK_ULAW12 || req.packType == PACK_ULAW16)
-			{
-				dsc->sl = (dsc->sl+1) & ~1;	
-			}
-			else if (req.packType == PACK_ADPCMIMA)
-			{
-				dsc->sl = (dsc->sl+3) & ~3;	
-			}
-			else if (req.packType >= PACK_DCT0)
-			{
-				dsc->sl = (req.packType == PACK_DCT0) ? (((dsc->sl-64+60)/61)*61+64) : (((dsc->sl-64+56)/57)*57+64);	
-			};
-
-		#endif
+		if (req.packType == PACK_ULAW12 || req.packType == PACK_ULAW16)
+		{
+			dsc->sl = (dsc->sl+1) & ~1;	
+		}
+		else if (req.packType == PACK_ADPCMIMA)
+		{
+			dsc->sl = (dsc->sl+3) & ~3;	
+		}
+		else if (req.packType >= PACK_DCT0)
+		{
+			dsc->sl = (req.packType == PACK_DCT0) ? (((dsc->sl-64+60)/61)*61+64) : (((dsc->sl-64+56)/57)*57+64);	
+		};
 
 		u16 delay = req.sd / dsc->st;
 
@@ -716,13 +714,28 @@ static void UpdateSport()
 				rsp.hdr.len			= dsc->sl; 
 				rsp.hdr.delay		= dsc->sd;
 
-				#ifdef RCV_WAVEPACK
 				rsp.hdr.packType	= dsc->packType;
+				rsp.hdr.math		= dsc->math;
 				rsp.hdr.packLen1	= dsc->sl;
-				rsp.hdr.packLen2	= dsc->sl;
-				rsp.hdr.packLen3	= dsc->sl;
-				rsp.hdr.packLen4	= dsc->sl;
-				#endif
+
+				if (rsp.hdr.math == 0)
+				{
+					rsp.hdr.packLen2	= dsc->sl;
+					rsp.hdr.packLen3	= dsc->sl;
+					rsp.hdr.packLen4	= dsc->sl;
+				}
+				else if (rsp.hdr.math == 1) // Среднее
+				{
+					rsp.hdr.packLen2	= 0;
+					rsp.hdr.packLen3	= 0;
+					rsp.hdr.packLen4	= 0;
+				}
+				else // Разница
+				{
+					rsp.hdr.packLen2	= dsc->sl;
+					rsp.hdr.packLen3	= 0;
+					rsp.hdr.packLen4	= 0;
+				};
 
 				u16 *p1 = rsp.data + rsp.hdr.len*0;
 				u16 *p2 = rsp.data + rsp.hdr.len*1;
@@ -734,47 +747,44 @@ static void UpdateSport()
 
 				u32 pow[4] = {0, 0, 0, 0};
 
-				u16 t;
+				u16 t[4];
 
-				i16 x;
+				//i16 x;
 
 				for (u16 i = 0; i < rsp.hdr.len; i++)
 				{
-					t = dsc->spd[0][i*2+1];
+					t[0] = dsc->spd[0][i*2+1];
+					t[1] = dsc->spd[0][i*2+0];
+					t[2] = dsc->spd[1][i*2+1];
+					t[3] = dsc->spd[1][i*2+0];
 
-					if (t > max[0]) { max[0] = t; };
-					if (t < min[0]) { min[0] = t; };
+					for (byte n = 0; n < 4; n++)
+					{
+						max[n] = __builtin_max(t[n], max[n]);
+						min[n] = __builtin_min(t[n], min[n]);
+						//if (t[n] > max[n]) { max[n] = t[n]; };
+						//if (t[n] < min[n]) { min[n] = t[n]; };
+						//x = t[n] - 0x8000;
+						//pow[n] += (x > 0) ? x : (-x);
+						pow[n] += __builtin_abs((i16)(t[n] - 0x8000));
+					};
 
-					*p1++ = x = t - 0x8000;
-
-					pow[0] += (x > 0) ? x : (-x);
-
-					t = dsc->spd[0][i*2+0];
-
-					if (t > max[1]) { max[1] = t; };
-					if (t < min[1]) { min[1] = t; };
-
-					*p2++ = x = t - 0x8000;
-
-					pow[1] += (x > 0) ? x : (-x);
-
-					t = dsc->spd[1][i*2+1];
-
-					if (t > max[2]) { max[2] = t; };
-					if (t < min[2]) { min[2] = t; };
-
-					*p3++ = x = t - 0x8000;
-
-					pow[2] += (x > 0) ? x : (-x);
-
-					t = dsc->spd[1][i*2+0];
-
-					if (t > max[3]) { max[3] = t; };
-					if (t < min[3]) { min[3] = t; };
-
-					*p4++ = x = t - 0x8000;
-
-					pow[3] += (x > 0) ? x : (-x);
+					if (rsp.hdr.math == 0)
+					{
+						*p1++ = t[0] - 0x8000;
+						*p2++ = t[1] - 0x8000;
+						*p3++ = t[2] - 0x8000;
+						*p4++ = t[3] - 0x8000;
+					}
+					else if (rsp.hdr.math == 1) // Среднее
+					{
+						*p1++ = (t[0]+t[1]+t[2]+t[3])/4 - 0x8000;
+					}
+					else // Разница
+					{
+						*p1++ = subsat16(t[2], t[0]); //(t[2]-t[0])/2;
+						*p2++ = subsat16(t[3], t[1]); //2;
+					}
 				};
 
 				for (byte i = 0; i < 4; i++)
@@ -787,18 +797,12 @@ static void UpdateSport()
 
 				dsc = 0;
 
-				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*8;
+				prsp->len = sizeof(rsp.hdr) + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4)*2;
 
-				#ifdef RCV_WAVEPACK
 				sportState = (rsp.hdr.packType == PACK_NO) ? 3 : (sportState+1);
-				#else
-				sportState = 3;
-				#endif
 			};
 
 			break;
-
-	#ifdef RCV_WAVEPACK
 
 		case 2:
 		{
@@ -806,40 +810,42 @@ static void UpdateSport()
 
 			RspRcv02 &rsp = prsp->r02;
 
-			if (rsp.hdr.packType == PACK_ULAW12)
+			if (rsp.hdr.packType == PACK_ULAW12 || rsp.hdr.packType == PACK_ULAW16)
 			{
-				Pack_uLaw_12Bit((i16*)rsp.data, (byte*)rsp.data, rsp.hdr.len*4);
-				rsp.hdr.packLen1 = rsp.hdr.len/2;
-				rsp.hdr.packLen2 = rsp.hdr.packLen1;
-				rsp.hdr.packLen3 = rsp.hdr.packLen1;
-				rsp.hdr.packLen4 = rsp.hdr.packLen1;
-				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*4;
-			}
-			else if (rsp.hdr.packType == PACK_ULAW16)
-			{
-				Pack_uLaw_16Bit((i16*)rsp.data, (byte*)rsp.data, rsp.hdr.len*4);
-				rsp.hdr.packLen1 = rsp.hdr.len/2;
-				rsp.hdr.packLen2 = rsp.hdr.packLen1;
-				rsp.hdr.packLen3 = rsp.hdr.packLen1;
-				rsp.hdr.packLen4 = rsp.hdr.packLen1;
-				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*4;
+				u16 plen = rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4;
+
+				if (rsp.hdr.packType == PACK_ULAW12)
+				{
+					Pack_uLaw_12Bit((i16*)rsp.data, (byte*)rsp.data, plen);
+				}
+				else
+				{
+					Pack_uLaw_16Bit((i16*)rsp.data, (byte*)rsp.data, plen);
+				};
+
+				rsp.hdr.packLen1 /= 2;
+				rsp.hdr.packLen2 /= 2;
+				rsp.hdr.packLen3 /= 2;
+				rsp.hdr.packLen4 /= 2;
+
+				prsp->len = sizeof(rsp.hdr) + plen;
 			}
 			else if (rsp.hdr.packType == PACK_ADPCMIMA)
 			{
 				i16	*src	= (i16*)rsp.data;
 				byte *dst	= (byte*)rsp.data;
 
-				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len/2;
-				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len/2;
-				Pack_ADPCMIMA(src, dst, rsp.hdr.len); src += rsp.hdr.len; dst += rsp.hdr.len/2;
-				Pack_ADPCMIMA(src, dst, rsp.hdr.len); 
+				Pack_ADPCMIMA(src, dst, rsp.hdr.packLen1); src += rsp.hdr.packLen1; dst += rsp.hdr.packLen1/2;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.packLen2); src += rsp.hdr.packLen2; dst += rsp.hdr.packLen2/2;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.packLen3); src += rsp.hdr.packLen3; dst += rsp.hdr.packLen3/2;
+				Pack_ADPCMIMA(src, dst, rsp.hdr.packLen4); 
 
-				rsp.hdr.packLen1 = rsp.hdr.len/4;
-				rsp.hdr.packLen2 = rsp.hdr.packLen1;
-				rsp.hdr.packLen3 = rsp.hdr.packLen1;
-				rsp.hdr.packLen4 = rsp.hdr.packLen1;
+				rsp.hdr.packLen1 /= 4;
+				rsp.hdr.packLen2 /= 4;
+				rsp.hdr.packLen3 /= 4;
+				rsp.hdr.packLen4 /= 4;
 
-				prsp->len = sizeof(rsp.hdr) + rsp.hdr.len*2;
+				prsp->len = sizeof(rsp.hdr) + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4)*2;
 			}
 			else if (rsp.hdr.packType >= PACK_DCT0)
 			{
@@ -851,10 +857,10 @@ static void UpdateSport()
 				//u16 packedLen = 0;
 				u16 pl = 0;
 
-				u16 sl =	Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &rsp.hdr.packLen1); src += rsp.hdr.len; dst += rsp.hdr.packLen1;
-							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &rsp.hdr.packLen2); src += rsp.hdr.len; dst += rsp.hdr.packLen2; 
-							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &rsp.hdr.packLen3); src += rsp.hdr.len; dst += rsp.hdr.packLen3; 
-							Pack_FDCT(src, dst, rsp.hdr.len, shift, OVRLAP, &rsp.hdr.packLen4); 
+				u16 sl =	Pack_FDCT(src, dst, rsp.hdr.packLen1, shift, OVRLAP, &rsp.hdr.packLen1); src += rsp.hdr.len; dst += rsp.hdr.packLen1;
+							Pack_FDCT(src, dst, rsp.hdr.packLen2, shift, OVRLAP, &rsp.hdr.packLen2); src += rsp.hdr.len; dst += rsp.hdr.packLen2; 
+							Pack_FDCT(src, dst, rsp.hdr.packLen3, shift, OVRLAP, &rsp.hdr.packLen3); src += rsp.hdr.len; dst += rsp.hdr.packLen3; 
+							Pack_FDCT(src, dst, rsp.hdr.packLen4, shift, OVRLAP, &rsp.hdr.packLen4); 
 
 				rsp.hdr.len = sl;
 
@@ -872,8 +878,6 @@ static void UpdateSport()
 
 			break;
 		};
-
-	#endif
 
 		case 3:
 		{
@@ -999,9 +1003,7 @@ void main( void )
 
 	CheckFlash();
 
-#ifdef RCV_WAVEPACK
 	Pack_Init();
-#endif
 
 	com.Connect(RCV_COM_BAUDRATE, RCV_COM_PARITY);
 

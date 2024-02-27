@@ -61,9 +61,9 @@ __packed struct ReqRcv01	// старт оцифровки
 		u16		sl;
 		u16		st;
 		u16		sd;
-#ifdef RCV_WAVEPACK
 		u16		packType;
-#endif
+		u16		math;
+
 		word 	crc;  
 	}
 	r[3];
@@ -103,14 +103,12 @@ __packed struct RspRcvHdr02	// чтение вектора
 	u16 st;
 	u16 len;
 	u16 delay;
-
-#ifdef RCV_WAVEPACK
 	u16 packType;
+	u16 math;
 	u16 packLen1;
 	u16 packLen2;
 	u16 packLen3;
 	u16 packLen4;
-#endif
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
