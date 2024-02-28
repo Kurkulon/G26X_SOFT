@@ -6,6 +6,8 @@
 #include <types.h>
 #include <core.h>
 
+//#define MANCH_REQ
+
 #define MCK_MHz 200
 #define MCK (MCK_MHz*1000000)
 #define NS2CLK(x) (((x)*MCK_MHz+500)/1000)
@@ -216,7 +218,7 @@
 
 	#define Pin_ManRcvSync_Set()	HW::PIOB->BSET(12)		
 	#define Pin_ManRcvSync_Clr()	HW::PIOB->BCLR(12)		
-
+	
 	// ++++++++++++++	VCORE	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	#define PIO_ENVCORE		HW::PIOA

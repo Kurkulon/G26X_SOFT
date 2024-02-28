@@ -31,6 +31,8 @@
 #define RCV_WAVEPACK
 #define RCV_13AD
 
+#define RCV_SAMPLE_LEN 1300
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifdef _ADI_COMPILER
@@ -117,7 +119,7 @@ __packed struct RspRcv02	// чтение вектора
 {
 	RspRcvHdr02 hdr;
 
-	u16 data[1040*4]; 
+	u16 data[RCV_SAMPLE_LEN*4]; 
 	u16 crc;
 };  
 

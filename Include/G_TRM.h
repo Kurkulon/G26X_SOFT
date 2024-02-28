@@ -18,6 +18,8 @@
 #define TRM_BOOT_REQ_MASK	0xFF00
 #define TRM_BOOT_NET_ADR	1
 
+#define TRM_RSP03_RW		0xAA72
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifndef BOOTLOADER
@@ -26,7 +28,7 @@
 
 __packed struct ReqTrm01	
 {
-	__packed struct
+	__packed struct Req
 	{
 		byte 	len;
 		byte 	func;
@@ -44,12 +46,15 @@ __packed struct ReqTrm01
 
 __packed struct ReqTrm02	
 {
-	__packed struct
+	__packed struct Req
 	{
 		byte 	len;
-		byte 	f;
-		word    reqHV;
-		word 	crc;  
+		byte 	func;
+		byte	numDevValid;		// если не ноль, numDev пральный и его нада записать в RAM
+		byte 	saveParams;			// если не ноль, то записать параметры во flash
+		u16		reqHV;
+		u16		numDev;				// номер модуля приёмников
+		u16 	crc;  
 	}
 	r[2];
 };
@@ -58,27 +63,23 @@ __packed struct ReqTrm02
 
 __packed struct RspTrm02	
 {
-	byte f; 
-	u16 hv; 
-	u16 temp;
-	u16 crc;
+	byte	func; 
+	byte	numDevValid;	// если не ноль, numDev считан из flash правильно или установлен запросом
+	u16		numdev;			// номер модуля приёмников
+	u16		verdev; 		// версия ПО модуля приёмников
+	u16		hv; 
+	u16		temp;
+	u16		crc;
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct ReqTrm03	
+__packed struct ReqTrm03	// Запрос осциллограмм излучателя
 {
-	__packed struct
+	__packed struct Req
 	{
 		byte 	len;
-		byte	f; 
-		byte	fireCountM; 
-		byte	fireCountXY; 
-		u16		hv;
-		u16		fireFreqM;
-		u16		fireFreqXY;
-		u16		fireDutyM;
-		u16		fireDutyXY;
+		byte	func; 
 		word 	crc;  
 	}
 	r[2];
@@ -86,10 +87,17 @@ __packed struct ReqTrm03
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-__packed struct RspTrm03	
+struct RspTrm03	
 {
-	byte f; 
-	u16 crc;
+	u16		rw;			//1. Ответное слово
+	u16		num;		//2. Номер излучателя (0 - Монополь 1, 1 - Монополь 2)
+	u16		amp;   		//3. Аплитуда излучателя измеренная (В)
+	u16		st;			//4. Шаг, мкс
+	u16		sl;  		//5. Длина, отсч
+	u16		sd; 		//6. Задержка мкс
+	i16		data[128];	//7-?. данные (до 128шт)
+ 
+	u16		crc;	
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

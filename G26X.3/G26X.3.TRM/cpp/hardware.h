@@ -7,8 +7,9 @@
 #include <i2c.h>
 #include "hw_nand.h"
 #include "hw_rtm.h"
-#include <MANCH\manch.h>
+#include "MANCH\manch.h"
 #include "G26X_3_HW_CONF.H"
+#include "G_TRM.h"
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -26,33 +27,17 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-struct Rsp20
+struct Rsp72
 {
-	Rsp20		*next;
+	Rsp72		*next;
 
-	struct
-	{
-		u16		rw;
-		u16		fireNum;
-		u16		voltage;
-		u16		amp;
-		u16		temp;
-	} hdr;
-
-	struct
-	{
-		u16		st;
-		u16		sl;
-		u16		sd;
-	} osc;
-
-	u16			data[128];
+	RspTrm03	h;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-extern	Rsp20*	GetReadyRsp20();
-extern	void	FreeRsp20(Rsp20 *rsp);
+extern	Rsp72*	GetReadyRsp72();
+extern	void	FreeRsp72(Rsp72 *rsp);
 extern	void	PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fireDuty);
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

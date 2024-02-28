@@ -215,8 +215,8 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 		dsc->gain			= ngain[n];
 		dsc->next_fireN		= req.next_n;
 		dsc->next_gain		= req.next_gain;
-		dsc->sl				= LIM(req.sl, 64, 1024);
 		dsc->st				= MAX(req.st, 2);
+		dsc->sl				= LIM(req.sl, 16, RCV_SAMPLE_LEN);
 
 		dsc->packType		= req.packType;
 		dsc->math			= req.math;
@@ -231,6 +231,7 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 		}
 		else if (req.packType >= PACK_DCT0)
 		{
+			dsc->sl	= LIM(req.sl, 64, RCV_SAMPLE_LEN-61);
 			dsc->sl = (req.packType == PACK_DCT0) ? (((dsc->sl-64+60)/61)*61+64) : (((dsc->sl-64+56)/57)*57+64);	
 		};
 
@@ -762,11 +763,11 @@ static void UpdateSport()
 					{
 						max[n] = __builtin_max(t[n], max[n]);
 						min[n] = __builtin_min(t[n], min[n]);
+						pow[n] += __builtin_abs((i16)(t[n] - 0x8000));
 						//if (t[n] > max[n]) { max[n] = t[n]; };
 						//if (t[n] < min[n]) { min[n] = t[n]; };
 						//x = t[n] - 0x8000;
 						//pow[n] += (x > 0) ? x : (-x);
-						pow[n] += __builtin_abs((i16)(t[n] - 0x8000));
 					};
 
 					if (rsp.hdr.math == 0)

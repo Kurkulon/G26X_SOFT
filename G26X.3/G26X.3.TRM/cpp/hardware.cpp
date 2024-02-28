@@ -26,20 +26,20 @@ static i16 sinArr[256] = {0};
 //u16 waveFreq = 3000; //Hz
 u16 waveLen = 2;
 
-static Rsp20 rsp20buf[8];
+static Rsp72 rsp72buf[8];
 
-static List<Rsp20>	freeRsp20;
-static List<Rsp20>	readyRsp20;
+static List<Rsp72>	freeRsp72;
+static List<Rsp72>	readyRsp72;
 
-static Rsp20 *hwRsp20 = 0;
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Rsp20* GetReadyRsp20() { return readyRsp20.Get(); }
+static Rsp72 *hwRsp72 = 0;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void FreeRsp20(Rsp20 *rsp) { freeRsp20.Add(rsp); }
+Rsp72* GetReadyRsp72() { return readyRsp72.Get(); }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void FreeRsp72(Rsp72 *rsp) { freeRsp72.Add(rsp); }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -331,19 +331,20 @@ static void PrepareWFMOSC(u16 fireNum, u16 waveFreq)
 
 	ADCTCC->CTRLA &= ~TCC_ENABLE;
 
-	if (hwRsp20 == 0) hwRsp20 = freeRsp20.Get();
+	if (hwRsp72 == 0) hwRsp72 = freeRsp72.Get();
 
-	if (hwRsp20 == 0) return;
+	if (hwRsp72 == 0) return;
 
 	u16 t = ((1000000+waveFreq/2)/waveFreq + N/4)/(N/2);
 
-	Rsp20 &rsp = *hwRsp20;
+	Rsp72 &rsp = *hwRsp72;
 
-	rsp.hdr.fireNum = fireNum;
-	rsp.hdr.voltage = GetCurFireVoltage();
-	rsp.osc.st = t;
-	rsp.osc.sl = N;
-	rsp.osc.sd = 0;
+	rsp.h.rw	= 0;
+	rsp.h.num	= fireNum;
+	rsp.h.amp	= 0;
+	rsp.h.st	= t;
+	rsp.h.sl	= N;
+	rsp.h.sd	= 0;
 
 	while(ADCTCC->SYNCBUSY);
 
@@ -355,22 +356,22 @@ static void PrepareWFMOSC(u16 fireNum, u16 waveFreq)
 
 	ADCTCC->CTRLA |= TCC_ENABLE;
 
-	ADC_DMA.ReadPeripheral(&HW::ADC1->RESULT, rsp.data, rsp.osc.sl, DMCH_TRIGACT_BURST|ADC_DMCH_TRIGSRC, DMDSC_BEATSIZE_HWORD); 
+	ADC_DMA.ReadPeripheral(&HW::ADC1->RESULT, rsp.h.data, rsp.h.sl, DMCH_TRIGACT_BURST|ADC_DMCH_TRIGSRC, DMDSC_BEATSIZE_HWORD); 
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static void Update_WFMOSC()
 {
-	if (hwRsp20 != 0)
+	if (hwRsp72 != 0)
 	{
 		if (ADC_DMA.CheckComplete())
 		{
 			ADCTCC->CTRLA &= ~TCC_ENABLE;
 
-			readyRsp20.Add(hwRsp20);
+			readyRsp72.Add(hwRsp72);
 
-			hwRsp20 = 0;
+			hwRsp72 = 0;
 		};
 	};
 }
@@ -389,7 +390,7 @@ static void Init_WFMOSC()
 
 	HW::EVSYS->USER[ADC_EVSYS_USER] = EVENT_PWM_SYNC+1;
 
-	for (u16 i = 0; i < ArraySize(rsp20buf); i++) freeRsp20.Add(rsp20buf+i);
+	for (u16 i = 0; i < ArraySize(rsp72buf); i++) freeRsp72.Add(rsp72buf+i);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -477,7 +478,7 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 	fireCount = LIM(fireCount, 1, 5);
 
-	if (fireNum == 0)
+	if (fireNum <= 1)
 	{
 		PrepareWFMOSC(fireNum, waveFreq);
 
@@ -550,14 +551,14 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 		PIO_PWMHM->PINCFG[PIN_PWMHM] = 0;
 		PIO_PWMLM->PINCFG[PIN_PWMLM] = 0;
 
-		if (fireNum == 1)
+		if (fireNum == 2)
 		{
 			PIO_PWMHX->PINCFG[PIN_PWMHX] = PINGFG_PMUXEN;
 			PIO_PWMLX->PINCFG[PIN_PWMLX] = PINGFG_PMUXEN;
 			PIO_PWMHY->PINCFG[PIN_PWMHY] = 0;
 			PIO_PWMLY->PINCFG[PIN_PWMLY] = 0;
 		}
-		else if (fireNum == 2)
+		else if (fireNum == 3)
 		{
 			PIO_PWMHX->PINCFG[PIN_PWMHX] = 0;
 			PIO_PWMLX->PINCFG[PIN_PWMLX] = 0;
@@ -918,9 +919,10 @@ void InitHardware()
 
 #ifndef WIN32
 
-	//InitManRecieve();
-
-	//InitManTransmit();
+	#ifdef MANCH_REQ
+		InitManRecieve();
+		InitManTransmit();
+	#endif
 
 	EnableVCORE();
 	

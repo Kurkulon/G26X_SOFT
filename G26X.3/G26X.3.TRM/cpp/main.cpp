@@ -31,9 +31,6 @@ __packed struct MainVars // NonVolatileVars
 	u32 timeStamp;
 
 	u16 numDevice;
-
-	u16 fireVoltage;
-	u16 fireType;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -51,18 +48,20 @@ static u16 manTrmBaud = 0;
 
 u16 txbuf[128 + 512 + 16];
 
+static u16 reqFireVoltage = 0;
 static u16 curFireVoltage = 300;
 
 static const u16 manReqWord = 0xA700;
 static const u16 manReqMask = 0xFF00;
 
 static u16 verDevice = VERSION;
+static bool numDevValid = false;
 
 i16 temp = 0;
 
 static byte svCount = 0;
 
-static Rsp20 *curRsp20 = 0;
+static Rsp72 *curRsp72 = 0;
 
 u16 fireAmp = 0;
 u16 fireFreq = 3000;
@@ -96,6 +95,8 @@ extern u16 GetVersionDevice()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#ifdef MANCH_REQ
 
 static u32 InitRspMan_00(__packed u16 *data)
 {
@@ -159,9 +160,9 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
-	curRsp20 = GetReadyRsp20();
+	curRsp72 = GetReadyRsp20();
 	
-	if (curRsp20 == 0)
+	if (curRsp72 == 0)
 	{
 		manTrmData[0] = data[0];		//	1. Ответное слово	
 
@@ -170,7 +171,7 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 	}
 	else
 	{
-		Rsp20 &rsp = *curRsp20;
+		Rsp20 &rsp = *curRsp72;
 
 		rsp.hdr.rw = data[0];							//	1. Ответное слово	
 		rsp.hdr.amp = 0;								//	4. Аплитуда излучателя измеренная (В)
@@ -193,7 +194,7 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 
 		rsp.hdr.amp = amp;
 
-		mtb->len1 = sizeof(rsp.hdr)/2 + ((rsp.hdr.rw&1) ? (sizeof(rsp.osc)/2 + curRsp20->osc.sl) : 0);
+		mtb->len1 = sizeof(rsp.hdr)/2 + ((rsp.hdr.rw&1) ? (sizeof(rsp.osc)/2 + curRsp72->osc.sl) : 0);
 	};
 
 	mtb->data2 = 0;
@@ -371,7 +372,7 @@ static void UpdateMan()
 
 			if (mtb.ready)
 			{
-				if (curRsp20 != 0) FreeRsp20(curRsp20), curRsp20 = 0;
+				if (curRsp72 != 0) FreeRsp20(curRsp72), curRsp72 = 0;
 
 				i = 0;
 			};
@@ -380,6 +381,8 @@ static void UpdateMan()
 
 	};
 }
+
+#endif // #ifdef MANCH_REQ
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -391,9 +394,9 @@ static bool Request01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
 	// Запуск импульса излучателя
 
-	ReqTrm01 &req = *((ReqTrm01*)data);
+	ReqTrm01::Req &req = *((ReqTrm01::Req*)data);
 	
-	PrepareFire(req.r[0].n, req.r[0].fireFreq, req.r[0].fireAmp, req.r[0].fireCount, req.r[0].fireDuty);
+	PrepareFire(req.n, req.fireFreq, req.fireAmp, req.fireCount, req.fireDuty);
 
 	wb->data = 0;
 	wb->len = 0;
@@ -405,17 +408,26 @@ static bool Request01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 static bool Request02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
-	// Чтение текущего значения высокого напряжения
+	static RspTrm02 rsp;
 
-	//__packed struct Rsp { byte f; u16 hv; u16 crc; };
+	ReqTrm02::Req &req = *((ReqTrm02::Req*)data);
 
-	//static Rsp rsp;
-	//
-	//rsp.f = 2;
-	//rsp.hv = GetCurHV();
-	//rsp.crc = GetCRC(&rsp, 3);
-	//wb->data = &rsp;
-	//wb->len = sizeof(rsp);
+	reqFireVoltage = req.reqHV;
+
+	if (req.numDevValid) mv.numDevice = req.numDev, numDevValid = true;
+	
+	if (req.saveParams) SaveMainParams();
+
+	rsp.f			= req.f;
+	rsp.numDevValid = numDevValid;
+	rsp.numdev		= mv.numDevice;
+	rsp.verdev		= VERSION;
+	rsp.hv			= curFireVoltage;
+	rsp.temp		= temp;
+	rsp.crc			= GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
+
+	wb->data	= &rsp;
+	wb->len		= sizeof(rsp);
 
 	return false;
 }
@@ -424,22 +436,45 @@ static bool Request02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 static bool Request03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
-	// Установка значения требуемого высокого напряжения
+	static u16 buf[2];
 
-	//__packed struct Rsp { byte f; u16 crc; };
+	ReqTrm03::Req &req = *((ReqTrm03::Req*)data);
 
-	//static Rsp rsp;
-	//
-	//SetReqFireCountM(req->f3.fireCountM);
-	//SetReqFireCountXY(req->f3.fireCountXY);
-	//SetReqHV(req->f3.hv);
-	//SetReqFireFreqM(req->f3.fireFreqM, req->f3.fireDutyM);
-	//SetReqFireFreqXY(req->f3.fireFreqXY, req->f3.fireDutyXY);
+	curRsp72 = GetReadyRsp72();
 
-	//rsp.f = 3;
-	//rsp.crc = GetCRC(&rsp, 1);
-	//wb->data = &rsp;
-	//wb->len = sizeof(rsp);
+	if (curRsp72 == 0)
+	{
+		buf[0] = TRM_RSP03_RW;
+		buf[1] = GetCRC16(buf, 2);
+
+		wb->data = buf;
+		wb->len = sizeof(buf);
+	}
+	else
+	{
+		RspTrm03 &rsp = curRsp72->h;
+
+		rsp.rw = TRM_RSP03_RW;
+
+		i16 max = 0;
+
+		for (u16 i = 0; i < rsp.sl; i++)
+		{
+			i16 t = rsp.data[i];
+
+			if (t < 0) t = -t;
+
+			if (t > max) max = t;
+		};
+
+		wb->data = &rsp;
+		wb->len = sizeof(rsp) - sizeof(rsp.data) - sizeof(rsp.crc) + rsp.sl*2;
+
+		rsp.amp = max;
+		rsp.data[rsp.sl] = GetCRC16(wb->data, wb->len);
+
+		wb->len += 2;
+	};
 
 	return false;
 }
@@ -544,6 +579,8 @@ static void UpdateCom()
 
 			if (!comdsp.Update())
 			{
+				if (curRsp72 != 0) FreeRsp72(curRsp72), curRsp72 = 0;
+
 				i = 0;
 			};
 
@@ -737,7 +774,7 @@ static void UpdateHV()
 			{
 				curFireVoltage = GetCurFireVoltage();
 
-				u16 t = mv.fireVoltage;
+				u16 t = reqFireVoltage;
 
 				if (t > curFireVoltage)
 				{
@@ -754,7 +791,7 @@ static void UpdateHV()
 					};
 				};
 
-				dstFV += (i16)mv.fireVoltage - (dstFV+4)/8;
+				dstFV += (i16)reqFireVoltage - (dstFV+4)/8;
 
 				t = (dstFV+4)/8;
 
@@ -803,8 +840,6 @@ static void UpdateHV()
 static void InitMainVars()
 {
 	mv.numDevice		= 0;
-	mv.fireVoltage		= 0;
-	mv.fireType			= 0;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -936,7 +971,6 @@ static void UpdateParams()
 	enum C { S = (__LINE__+3) };
 	switch(i++)
 	{
-		CALL( UpdateMan(); 				);
 		CALL( UpdateTemp()				);
 		CALL( SaveVars();				);
 		CALL( UpdateHV();				);

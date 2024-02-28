@@ -151,6 +151,10 @@ static Ptr<MB> curManVec60;
 static RspMan71 rspMan71[RCV_FIRE_NUM];
 static byte curRcv[RCV_FIRE_NUM] = { 0 };
 
+static Ptr<MB> manVec72[2];
+static Ptr<MB> curManVec72;
+static byte indManVec72 = 0;
+
 
 //static u16 motoEnable = 0;		// двигатель включить или выключить
 //static u16 motoTargetRPS = 0;		// заданные обороты двигателя
@@ -199,6 +203,7 @@ static bool cmdWriteStart_00 = false;
 static bool cmdWriteStart_10 = false;
 static bool cmdWriteStart_20 = false;
 static bool cmdRcvSaveParams = false;
+static bool cmdTrmSaveParams = false;
 
 //static u32 dspRcv40 = 0;
 //static u32 dspRcv50 = 0;
@@ -651,8 +656,6 @@ static Ptr<REQ> CreateTrmReqFire(byte n)
 
 	REQ &q = *rq;
 
-	const byte fn[3] = {0, 1, 1};
-
 	q.CallBack = 0;
 	q.ready = false;
 	q.checkCRC = false;
@@ -664,7 +667,7 @@ static Ptr<REQ> CreateTrmReqFire(byte n)
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
 
-	byte t = fn[n];
+	byte t = transIndex[n];
 
 	req.r[2].len		= req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
 	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
@@ -676,6 +679,165 @@ static Ptr<REQ> CreateTrmReqFire(byte n)
 	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].func, sizeof(req.r[0])-3);
 
 	return &q;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool CallBackTrmReq02(Ptr<REQ> &q)
+{
+	if (!q->crcOK) 
+	{
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qTrm.Add(q);
+		};
+	}
+	else
+	{
+		RspTrm02 &rsp = *((RspTrm02*)q->rb.data);
+
+		numDevTrmValid			= rsp.numDevValid;
+		numDevTrm				= rsp.numdev;
+		verDevTrm				= rsp.verdev;
+		trmVoltage				= rsp.hv;
+		trmTemp					= rsp.temp;
+
+		trmCount++;
+	};
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateTrmReq02(u16 tryCount)
+{
+	typedef ReqTrm02 ReqT;
+	typedef RspTrm02 RspT;
+
+	Ptr<REQ> rq(AllocREQ());
+	
+	if (!rq.Valid()) return rq;
+
+	rq->rsp = AllocMemBuffer(sizeof(RspT)+2);
+
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	
+	RspT &rsp = *((RspT*)(rq->rsp->GetDataPtr()));
+
+	rq->rb.data = &rsp;
+	rq->rb.maxLen = rq->rsp->GetDataMaxLen();
+
+	ReqT &req = *((ReqT*)rq->reqData);
+
+	rq->rsp->len = 0;
+	
+	REQ &q = *rq;
+
+	q.CallBack = CallBackTrmReq02;
+	q.preTimeOut = MS2COM(1);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	q.crcType = REQ::CRC16;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+
+	req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
+	req.r[1].func			= req.r[0].func			= 2;
+	req.r[1].numDevValid	= req.r[0].numDevValid	= numDevTrmValid;
+	req.r[1].saveParams		= req.r[0].saveParams	= cmdTrmSaveParams;
+	req.r[1].reqHV			= req.r[0].reqHV		= mv.trmVoltage;
+	req.r[1].numDev			= req.r[0].numDev		= numDevTrm;
+	req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].func, sizeof(req.r[0])-3);
+
+	return rq;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool CallBackTrmReq03(Ptr<REQ> &q)
+{
+	if (q->crcOK) 
+	{
+		RspTrm03 &rsp = *((RspTrm03*)q->rb.data);
+
+		if (q->rb.len == (sizeof(rsp) - sizeof(rsp.data) + rsp.sl*2))
+		{
+			q->rsp->len = q->rb.len;
+
+			rsp.rw = manReqWord|0x72;
+
+			if (rsp.num < 2) manVec72[rsp.num] = q->rsp;
+
+			trmCount++;
+		}
+		else
+		{
+			q->rsp->len = 0;
+
+			q->crcOK = false;
+		};
+	};
+
+	if (!q->crcOK) 
+	{
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qTrm.Add(q);
+		};
+	}
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateTrmReq03(u16 tryCount)
+{
+	typedef ReqTrm03 ReqT;
+	typedef RspTrm03 RspT;
+
+	Ptr<REQ> rq(AllocREQ());
+	
+	if (!rq.Valid()) return rq;
+
+	rq->rsp = NandFlash_AllocWB(sizeof(RspTrm03)+2);
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+	
+	RspT &rsp = *((RspT*)(rq->rsp->GetDataPtr()));
+
+	rq->rb.data = &rsp;
+	rq->rb.maxLen = rq->rsp->GetDataMaxLen();
+
+	ReqT &req = *((ReqT*)rq->reqData);
+
+	rq->rsp->len = 0;
+	
+	REQ &q = *rq;
+
+	q.CallBack = CallBackTrmReq03;
+	q.preTimeOut = MS2COM(1);
+	q.postTimeOut = US2COM(100);
+	q.ready = false;
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	q.crcType = REQ::CRC16;
+	
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+
+	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
+	req.r[1].func	= req.r[0].func	= 3;
+	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].func, sizeof(req.r[0])-3);
+
+	return rq;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1661,15 +1823,36 @@ static bool RequestMan_71(u16 *data, u16 len, MTB* mtb)
 
 static bool RequestMan_72(u16 *data, u16 len, MTB* mtb)
 {
-	struct Rsp { u16 rw; };
-	static Rsp rsp; 
+	static u16 buf; 
 
 	if (data == 0 || len == 0 || len > 4 || mtb == 0) return false;
 
-	rsp.rw = manReqWord|0x72;
+	if (curManVec72.Valid()) curManVec72.Free();
 
-	mtb->data1 = (u16*)&rsp;
-	mtb->len1 = sizeof(rsp)/2;
+	curManVec72 = manVec72[indManVec72];
+
+	if (!curManVec72.Valid())
+	{
+		indManVec72 = (indManVec72+1) & 1;
+
+		curManVec72 = manVec72[indManVec72];
+	};
+
+	if (curManVec72.Valid())
+	{
+		indManVec72 = (indManVec72+1) & 1;
+
+		mtb->data1 = (u16*)curManVec72->GetDataPtr();
+		mtb->len1 = curManVec72->len/2;
+	}
+	else
+	{
+		buf = manReqWord|0x72;
+
+		mtb->data1 = &buf;
+		mtb->len1 = sizeof(buf)/2;
+	};
+
 	mtb->data2 = 0;
 	mtb->len2 = 0;
 
@@ -3451,7 +3634,7 @@ static void InitMainVars()
 	mv.trans[2].sl 			= 512;	
 	mv.trans[2].sd 			= 500;	
 	mv.trans[2].freq		= 1000;
-	mv.trans[2].duty		= 50;
+	mv.trans[2].duty		= 5000;
 	mv.trans[2].amp			= 1200;
 	mv.trans[2].pulseCount	= 1;
 	mv.trans[2].packType	= 0;
