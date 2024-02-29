@@ -509,7 +509,7 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 			hi = US2PWM(pwmPeriodUS-0.5);
 			mid = US2PWM(pwmPeriodUS/2);
 			lo = US2PWM(0.5);
-			amp = (((u32)waveAmp*US2PWM(pwmPeriodUS)+FV/2)/FV+1)/2;
+			amp = ((u32)waveAmp*US2PWM(pwmPeriodUS)+FV/2)/FV;
 			dst = &(PWMTCC->CCBUF[0]);
 
 			PIO_WF_PWM->EVCTRL.EV[0] = 0;
@@ -537,8 +537,8 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 		waveBuffer[waveLen] = mid;
 	
-		PWMCOUNTTCC->PER = waveLen;
-		PWMCOUNTTCC->CC[0] = waveLen;
+		PWMCOUNTTCC->PER = waveLen*2;
+		PWMCOUNTTCC->CC[0] = waveLen*2;
 
 		PWMCOUNTTCC->CTRLA |= TCC_ENABLE;
 

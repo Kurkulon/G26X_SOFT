@@ -155,61 +155,26 @@ static Ptr<MB> manVec72[2];
 static Ptr<MB> curManVec72;
 static byte indManVec72 = 0;
 
-
-//static u16 motoEnable = 0;		// двигатель включить или выключить
-//static u16 motoTargetRPS = 0;		// заданные обороты двигателя
-//static u16 motoRPS = 0;				// обороты двигателя, об/сек
-//static u16 motoCur = 0;				// ток двигателя, 0...9400 мА
-//static u16 motoCurLow = 0;			// ток двигателя, 0...4500 мА
-//static u16 motoStat = 0;			// статус двигателя
-//static u16 motoCounter = 0;			// счётчик оборотов двигателя 1/6 оборота
-//static u16 cmSPR = 32;			// Количество волновых картин на оборот головки в режиме цементомера
-//static u16 imSPR = 100;			// Количество точек на оборот головки в режиме имиджера
-//static u16 *curSPR = &cmSPR;		// Количество импульсов излучателя на оборот в текущем режиме
-//static u16 auxVoltage = 0;
-//static u16 motoVoltage = 90;
-//static u16 motoRcvCount = 0;
-
-//static u16 curFireVoltage = 500;
-
-//static u32 dspMMSEC = 0;
-//static u32 shaftMMSEC = 0;
-
-//const u16 dspReqWord = 0xAD00;
-//const u16 dspReqMask = 0xFF00;
-
 static u16 manReqWord = RCV_MAN_REQ_WORD;
 static u16 manReqMask = RCV_MAN_REQ_MASK;
 
 static u16 memReqWord = 0x3B00;
 static u16 memReqMask = 0xFF00;
 
-//static u16 numDevice = 0;
 static u16 verDevice = VERSION;
 
-//static u16 numMemDevice = 0;
 static u16 verMemDevice = 0x100;
-
-//static u32 manCounter = 0;
-//static u32 fireCounter = 0;
 
 static byte mainModeState = 0;
 static byte fireType = 0;
 static u16	fireMask = 13;//(1UL<<RCV_FIRE_NUM)-1;
 static byte nextFireType = 1;
-//static byte dspStatus = 0;
 
 static bool cmdWriteStart_00 = false;
 static bool cmdWriteStart_10 = false;
 static bool cmdWriteStart_20 = false;
 static bool cmdRcvSaveParams = false;
 static bool cmdTrmSaveParams = false;
-
-//static u32 dspRcv40 = 0;
-//static u32 dspRcv50 = 0;
-//static u16 dspRcvCount = 0;
-//static u32 dspRcvErr = 0;
-//static u16 dspNotRcv = 0;
 
 static u16 rcvStatus = 0;
 static u32 crcErr02[RCV_MAX_NUM_STATIONS] = {0};
@@ -223,17 +188,8 @@ static u32 lenErr02[RCV_MAX_NUM_STATIONS] = {0};
 static u32 rejRcv02[RCV_MAX_NUM_STATIONS] = {0};
 static u32 retryRcv02[RCV_MAX_NUM_STATIONS] = {0};
 
-//static u32 rcvCRCER = 0;
-
-//static u32 chnlCount[4] = {0};
-
-//static u32 crcErr02 = 0;
-//static u32 crcErr03 = 0;
 static u32 crcErr06 = 0;
 static u32 wrtErr06 = 0;
-
-//static u32 notRcv02 = 0;
-//static u32 lenErr02 = 0;
 
 static i16 ax = 0, ay = 0, az = 0, at = 0;
 static u16 vibration;
@@ -243,13 +199,6 @@ i16 cpuTemp = 0;
 i16 temp = 0;
 
 static byte svCount = 0;
-
-
-//struct AmpTimeMinMax { bool valid; u16 ampMax, ampMin, timeMax, timeMin; };
-//static AmpTimeMinMax sensMinMax[SENS_NUM]		= { {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0} };
-//static AmpTimeMinMax sensMinMaxTemp[SENS_NUM]	= { {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0}, {0, 0, ~0, 0, ~0} };
-
-//static u32 testDspReqCount = 0;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -513,7 +462,7 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = NandFlash_AllocWB(sizeof(RspRcv03)+2);
+	rq->rsp = AllocMemBuffer(sizeof(RspRcv03)+2);
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
@@ -703,6 +652,8 @@ static bool CallBackTrmReq02(Ptr<REQ> &q)
 		trmVoltage				= rsp.hv;
 		trmTemp					= rsp.temp;
 
+		cmdTrmSaveParams		= false;
+
 		trmCount++;
 	};
 
@@ -768,19 +719,15 @@ static bool CallBackTrmReq03(Ptr<REQ> &q)
 
 		if (q->rb.len == (sizeof(rsp) - sizeof(rsp.data) + rsp.sl*2))
 		{
-			q->rsp->len = q->rb.len;
+			q->rsp->len = q->rb.len-2;
 
 			rsp.rw = manReqWord|0x72;
 
 			if (rsp.num < 2) manVec72[rsp.num] = q->rsp;
 
+			NandFlash_RequestWrite(q->rsp, rsp.rw, true);
+	
 			trmCount++;
-		}
-		else
-		{
-			q->rsp->len = 0;
-
-			q->crcOK = false;
 		};
 	};
 
@@ -1867,17 +1814,10 @@ static bool RequestMan_80(u16 *data, u16 len, MTB* mtb)
 
 	switch (data[1])
 	{
-		case 1:
-
-			mv.numDevice = data[2];
-
-			break;
-
-		case 2:
-
-			manTrmBaud = data[2] - 1;	//SetTrmBoudRate(data[2]-1);
-
-			break;
+		case 1:		mv.numDevice	= data[2];							break;
+		case 2:		manTrmBaud		= data[2] - 1;						break;
+		case 3:		numDevRcv		= data[2]; numDevRcvValid = true;	break;
+		case 4:		numDevTrm		= data[2]; numDevTrmValid = true;	break;
 	};
 
 	manTrmData[0] = (manReqWord & manReqMask) | 0x80;
@@ -1965,6 +1905,9 @@ static bool RequestMan_F0(u16 *data, u16 len, MTB* mtb)
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
 	SaveMainParams();
+
+	cmdRcvSaveParams = true;
+	cmdTrmSaveParams = true;
 
 	manTrmData[0] = (manReqWord & manReqMask) | 0xF0;
 
@@ -2406,6 +2349,12 @@ static void UpdateRcvTrm()
 
 			qTrm.Update();
 		
+			if (!startFire && ctm.Check(MS2CTM(20)))
+			{
+				qTrm.Add(CreateTrmReq02(2));
+				qTrm.Add(CreateTrmReq03(2));
+			};
+
 			i = (startFire) ? 2 : 0;
 
 			break;
@@ -2449,7 +2398,7 @@ static void UpdateRcvTrm()
 
 		case 5:
 
-			if (mv.trmVoltage > 100)
+			if (mv.trmVoltage > 0)
 			{
 				reqt = CreateTrmReqFire(n);
 
@@ -3602,6 +3551,92 @@ static void FlashTrm()
 #endif
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+static void ReadNumDevRcvTrm()
+{
+	Ptr<REQ> rq;
+
+	u16 tryCount = 4;
+	
+	rcvStatus = 0;
+	
+	bool trmStatus = false;
+
+	while (tryCount > 0)
+	{
+		for (byte i = 1; i <= RCV_MAX_NUM_STATIONS; i++)
+		{
+			if ((rcvStatus & (1 << (i-1))) == 0)
+			{
+				rq = CreateRcvReq03(i, 2);
+
+				if (rq.Valid())
+				{
+					qRcv.Add(rq); while(!rq->ready) qRcv.Update();
+
+					if (rq->crcOK) rcvStatus |= 1 << (i-1);
+
+					rq.Free();
+				};
+			};
+		};
+
+		if (!trmStatus)
+		{
+			rq = CreateTrmReq02(2);
+
+			if (rq.Valid())
+			{
+				qTrm.Add(rq); while(!rq->ready) qTrm.Update();
+
+				if (rq->crcOK) trmStatus = true;
+
+				rq.Free();
+			};
+		};
+
+		if (trmStatus && rcvStatus && tryCount > 2) tryCount = 2;
+
+		tryCount--;
+	};
+
+	u16 nums[RCV_MAX_NUM_STATIONS] = {0};
+	u16 count[RCV_MAX_NUM_STATIONS] = {0};
+
+	byte im = 0;
+
+	for (byte i = 0; i < RCV_MAX_NUM_STATIONS; i++)
+	{
+		if (arrRcvNumDevValid[i])
+		{
+			bool c = false;
+
+			for (byte j = 0; j < im; j++)
+			{
+				if (nums[j] == arrRcvNumDev[i]) { count[j]++; c = true; break; };
+			};
+
+			if (!c)
+			{
+				nums[im] = arrRcvNumDev[i];
+				count[im++]++;
+			};
+		};
+	};
+
+	byte imax = 0;
+	u16 max = count[0];
+
+	for (byte i = 1; i < im; i++)
+	{
+		if (count[i] > max) max = count[i], imax = i;
+	};
+
+	numDevRcv = nums[imax];
+	numDevRcvValid = 0;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 static void InitMainVars()
 {
 	mv.numDevice			= 11111;
@@ -4208,6 +4243,7 @@ int main()
 
 	FlashRcv();
 
+	ReadNumDevRcvTrm();
 
 #endif
 

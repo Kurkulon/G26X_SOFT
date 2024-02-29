@@ -418,7 +418,7 @@ static bool Request02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	
 	if (req.saveParams) SaveMainParams();
 
-	rsp.f			= req.f;
+	rsp.func		= req.func;
 	rsp.numDevValid = numDevValid;
 	rsp.numdev		= mv.numDevice;
 	rsp.verdev		= VERSION;
@@ -460,10 +460,11 @@ static bool Request03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 		for (u16 i = 0; i < rsp.sl; i++)
 		{
-			i16 t = rsp.data[i];
+			i16 t = rsp.data[i]-0x800;
+			t = t * 5 / 4;
+			rsp.data[i] = t;
 
 			if (t < 0) t = -t;
-
 			if (t > max) max = t;
 		};
 
@@ -893,6 +894,8 @@ static void LoadVars()
 
 		svCount = 2;
 	};
+
+	numDevValid = true;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
