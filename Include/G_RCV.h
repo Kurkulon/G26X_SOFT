@@ -31,7 +31,7 @@
 #define RCV_WAVEPACK
 #define RCV_13AD
 
-#define RCV_SAMPLE_LEN 1300
+#define RCV_SAMPLE_LEN 2600
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -103,8 +103,8 @@ __packed struct RspRcvHdr02	// чтение вектора
 	u32 cnt;
 	u16 gain;
 	u16 st;
-	u16 len;
-	u16 delay;
+	u16 sl;
+	u16 sd;
 	u16 packType;
 	u16 math;
 	u16 packLen1;

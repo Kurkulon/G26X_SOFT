@@ -154,24 +154,9 @@ i16 wave1[996] = { 235,281,279,205,65,-99,-227,-273,-225,-110,16,97,106,46,-45,-
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-struct DSCRSP02
-{
-	DSCRSP02 *next;
-
-	u16 len;
-
-	union 
-	{
-		RspRcv02 r02;
-		u16 data[sizeof(RspRcv02)/2];
-	};
-};
-
-static DSCRSP02 dscRsp02[1];
-
-#pragma instantiate List<DSCRSP02>
-static List<DSCRSP02> freeRSP02;
 static List<DSCRSP02> readyRSP02;
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static DSCRSP02 *wrDscRSP02 = 0;
 
@@ -204,40 +189,40 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	byte n = req.n;
 	if (n > RCV_FIRE_NUM) n = RCV_FIRE_NUM;
 
-	if (wrDscRSP02 != 0) freeRSP02.Add(wrDscRSP02), wrDscRSP02 = 0;
+	if (wrDscRSP02 != 0) FreeDscSPORT(wrDscRSP02), wrDscRSP02 = 0;
 
-	DSCSPORT *dsc = AllocDscSPORT();
+	DSCRSP02 *dsc = AllocDscSPORT();
 
 	if (dsc != 0)
 	{
-		dsc->vectorCount	= req.fc;
-		dsc->fireN			= n;
-		dsc->gain			= ngain[n];
-		dsc->next_fireN		= req.next_n;
-		dsc->next_gain		= req.next_gain;
-		dsc->st				= MAX(req.st, 2);
-		dsc->sl				= LIM(req.sl, 16, RCV_SAMPLE_LEN);
+		dsc->r02.hdr.cnt		= req.fc;
+		dsc->fireN				= n;
+		dsc->r02.hdr.gain		= ngain[n];
+		dsc->next_fireN			= req.next_n;
+		dsc->next_gain			= req.next_gain;
+		dsc->r02.hdr.st			= MAX(req.st, 2);
+		dsc->r02.hdr.sl			= LIM(req.sl, 16, RCV_SAMPLE_LEN);
 
-		dsc->packType		= req.packType;
-		dsc->math			= req.math;
+		dsc->r02.hdr.packType	= req.packType;
+		dsc->r02.hdr.math		= req.math;
 
 		if (req.packType == PACK_ULAW12 || req.packType == PACK_ULAW16)
 		{
-			dsc->sl = (dsc->sl+1) & ~1;	
+			dsc->r02.hdr.sl = (dsc->r02.hdr.sl+1) & ~1;	
 		}
 		else if (req.packType == PACK_ADPCMIMA)
 		{
-			dsc->sl = (dsc->sl+3) & ~3;	
+			dsc->r02.hdr.sl = (dsc->r02.hdr.sl+3) & ~3;	
 		}
 		else if (req.packType >= PACK_DCT0)
 		{
-			dsc->sl	= LIM(req.sl, 64, RCV_SAMPLE_LEN-61);
-			dsc->sl = (req.packType == PACK_DCT0) ? (((dsc->sl-64+60)/61)*61+64) : (((dsc->sl-64+56)/57)*57+64);	
+			dsc->r02.hdr.sl	= LIM(req.sl, 64, RCV_SAMPLE_LEN-61);
+			dsc->r02.hdr.sl = (req.packType == PACK_DCT0) ? (((dsc->r02.hdr.sl-64+60)/61)*61+64) : (((dsc->r02.hdr.sl-64+56)/57)*57+64);	
 		};
 
-		u16 delay = req.sd / dsc->st;
+		u16 delay = req.sd / dsc->r02.hdr.st;
 
-		dsc->sd	= delay * dsc->st;
+		dsc->r02.hdr.sd	= delay * dsc->r02.hdr.st;
 
 		SyncReadSPORT(dsc, delay);
 	};
@@ -666,8 +651,8 @@ static void UpdateSport()
 	//static byte sg = 0;
 	//static u16 sd = 0;
 
-	static DSCSPORT *dsc = 0;
-	static DSCRSP02 *prsp = 0;
+	static DSCRSP02 *dsc = 0;
+	//static DSCRSP02 *prsp = 0;
 
 	//RspRcv02 &rsp = rsp02;
 
@@ -701,115 +686,114 @@ static void UpdateSport()
 			break;
 
 		case 1:
+		{
+			RspRcv02 &rsp = dsc->r02;
 
-			prsp = freeRSP02.Get();
+			rsp.hdr.rw			= 0xAA30 + (dsc->fireN<<4) + GetNetAdr()-1;
+			//rsp.hdr.cnt			= dsc->vectorCount;
+			//rsp.hdr.gain		= dsc->gain; 
+			//rsp.hdr.st			= dsc->st; 
+			//rsp.hdr.len			= dsc->sl; 
+			//rsp.hdr.delay		= dsc->sd;
 
-			if (prsp != 0)
+			//rsp.hdr.packType	= dsc->packType;
+			//rsp.hdr.math		= dsc->math;
+
+			rsp.hdr.packLen1	= rsp.hdr.sl;
+
+			if (rsp.hdr.math == 0)
 			{
-				RspRcv02 &rsp = prsp->r02;
+				rsp.hdr.packLen2	= rsp.hdr.sl;
+				rsp.hdr.packLen3	= rsp.hdr.sl;
+				rsp.hdr.packLen4	= rsp.hdr.sl;
+			}
+			else if (rsp.hdr.math == 1) // Среднее
+			{
+				rsp.hdr.packLen2	= 0;
+				rsp.hdr.packLen3	= 0;
+				rsp.hdr.packLen4	= 0;
+			}
+			else // Разница
+			{
+				rsp.hdr.packLen2	= rsp.hdr.sl;
+				rsp.hdr.packLen3	= 0;
+				rsp.hdr.packLen4	= 0;
+			};
 
-				rsp.hdr.rw			= 0xAA30 + (dsc->fireN<<4) + GetNetAdr()-1;
-				rsp.hdr.cnt			= dsc->vectorCount;
-				rsp.hdr.gain		= dsc->gain; 
-				rsp.hdr.st			= dsc->st; 
-				rsp.hdr.len			= dsc->sl; 
-				rsp.hdr.delay		= dsc->sd;
+			u16 *p1 = rsp.data + rsp.hdr.sl*0;
+			u16 *p2 = rsp.data + rsp.hdr.sl*1;
+			u16 *p3 = rsp.data + rsp.hdr.sl*2;
+			u16 *p4 = rsp.data + rsp.hdr.sl*3;
 
-				rsp.hdr.packType	= dsc->packType;
-				rsp.hdr.math		= dsc->math;
-				rsp.hdr.packLen1	= dsc->sl;
+			u16 max[4] = {0, 0, 0, 0};
+			u16 min[4] = {65535, 65535, 65535, 65535 };
+
+			u32 pow[4] = {0, 0, 0, 0};
+
+			u16 t[4];
+
+			//i16 x;
+
+			for (u16 i = 0; i < rsp.hdr.sl; i++)
+			{
+				t[0] = *p1;
+				t[1] = *p2;
+				t[2] = *p3;
+				t[3] = *p4;
+
+				for (byte n = 0; n < 4; n++)
+				{
+					max[n] = __builtin_max(t[n], max[n]);
+					min[n] = __builtin_min(t[n], min[n]);
+					pow[n] += __builtin_abs((i16)(t[n] - 0x8000));
+				};
 
 				if (rsp.hdr.math == 0)
 				{
-					rsp.hdr.packLen2	= dsc->sl;
-					rsp.hdr.packLen3	= dsc->sl;
-					rsp.hdr.packLen4	= dsc->sl;
+					*p1 = t[0] - 0x8000;
+					*p2 = t[1] - 0x8000;
+					*p3 = t[2] - 0x8000;
+					*p4 = t[3] - 0x8000;
 				}
 				else if (rsp.hdr.math == 1) // Среднее
 				{
-					rsp.hdr.packLen2	= 0;
-					rsp.hdr.packLen3	= 0;
-					rsp.hdr.packLen4	= 0;
+					*p1 = (t[0]+t[1]+t[2]+t[3])/4 - 0x8000;
 				}
 				else // Разница
 				{
-					rsp.hdr.packLen2	= dsc->sl;
-					rsp.hdr.packLen3	= 0;
-					rsp.hdr.packLen4	= 0;
+					*p1 = subsat16(t[2], t[0]); //(t[2]-t[0])/2;
+					*p2 = subsat16(t[3], t[1]); //2;
 				};
 
-				u16 *p1 = rsp.data + rsp.hdr.len*0;
-				u16 *p2 = rsp.data + rsp.hdr.len*1;
-				u16 *p3 = rsp.data + rsp.hdr.len*2;
-				u16 *p4 = rsp.data + rsp.hdr.len*3;
-
-				u16 max[4] = {0, 0, 0, 0};
-				u16 min[4] = {65535, 65535, 65535, 65535 };
-
-				u32 pow[4] = {0, 0, 0, 0};
-
-				u16 t[4];
-
-				//i16 x;
-
-				for (u16 i = 0; i < rsp.hdr.len; i++)
-				{
-					t[0] = dsc->spd[0][i*2+1];
-					t[1] = dsc->spd[0][i*2+0];
-					t[2] = dsc->spd[1][i*2+1];
-					t[3] = dsc->spd[1][i*2+0];
-
-					for (byte n = 0; n < 4; n++)
-					{
-						max[n] = __builtin_max(t[n], max[n]);
-						min[n] = __builtin_min(t[n], min[n]);
-						pow[n] += __builtin_abs((i16)(t[n] - 0x8000));
-						//if (t[n] > max[n]) { max[n] = t[n]; };
-						//if (t[n] < min[n]) { min[n] = t[n]; };
-						//x = t[n] - 0x8000;
-						//pow[n] += (x > 0) ? x : (-x);
-					};
-
-					if (rsp.hdr.math == 0)
-					{
-						*p1++ = t[0] - 0x8000;
-						*p2++ = t[1] - 0x8000;
-						*p3++ = t[2] - 0x8000;
-						*p4++ = t[3] - 0x8000;
-					}
-					else if (rsp.hdr.math == 1) // Среднее
-					{
-						*p1++ = (t[0]+t[1]+t[2]+t[3])/4 - 0x8000;
-					}
-					else // Разница
-					{
-						*p1++ = subsat16(t[2], t[0]); //(t[2]-t[0])/2;
-						*p2++ = subsat16(t[3], t[1]); //2;
-					}
-				};
-
-				for (byte i = 0; i < 4; i++)
-				{
-					maxAmp[i] = max[i] - min[i];
-					power[i] = (rsp.hdr.len > 0) ? (pow[i] / rsp.hdr.len) : 0;
-				};
-			
-				FreeDscSPORT(dsc);
-
-				dsc = 0;
-
-				prsp->len = sizeof(rsp.hdr) + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4)*2;
-
-				sportState = (rsp.hdr.packType == PACK_NO) ? 3 : (sportState+1);
+				p1++;
+				p2++;
+				p3++;
+				p4++;
 			};
 
+			for (byte i = 0; i < 4; i++)
+			{
+				maxAmp[i] = max[i] - min[i];
+				power[i] = (rsp.hdr.sl > 0) ? (pow[i] / rsp.hdr.sl) : 0;
+			};
+		
+			//FreeDscSPORT(dsc);
+
+			//dsc = 0;
+
+			dsc->len = sizeof(rsp.hdr) + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4)*2;
+
+			sportState = (rsp.hdr.packType == PACK_NO) ? 3 : (sportState+1);
+
 			break;
+
+		};
 
 		case 2:
 		{
 			HW::PIOF->BSET(7);
 
-			RspRcv02 &rsp = prsp->r02;
+			RspRcv02 &rsp = dsc->r02;
 
 			if (rsp.hdr.packType == PACK_ULAW12 || rsp.hdr.packType == PACK_ULAW16)
 			{
@@ -829,7 +813,7 @@ static void UpdateSport()
 				rsp.hdr.packLen3 /= 2;
 				rsp.hdr.packLen4 /= 2;
 
-				prsp->len = sizeof(rsp.hdr) + plen;
+				dsc->len = sizeof(rsp.hdr) + plen;
 			}
 			else if (rsp.hdr.packType == PACK_ADPCMIMA)
 			{
@@ -846,7 +830,7 @@ static void UpdateSport()
 				rsp.hdr.packLen3 /= 4;
 				rsp.hdr.packLen4 /= 4;
 
-				prsp->len = sizeof(rsp.hdr) + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4)*2;
+				dsc->len = sizeof(rsp.hdr) + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4)*2;
 			}
 			else if (rsp.hdr.packType >= PACK_DCT0)
 			{
@@ -858,14 +842,14 @@ static void UpdateSport()
 				//u16 packedLen = 0;
 				u16 pl = 0;
 
-				u16 sl =	Pack_FDCT(src, dst, rsp.hdr.packLen1, shift, OVRLAP, &rsp.hdr.packLen1); src += rsp.hdr.len; dst += rsp.hdr.packLen1;
-							Pack_FDCT(src, dst, rsp.hdr.packLen2, shift, OVRLAP, &rsp.hdr.packLen2); src += rsp.hdr.len; dst += rsp.hdr.packLen2; 
-							Pack_FDCT(src, dst, rsp.hdr.packLen3, shift, OVRLAP, &rsp.hdr.packLen3); src += rsp.hdr.len; dst += rsp.hdr.packLen3; 
+				u16 sl =	Pack_FDCT(src, dst, rsp.hdr.packLen1, shift, OVRLAP, &rsp.hdr.packLen1); src += rsp.hdr.sl; dst += rsp.hdr.packLen1;
+							Pack_FDCT(src, dst, rsp.hdr.packLen2, shift, OVRLAP, &rsp.hdr.packLen2); src += rsp.hdr.sl; dst += rsp.hdr.packLen2; 
+							Pack_FDCT(src, dst, rsp.hdr.packLen3, shift, OVRLAP, &rsp.hdr.packLen3); src += rsp.hdr.sl; dst += rsp.hdr.packLen3; 
 							Pack_FDCT(src, dst, rsp.hdr.packLen4, shift, OVRLAP, &rsp.hdr.packLen4); 
 
-				rsp.hdr.len = sl;
+				rsp.hdr.sl = sl;
 
-				prsp->len = sizeof(rsp.hdr) + rsp.hdr.packLen1 + rsp.hdr.packLen2 + rsp.hdr.packLen3 + rsp.hdr.packLen4;
+				dsc->len = sizeof(rsp.hdr) + rsp.hdr.packLen1 + rsp.hdr.packLen2 + rsp.hdr.packLen3 + rsp.hdr.packLen4;
 
 				rsp.hdr.packLen1 /= 2;
 				rsp.hdr.packLen2 /= 2;
@@ -882,12 +866,12 @@ static void UpdateSport()
 
 		case 3:
 		{
-			RspRcv02 &rsp = prsp->r02;
+			RspRcv02 &rsp = dsc->r02;
 
-			prsp->data[prsp->len/2] = GetCRC16_CCIT_refl(&prsp->r02, prsp->len);
-			prsp->len += 2;
+			dsc->data[dsc->len/2] = GetCRC16_CCIT_refl(&dsc->r02, dsc->len);
+			dsc->len += 2;
 
-			readyRSP02.Add(prsp); prsp = 0;
+			readyRSP02.Add(dsc); dsc = 0;
 
 			sportState = 0;
 
@@ -1007,16 +991,6 @@ void main( void )
 	Pack_Init();
 
 	com.Connect(RCV_COM_BAUDRATE, RCV_COM_PARITY);
-
-	for (u16 i = 0; i < ArraySize(dscRsp02); i++)
-	{
-		DSCRSP02 &dsc = dscRsp02[i];
-
-		dsc.next = 0;
-
-		freeRSP02.Add(&dsc);
-	};
-
 
 //	InitNetAdr();
 

@@ -32,7 +32,7 @@ void Pack_ADPCMIMA(i16* src, byte* dst, u16 len)
 
 u16 Pack_FDCT(i16* src, byte* dst, u16 len, u16 shift, u16 OVRLAP, u16* packedLen)
 {
-	return WavePack_FDCT(src, dst, len, shift, OVRLAP, FDCT_N, packedLen);
+	return WavePack_FDCT12(src, dst, len, shift, OVRLAP, FDCT_N, packedLen);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

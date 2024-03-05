@@ -24,7 +24,7 @@
 #endif
 #define	NUM_SMALL_BUF	16       
 #define	NUM_MEDIUM_BUF	4
-#define	NUM_HUGE_BUF	8
+#define	NUM_HUGE_BUF	6
 
 #include <MEM\mem_imp.h>
 

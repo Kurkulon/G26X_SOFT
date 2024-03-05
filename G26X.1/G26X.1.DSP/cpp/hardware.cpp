@@ -20,13 +20,17 @@ const u32 sysCLK = SCLK;
 
 static u16 temp = 0;
 
-static DSCSPORT *volatile curDscSPORT = 0;
+static DSCRSP02 *volatile curDscSPORT = 0;
 
-static DSCSPORT sportdsc[SPORT_BUF_NUM];
+static DSCRSP02 sportdsc[SPORT_BUF_NUM];
 
-#pragma instantiate List<DSCSPORT>
-static List<DSCSPORT> freeSPORT;
-static List<DSCSPORT> readySPORT;
+#pragma instantiate List<DSCRSP02>
+static List<DSCRSP02> freeSPORT;
+static List<DSCRSP02> readySPORT;
+static DSCRSP02 dscRsp02[1];
+
+//static List<DSCRSP02> freeRSP02;
+//static List<DSCRSP02> readyRSP02;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -42,21 +46,21 @@ DMA_CH	dmaRxSp1(SPORT1_RX_DMA);
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-DSCSPORT* GetDscSPORT()
+DSCRSP02* GetDscSPORT()
 {
 	return readySPORT.Get();
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-DSCSPORT* AllocDscSPORT()
+DSCRSP02* AllocDscSPORT()
 {
 	return freeSPORT.Get();
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void FreeDscSPORT(DSCSPORT* dsc)
+void FreeDscSPORT(DSCRSP02* dsc)
 {
 	freeSPORT.Add(dsc);
 }
@@ -150,7 +154,7 @@ static void InitSPORT()
 
 	for (u16 i = 0; i < ArraySize(sportdsc); i++)
 	{
-		DSCSPORT &dsc = sportdsc[i];
+		DSCRSP02 &dsc = sportdsc[i];
 
 		dsc.readyMask = 0;
 
@@ -198,7 +202,7 @@ static void InitSPORT()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void SyncReadSPORT(DSCSPORT *dsc, u16 delay) // (void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool *ready0, bool *ready1)
+void SyncReadSPORT(DSCRSP02 *dsc, u16 delay) // (void *dst1, void *dst2, u16 len, u16 clkdiv, u16 delay, bool *ready0, bool *ready1)
 {
 	if (dsc == 0) return;
 
@@ -210,21 +214,23 @@ void SyncReadSPORT(DSCSPORT *dsc, u16 delay) // (void *dst1, void *dst2, u16 len
 	//*pDMA1_CONFIG = 0;
 	//*pDMA3_CONFIG = 0;
 
+	u16 rclkdiv = dsc->r02.hdr.st*(SCLK_MHz/50)-1;
+
 	HW::SPORT0->RCR1	= 0;							//*pSPORT0_RCR1 = 0;
 	HW::SPORT0->RCR2	= 15|RXSE;						//*pSPORT0_RCR2 = 15|RXSE;
-	HW::SPORT0->RCLKDIV = dsc->st*(SCLK_MHz/50)-1;		//*pSPORT0_RCLKDIV = clkdiv;
+	HW::SPORT0->RCLKDIV = rclkdiv;						//*pSPORT0_RCLKDIV = clkdiv;
 	HW::SPORT0->RFSDIV	= 24;							//*pSPORT0_RFSDIV = 49;
 
 	HW::SPORT1->RCR1	= 0;
 	HW::SPORT1->RCR2	= 15|RXSE;
-	HW::SPORT1->RCLKDIV = dsc->st*(SCLK_MHz/50)-1;
+	HW::SPORT1->RCLKDIV = rclkdiv;
 	HW::SPORT1->RFSDIV	= 24;
 
-	delay = (delay+1)*2;
-	u16 len = dsc->sl*2;
+	//delay = (delay+1)*2;
+	u16 len = dsc->r02.hdr.sl;//*2;
 
-	dmaRxSp0.Read16(dsc->spd[0], delay+1, len);
-	dmaRxSp1.Read16(dsc->spd[1], delay+1, len);
+	dmaRxSp0.ReadInterleaved16(dsc->r02.data,			delay+1, len);
+	dmaRxSp1.ReadInterleaved16(dsc->r02.data + len*2,	delay+1, len);
 
 	curDscSPORT = dsc;
 
