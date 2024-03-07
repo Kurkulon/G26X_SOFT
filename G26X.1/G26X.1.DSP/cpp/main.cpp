@@ -888,12 +888,22 @@ static void UpdateSaveParams()
 
 	static ReqAT25 *req = 0;
 
+	static byte count = 0;
+	static u32 adr = 0;
+
 	switch (i)
 	{
 		case 0:
 
+			if (numDevValid == 0)
+			{
+				cmdSaveParams = false;
+			};
+
 			if (cmdSaveParams)
 			{
+				adr = 0x30000-FLASH_START_ADR;
+				count = 4;
 				i++;
 			};
 
@@ -906,11 +916,60 @@ static void UpdateSaveParams()
 			if (req != 0)
 			{
 				req->dataOffset = 0;
-				req->stAdr = 0;
-				//req->data
+				req->stAdr = adr;
+				req->len = 4;
+
+				u16 *p = (u16*)req->data;
+
+				p[0] = numDevice;
+				p[1] = GetCRC16(p, 2);
+
+				FlashWriteReq(req);
+
+				adr += FLASH_SECTOR_SIZE;
+
+				if (count > 0)
+				{
+					count -= 1;
+				}
+				else
+				{
+					cmdSaveParams = false;
+					i = 0;
+				};
 			};
 
 			break;
+	};
+
+	FlashUpdate();
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void LoadParams()
+{
+	u32 adr = 0x30000;
+
+	static u16 aaa[2];
+
+	numDevice = 0;
+	numDevValid = 0;
+
+	while (FlashBusy()) FlashUpdate();
+
+	for (byte i = 0; i < 4; i++)
+	{
+		at25df021_Read(aaa, adr, sizeof(aaa));
+
+		if (GetCRC16(aaa, sizeof(aaa)) == 0)
+		{
+			numDevice = aaa[0];
+			numDevValid = true;
+			break;
+		};
+
+		adr += FLASH_SECTOR_SIZE;
 	};
 }
 
@@ -992,6 +1051,8 @@ void main( void )
 
 	com.Connect(RCV_COM_BAUDRATE, RCV_COM_PARITY);
 
+	LoadParams();
+
 //	InitNetAdr();
 
 	while (1)
@@ -1005,10 +1066,10 @@ void main( void )
 		enum C { S = (__LINE__+3) };
 		switch(i++)
 		{
-			CALL( UpdateBlackFin()	);
-			CALL( UpdateHardware()	);
-			CALL( UpdateSport()		);
-			CALL( FlashUpdate()		);
+			CALL( UpdateBlackFin()		);
+			CALL( UpdateHardware()		);
+			CALL( UpdateSport()			);
+			CALL( UpdateSaveParams()	);
 		};
 
 		i = (i > (__LINE__-S-3)) ? 0 : i;

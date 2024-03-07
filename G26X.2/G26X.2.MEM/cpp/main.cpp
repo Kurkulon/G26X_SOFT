@@ -109,12 +109,12 @@ static byte transIndex[RCV_FIRE_NUM] = {0, 1, 2, 2};
 static u16  numDevTrm = 0;
 static byte numDevTrmValid = 0;
 static u16  verDevTrm = 0;
-static byte verDevTrmValid = 0;
+//static byte verDevTrmValid = 0;
 
 static u16  numDevRcv = 0;
 static byte numDevRcvValid = 0;
 static u16  verDevRcv = 0;
-static byte verDevRcvValid = 0;
+//static byte verDevRcvValid = 0;
 
 static u16  arrRcvNumDev[RCV_MAX_NUM_STATIONS] = {0};
 static u16  arrRcvTemp[RCV_MAX_NUM_STATIONS] = {0};
@@ -462,12 +462,24 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = AllocMemBuffer(sizeof(RspRcv03)+2);
+	if (adr != 0)
+	{
+		rq->rsp = AllocMemBuffer(sizeof(RspRcv03)+2);
 
-	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+
+		RspRcv03 &rsp = *((RspRcv03*)(rq->rsp->GetDataPtr()));
+
+		rq->rb.data = &rsp;
+		rq->rb.maxLen = rq->rsp->GetDataMaxLen();
+	}
+	else
+	{
+		rq->rb.data	= 0;
+		rq->rb.maxLen	= 0;
+	};
 
 	ReqRcv03 &req = *((ReqRcv03*)rq->reqData);
-	RspRcv03 &rsp = *((RspRcv03*)(rq->rsp->GetDataPtr()));
 
 	REQ &q = *rq;
 
@@ -483,8 +495,6 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	q.rb.data = (adr != 0) ? &rsp : 0;
-	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 
 	req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
 	req.r[1].adr			= req.r[0].adr			= adr;
@@ -2488,7 +2498,7 @@ static void MainMode()
 
 			if (runMainMode && (mv.disableFireNoVibration == 0 || vibration > mv.levelNoVibration))
 			{
-				req = CreateRcvReq03(1, 0);
+				req = CreateRcvReq03(0, 0);
 
 				if (req.Valid())
 				{
@@ -3555,7 +3565,7 @@ static void ReadNumDevRcvTrm()
 {
 	Ptr<REQ> rq;
 
-	u16 tryCount = 4;
+	u16 tryCount = 6;
 	
 	rcvStatus = 0;
 	
@@ -3600,6 +3610,7 @@ static void ReadNumDevRcvTrm()
 	};
 
 	u16 nums[RCV_MAX_NUM_STATIONS] = {0};
+	u16 vers[RCV_MAX_NUM_STATIONS] = {0};
 	u16 count[RCV_MAX_NUM_STATIONS] = {0};
 
 	byte im = 0;
@@ -3618,6 +3629,7 @@ static void ReadNumDevRcvTrm()
 			if (!c)
 			{
 				nums[im] = arrRcvNumDev[i];
+				vers[im] = arrRcvVerDev[i];
 				count[im++]++;
 			};
 		};
@@ -3632,7 +3644,82 @@ static void ReadNumDevRcvTrm()
 	};
 
 	numDevRcv = nums[imax];
-	numDevRcvValid = 0;
+	verDevRcv = vers[imax];
+	numDevRcvValid = (max != 0);
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void FlashInitBoot()
+{
+	Ptr<REQ> rq;
+
+	u16 tryCount = 4;
+	
+	rcvStatus = 0;
+	byte N = RCV_MAX_NUM_STATIONS;
+
+	CTM32 tm;
+
+	BootRspV1::SF0	rspF0;
+
+	bool hs = false;
+
+	while (tryCount > 0)
+	{
+		for (byte i = 1; i <= N; i++)
+		{
+			if ((rcvStatus & (1 << (i-1))) == 0)
+			{
+				rq = CreateRcvBootReq00(i, &rspF0, 2);
+
+				if (rq.Valid())
+				{
+					qRcv.Add(rq); while(!rq->ready) qRcv.Update();
+
+					if (rq->crcOK)
+					{
+						BootReqV1::SF0 &req = *((BootReqV1::SF0*)rq->wb.data);
+						BootRspV1::SF0 &rsp = rspF0;
+
+						if (rsp.adr == i && rsp.rw == req.rw)
+						{
+							rcvStatus |= 1 << (i-1);
+						};
+
+						if (tryCount > 2) tryCount = 2;
+					};
+
+					rq.Free();
+				};
+			};
+		};
+
+		if (!hs)
+		{
+			rq = CreateTrmBootReq04(TRM_BOOT_NET_ADR, 100000, 2);
+
+			if (rq.Valid())
+			{
+				qTrm.Add(rq); while(!rq->ready) qTrm.Update();
+
+				if (rq->crcOK)
+				{
+					BootReqV1::SF4 &req = *((BootReqV1::SF4*)rq->wb.data);
+					BootRspV1::SF4 &rsp = *((BootRspV1::SF4*)rq->rb.data);
+
+					if (rsp.adr == TRM_BOOT_NET_ADR && rsp.rw == req.rw) hs = true;
+				};
+
+				rq.Free();
+			};
+		};
+
+		if (tryCount > 2 && rcvStatus != 0 && hs) tryCount = 2;
+		
+		tryCount--;
+	};
+
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -4239,9 +4326,11 @@ int main()
 
 	//__breakpoint(0);
 
-	//FlashTrm();
+	FlashInitBoot();
 
 	FlashRcv();
+	
+	FlashTrm();
 
 	ReadNumDevRcvTrm();
 
