@@ -35,6 +35,7 @@ struct DSCRSP02
 	u16			fireN;
 	u16			next_fireN;
 	u16			next_gain;
+	u16			sportLen;
 
 	//u32			vectorCount;
 	//u16			gain;

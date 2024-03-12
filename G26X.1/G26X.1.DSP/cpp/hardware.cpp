@@ -227,7 +227,7 @@ void SyncReadSPORT(DSCRSP02 *dsc, u16 delay) // (void *dst1, void *dst2, u16 len
 	HW::SPORT1->RFSDIV	= 24;
 
 	//delay = (delay+1)*2;
-	u16 len = dsc->r02.hdr.sl;//*2;
+	u16 len = dsc->sportLen;//*2;
 
 	dmaRxSp0.ReadInterleaved16(dsc->r02.data,			delay+1, len);
 	dmaRxSp1.ReadInterleaved16(dsc->r02.data + len*2,	delay+1, len);
