@@ -167,7 +167,7 @@ static u16 verMemDevice = 0x100;
 
 static byte mainModeState = 0;
 static byte fireType = 0;
-static u16	fireMask = 13;//(1UL<<RCV_FIRE_NUM)-1;
+static u16	fireMask = 0;//(1UL<<RCV_FIRE_NUM)-1;
 static byte nextFireType = 1;
 
 static bool cmdWriteStart_00 = false;
@@ -199,6 +199,23 @@ i16 cpuTemp = 0;
 i16 temp = 0;
 
 static byte svCount = 0;
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static byte GetNextFireType(byte n)
+{
+	n = (n+1)%RCV_FIRE_NUM; 
+
+	if (fireMask == 0) return n;
+
+	for (byte i = 0; i < RCV_FIRE_NUM; i++)
+	{
+		if (fireMask & (1UL<<n)) break;
+		n = (n+1)%RCV_FIRE_NUM; 
+	};
+
+	return n;
+}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1688,7 +1705,7 @@ static bool RequestMan_71(u16 *data, u16 len, MTB* mtb)
 
 	if (len < 3)
 	{
-		do index = (index+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<index)) == 0);
+		index = GetNextFireType(index);
 
 		rspMan71[index].rw	= manReqWord|0x71;
 		rspMan71[index].cnt = fireCounter;
@@ -1699,7 +1716,7 @@ static bool RequestMan_71(u16 *data, u16 len, MTB* mtb)
 	}
 	else if (data[1] == 0)
 	{
-		do index = (index+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<index)) == 0);
+		index = GetNextFireType(index);
 
 		rspMan71[index].rw = manReqWord|0x71;
 		rspMan71[index].cnt = fireCounter;
@@ -2624,7 +2641,7 @@ static void MainMode()
 
 				fireType = nextFireType; 
 
-				do nextFireType = (nextFireType+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<nextFireType)) == 0);
+				nextFireType = GetNextFireType(nextFireType); //do nextFireType = (nextFireType+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<nextFireType)) == 0);
 
 				fireCounter += 1;
 
