@@ -11,6 +11,7 @@
 #include "PointerCRC.h"
 #include "SEGGER_RTT\SEGGER_RTT.h"
 #include "hw_com.h"
+#include "TaskList.h"
 
 #ifdef WIN32
 
@@ -3150,69 +3151,17 @@ static void UpdateTemp()
 
 static void UpdateI2C()
 {
-#ifdef CPU_SAME53	
-
 	I2C_Update();
-
-#elif defined(CPU_XMC48)
-
-	//if (!comdsp.Update())
-	//{
-	//	if (I2C_Update())
-	//	{
-	//		comdsp.InitHW();
-
-	//		i2cResetCount++;
-	//	};
-	//};
-
-#endif
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//static void UpdateMoto()
-//{
-//	static Ptr<REQ> rq;
-//	static TM32 tm;
-//
-//	static byte i = 0;
-//
-//	switch (i)
-//	{
-//		case 0:
-//
-//			rq = CreateMotoReq();
-//
-//			if (rq.Valid())
-//			{
-//				qTrm.Add(rq);
-//
-//				i++;
-//			};
-//
-//			break;
-//
-//		case 1:
-//
-//			if (rq->ready)
-//			{
-//				rq.Free();
-//
-//				i++;
-//			};
-//
-//			break;
-//
-//		case 2:
-//
-//			if (tm.Check(101)) i = 0;
-//
-//			break;
-//	};
-//
-//	qTrm.Update();
-//}
+static void UpdateSPI()
+{
+	SPI_Update();
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -3916,6 +3865,29 @@ static void SaveVars()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+static TaskList taskList;
+
+static void InitTaskList()
+{
+	static Task tsk[] =
+	{
+		Task(MainMode,			US2CTM(100)	),
+		Task(UpdateTemp,		MS2CTM(1)	),
+		Task(UpdateMan,			US2CTM(100)	),
+		Task(NandFlash_Update,	MS2CTM(1)	),
+		Task(UpdateAccel,		MS2CTM(1)	),
+		Task(UpdateI2C,			US2CTM(20)	),
+		Task(SaveVars,			MS2CTM(1)	),
+		Task(UpdateEMAC,		MS2CTM(1)	),
+		Task(UpdateRcvTrm,		US2CTM(20)	),
+		Task(UpdateSPI,			US2CTM(20)	)
+	};
+
+	for (u16 i = 0; i < ArraySize(tsk); i++) taskList.Add(tsk+i);
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 static void UpdateParams()
 {
 	static byte i = 0;
@@ -3928,7 +3900,7 @@ static void UpdateParams()
 		CALL( MainMode()				);
 		CALL( UpdateTemp()				);
 		CALL( UpdateMan(); 				);
-		CALL( NandFlash_Update();			);
+		CALL( NandFlash_Update();		);
 		CALL( UpdateHardware();			);
 		CALL( UpdateAccel();			);
 		CALL( UpdateI2C();				);
@@ -3981,15 +3953,13 @@ static void Update()
 	
 	if (!(IsComputerFind() && EmacIsConnected()))
 	{
-		UpdateMisc();
+		taskList.Update(); //UpdateMisc();
 	}
 	else
 	{
 		I2C_Update();
 	};
 }
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -4261,6 +4231,8 @@ int main()
 	FlashTrm();
 
 	ReadNumDevRcvTrm();
+
+	InitTaskList();
 
 #endif
 
