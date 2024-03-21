@@ -9,6 +9,7 @@
 #include <SEGGER_RTT\SEGGER_RTT.h>
 #include "hw_com.h"
 #include "G_TRM.h"
+#include "TaskList.h"
 
 //#include "G_TRM.H"
 
@@ -461,7 +462,7 @@ static bool Request03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 		for (u16 i = 0; i < rsp.sl; i++)
 		{
 			i16 t = rsp.data[i]-0x800;
-			t = t * 5 / 4;
+			t *= 2;
 			rsp.data[i] = t;
 
 			if (t < 0) t = -t;
@@ -965,47 +966,65 @@ static void SaveVars()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static void UpdateParams()
-{
-	static byte i = 0;
+//static void UpdateParams()
+//{
+//	static byte i = 0;
+//
+//	#define CALL(p) case (__LINE__-S): p; break;
+//
+//	enum C { S = (__LINE__+3) };
+//	switch(i++)
+//	{
+//		CALL( UpdateTemp()				);
+//		CALL( SaveVars();				);
+//		CALL( UpdateHV();				);
+//	};
+//
+//	i = (i > (__LINE__-S-3)) ? 0 : i;
+//
+//	#undef CALL
+//}
 
-	#define CALL(p) case (__LINE__-S): p; break;
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	enum C { S = (__LINE__+3) };
-	switch(i++)
-	{
-		CALL( UpdateTemp()				);
-		CALL( SaveVars();				);
-		CALL( UpdateHV();				);
-	};
-
-	i = (i > (__LINE__-S-3)) ? 0 : i;
-
-	#undef CALL
-}
+//static void UpdateMisc()
+//{
+//	static byte i = 0;
+//
+//	#define CALL(p) case (__LINE__-S): p; break;
+//
+//	enum C { S = (__LINE__+3) };
+//	switch(i++)
+//	{
+//		CALL( UpdateCom(); 		);
+//		CALL( UpdateHardware();	);
+//		CALL( UpdateParams();	);
+//	};
+//
+//	i = (i > (__LINE__-S-3)) ? 0 : i;
+//
+//	#undef CALL
+//}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static void UpdateMisc()
+static TaskList taskList;
+
+static void InitTaskList()
 {
-	static byte i = 0;
-
-	#define CALL(p) case (__LINE__-S): p; break;
-
-	enum C { S = (__LINE__+3) };
-	switch(i++)
+	static Task tsk[] =
 	{
-		CALL( UpdateCom(); 		);
-		CALL( UpdateHardware();	);
-		CALL( UpdateParams();	);
+		Task(UpdateTemp,		US2CTM(100)	),
+		Task(SaveVars,			US2CTM(100)	),
+		Task(UpdateHV,			US2CTM(100)	),
+		Task(UpdateCom,			US2CTM(1)	),
+		Task(UpdateHardware,	US2CTM(1)	)
 	};
 
-	i = (i > (__LINE__-S-3)) ? 0 : i;
-
-	#undef CALL
+	for (u16 i = 0; i < ArraySize(tsk); i++) taskList.Add(tsk+i);
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 int main()
 {
@@ -1018,6 +1037,8 @@ int main()
 	InitHardware();
 
 	LoadVars();
+
+	InitTaskList();
 
 #ifndef WIN32
 
@@ -1033,7 +1054,7 @@ int main()
 	{
 		Pin_MainLoop_Set();
 
-		UpdateMisc();
+		taskList.Update(); //UpdateMisc();
 
 		Pin_MainLoop_Clr();
 

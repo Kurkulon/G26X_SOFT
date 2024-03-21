@@ -21,7 +21,8 @@ u16 waveBuffer[1000] = {0};
 
 static i16 sinArr[256] = {0};
 
-#define pwmPeriodUS 6
+#define pwmPeriodUS	6
+#define waveTimeUS	300
 //u16 waveAmp = 0;
 //u16 waveFreq = 3000; //Hz
 u16 waveLen = 2;
@@ -474,7 +475,7 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 	PWMTCC->CTRLA &= ~TCC_ENABLE;
 	PWMCOUNTTCC->CTRLA &= ~TCC_ENABLE;
 
-	if (waveFreq < 1000) waveFreq = 1000;
+	if (waveFreq < 500) waveFreq = 500;
 
 	fireCount = LIM(fireCount, 1, 5);
 
@@ -537,8 +538,12 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 		waveBuffer[waveLen] = mid;
 	
-		PWMCOUNTTCC->PER = waveLen*2;
-		PWMCOUNTTCC->CC[0] = waveLen*2;
+		u16 waveLenMax = (waveTimeUS + pwmPeriodUS/2) / pwmPeriodUS;
+
+		waveLenMax = MAX(waveLenMax, waveLen*2);
+
+		PWMCOUNTTCC->PER = waveLenMax;
+		PWMCOUNTTCC->CC[0] = waveLenMax;
 
 		PWMCOUNTTCC->CTRLA |= TCC_ENABLE;
 
