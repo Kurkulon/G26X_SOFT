@@ -13,6 +13,8 @@
 #include "hw_com.h"
 #include "TaskList.h"
 
+#define RCV_TESTREQ02
+
 #ifdef WIN32
 
 #include <conio.h>
@@ -178,19 +180,20 @@ static bool cmdRcvSaveParams = false;
 static bool cmdTrmSaveParams = false;
 
 static u16 rcvStatus = 0;
-static u32 crcErr02[RCV_MAX_NUM_STATIONS] = {0};
-static u32 crcErr03 = 0;
-static u32 crcErr04 = 0;
+static u16 rcvErrors = 0;
+//static u32 crcErr02[RCV_MAX_NUM_STATIONS] = {0};
+//static u32 crcErr03 = 0;
+//static u32 crcErr04 = 0;
 static u32 rcv02rejVec = 0;
 static u16 okRcv02 = 0;
 
-static u32 notRcv02[RCV_MAX_NUM_STATIONS] = {0};
-static u32 lenErr02[RCV_MAX_NUM_STATIONS] = {0};
-static u32 rejRcv02[RCV_MAX_NUM_STATIONS] = {0};
-static u32 retryRcv02[RCV_MAX_NUM_STATIONS] = {0};
+//static u32 notRcv02[RCV_MAX_NUM_STATIONS] = {0};
+//static u32 lenErr02[RCV_MAX_NUM_STATIONS] = {0};
+//static u32 rejRcv02[RCV_MAX_NUM_STATIONS] = {0};
+//static u32 retryRcv02[RCV_MAX_NUM_STATIONS] = {0};
 
-static u32 crcErr06 = 0;
-static u32 wrtErr06 = 0;
+//static u32 crcErr06 = 0;
+//static u32 wrtErr06 = 0;
 
 static i16 ax = 0, ay = 0, az = 0, at = 0;
 static u16 vibration;
@@ -343,7 +346,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		{
 			q->crcOK = false;
 			q->rsp->len = 0;
-			lenErr02[a]++;
+			//lenErr02[a]++;
 		}
 		else
 		{
@@ -357,31 +360,29 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 	if (!q->crcOK)
 	{
-		if (q->rb.recieved)
-		{
-			crcErr02[a]++;
-		}
-		else
-		{
-			notRcv02[a]++;
-		};
+		//if (q->rb.recieved)
+		//{
+		//	crcErr02[a]++;
+		//}
+		//else
+		//{
+		//	notRcv02[a]++;
+		//};
 
 		if (q->tryCount > 0)
 		{
 			q->tryCount--;
 			qRcv.Add(q);
 
-			retryRcv02[a] += 1;
+			//retryRcv02[a] += 1;
 		}
 		else
 		{
 			rcvStatus &= ~(1 << (a)); 
+			rcvErrors |= (1 << (a));
 
-			if (q->rb.recieved)
-			{
-				rcv02rejVec += 1;
-				rejRcv02[a] += 1;
-			};
+			rcv02rejVec += 1;
+			//rejRcv02[a] += 1;
 		};
 	};
 
@@ -439,6 +440,20 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 	req.r[1].n		= req.r[0].n	= n;
 	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
+#ifdef RCV_TESTREQ02
+
+	static u32 seed = 0;
+
+	seed = (seed + 101) * 1001 + GetCYCCNT();
+
+	byte *p = (byte*)&req;
+
+	byte i = seed % (sizeof(req)*8);
+
+	p[i/8] ^= (1<<(i&7));
+
+#endif
+
 	return rq;
 }
 
@@ -448,7 +463,7 @@ static bool CallBackRcvReq03(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
-		crcErr03++;
+		//crcErr03++;
 
 		if (q->tryCount > 0)
 		{
@@ -540,7 +555,7 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 	{
 		if(!q->rb.recieved) qRcv.Add(CreateRcvBootReq03(0, 0));
 
-		crcErr04++;
+		//crcErr04++;
 
 		if (q->tryCount > 0)
 		{
@@ -948,7 +963,7 @@ static bool CallBackRcvBootReq02(Ptr<REQ> &q)
 
 	if (!q->crcOK) 
 	{
-		crcErr06++;
+		//crcErr06++;
 
 		retry = true;
 	}
@@ -956,7 +971,7 @@ static bool CallBackRcvBootReq02(Ptr<REQ> &q)
 	{
 		BootRspV1::SF2 &rsp = *((BootRspV1::SF2*)q->rb.data);
 
-		if (rsp.res != 0) wrtErr06++, retry = true;
+		if (rsp.res != 0) /*wrtErr06++,*/ retry = true;
 	};
 
 	if (retry && q->tryCount > 0)
@@ -1529,22 +1544,23 @@ static u32 InitRspMan_20(u16 rw, __packed u16 *data)
 
 #else
 
-	*(data++) = Get_NetResist()/1000;	//5. к-во приемников
-	*(data++) = rcvStatus;			 	//6. статус приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
-	*(data++) = Get_NetResist();	 	//7. сопротивление IdLine
-	*(data++) = okRcv02;			 	//8. Счётчик запросов приёмников
-	*(data++) = ax;						//10. AX													
-	*(data++) = ay;						//11. AY													
-	*(data++) = az;						//12. AZ													
-	*(data++) = at;					 	//13. AT
-	*(data++) = temp;				 	//14. Температура в приборе (short)(0.1гр)
-	*(data++) = min;				 	//15. Минимальное значение температуры в приёмниках (short)(0.1гр)
-	*(data++) = max;				 	//16. Максимальное значение температуры в приёмниках (short)(0.1гр)
-	*(data++) = vibration;			 	//17. Вибрация (у.е)(ushort)
-	*(data++) = trmVoltage;			 	//18. напряжение излучателя (1 Вольт)
-	*(data++) = trmTemp;			 	//19. Температура излучателя (short)(0.1гр)
-	*(data++) = trmCount;			 	//20. Счётчик запросов излучателя
-	*(data++) = GetRcvManQuality();	 	//21. Качество сигнала запроса телеметрии (%)
+	*(data++) = (Get_NetResist()+250)/1000;		//4. к-во приемников
+	*(data++) = rcvStatus;			 			//5. статус приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
+	*(data++) = rcvErrors;			 			//6. статус ошибок линии приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
+	*(data++) = Get_NetResist();	 			//7. сопротивление IdLine
+	*(data++) = okRcv02;			 			//8. Счётчик запросов приёмников
+	*(data++) = ax;								//9. AX
+	*(data++) = ay;								//10. AY
+	*(data++) = az;								//11. AZ
+	*(data++) = at;					 			//12. AT
+	*(data++) = temp;				 			//13. Температура в приборе (short)(0.1гр)
+	*(data++) = min;				 			//14. Минимальное значение температуры в приёмниках (short)(0.1гр)
+	*(data++) = max;				 			//15. Максимальное значение температуры в приёмниках (short)(0.1гр)
+	*(data++) = vibration;			 			//16. Вибрация (у.е)(ushort)
+	*(data++) = trmVoltage;			 			//17. напряжение излучателя (1 Вольт)
+	*(data++) = trmTemp;			 			//18. Температура излучателя (short)(0.1гр)
+	*(data++) = trmCount;			 			//19. Счётчик запросов излучателя
+	*(data++) = GetRcvManQuality();	 			//20. Качество сигнала запроса телеметрии (%)
 
 #endif
 
@@ -1571,6 +1587,8 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 	fireMask = data[0] & 0xF;
 
 	len = InitRspMan_20(data[0], manTrmData);
+
+	rcvErrors = 0;
 
 	mtb->data1 = manTrmData;
 	mtb->len1 = len;
@@ -1841,7 +1859,7 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 		case 0x11:	mv.trans[1].amp				= MIN(data[2],			3000			);	break;	//	0x11 - Монополь2. Амплитуда излучателя (0..3000 вольт)
 																									
 		case 0x20:	mv.trans[2].pulseCount		= LIM(data[2],	1,		5				);	break;	//	0x20 - Диполь. Количество импульсов (1..5)
-		case 0x21:	mv.trans[2].freq			= LIM(data[2],	1000,	10000			);	break;	//	0x21 - Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
+		case 0x21:	mv.trans[2].freq			= LIM(data[2],	500,	10000			);	break;	//	0x21 - Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
 		case 0x22:	mv.trans[2].duty			= MIN(data[2],			6000			);	break;	//	0x22 - Диполь. Скважность импульсов излучателя (0..60 шаг 0.01%)
 																									
 		case 0x30:	mv.trans[0].gain			= MIN(data[2],			1				);	break;	//	0x30 - Монополь1. Предусилитель(0..1)
