@@ -102,7 +102,7 @@ static bool runMainMode = true;
 static bool startFire = false;
 static u32  fireCounter = 0;
 static u32  manCounter = 0;
-static byte numStations = RCV_MAX_NUM_STATIONS;
+static byte numStations = 1;//RCV_MAX_NUM_STATIONS;
 static u16  resistValue = 0;
 static u16  trmVoltage = 0;
 static u16  trmTemp = 0;
@@ -2481,6 +2481,7 @@ static void MainMode()
 	//static R02 *r02 = 0;
 	static CTM32 ctm;
 	static CTM32 ctm2;
+	static CTM32 ctm3;
 
 	static byte saveRcvParams = 0;
 
@@ -2544,7 +2545,7 @@ static void MainMode()
 
 		case 3:
 
-			req = CreateRcvReq02(rcv, fireType, 2);
+			req = CreateRcvReq02(rcv, fireType, 3);
 
 			if (req.Valid())
 			{
@@ -2602,7 +2603,7 @@ static void MainMode()
 					mainModeState = 6;
 				};
 
-				ctm.Reset();
+				ctm3.Reset();
 			};
 
 			qRcv.Update();
@@ -2611,7 +2612,7 @@ static void MainMode()
 
 		case 5:
 
-			if (ctm.Check(US2CTM(100)))
+			if (ctm3.Check(US2CTM(100)))
 			{
 				mainModeState = 3;
 			};
@@ -2654,7 +2655,7 @@ static void MainMode()
 
 		case 8:
 
-			if (ctm.Check(MS2CTM(mv.firePeriod/16)))
+			//if (ctm.Check(MS2CTM(mv.firePeriod/16)))
 			{
 				byte pft = fireType;
 
@@ -2691,78 +2692,12 @@ static void MainMode()
 
 			if (ctm2.Check(MS2CTM(mv.firePeriod)))
 			{
+				ctm.Reset();
 				mainModeState = 0;
 			};
 
 			break;
 	};
-
-	//static Ptr<MB> mb;
-	//static TM32 tm;
-	//static RspDsp01 *rsp = 0;
-
-	//switch (mainModeState)
-	//{
-	//	case 0:
-
-	//		mb = readyR01.Get();
-
-	//		if (mb.Valid())
-	//		{
-	//			rsp = (RspDsp01*)(mb->GetDataPtr());
-
-	//			NandFlash_RequestWrite(mb, rsp->CM.hdr.rw, true);
-
-	//			mainModeState++;
-	//		};
-
-	//		break;
-
-	//	case 1:
-
-	//		if ((rsp->CM.hdr.rw & 0xFF) == 0x40)
-	//		{
-	//			byte n = rsp->CM.hdr.sensType;
-
-	//			if (n < SENS_NUM)
-	//			{
-	//				manVec40[n] = mb;
-
-	//				AmpTimeMinMax& mm = sensMinMaxTemp[n];
-
-	//				u16 amp		= rsp->CM.hdr.maxAmp;
-	//				u16 time	= rsp->CM.hdr.fi_time;
-
-	//				if (amp > mm.ampMax)	mm.ampMax = amp;
-	//				if (amp < mm.ampMin)	mm.ampMin = amp;
-	//				if (time > mm.timeMax)	mm.timeMax = time;
-	//				if (time < mm.timeMin)	mm.timeMin = time;
-
-	//				mm.valid = true;
-	//			};
-	//		}
-	//		else if ((rsp->IM.hdr.rw & 0xFF) == 0x50)
-	//		{
-	//			byte n = rsp->IM.hdr.sensType;
-
-	//			if (n < (SENS_NUM-1))
-	//			{
-	//				manVec50[n] = mb;
-	//			};
-	//		};
-
-	//		if (imModeTimeout.Check(10000))
-	//		{
-	//			SetModeCM();
-	//		};
-
-	//		mb.Free();
-
-	//		mainModeState++;
-
-	//		break;
-
-	//	case 2:
 
 	if (cmdWriteStart_00)
 	{
@@ -3181,35 +3116,56 @@ static void UpdateSPI()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+Ptr<MB> CreateTestRspRcv02()
+{
+	Ptr<MB> rq;
+	
+	rq = NandFlash_AllocWB(sizeof(RspRcv02));
+
+	if (!rq.Valid()) { return rq; };
+
+	RspRcv02 &rsp = *((RspRcv02*)(rq->GetDataPtr()));
+
+	rsp.hdr.rw			= (manReqWord|0x30)+((fireCounter&3)<<4);
+	rsp.hdr.cnt			= fireCounter++;
+	rsp.hdr.gain		= 0;
+	rsp.hdr.st			= 10;
+	rsp.hdr.sl			= RCV_SAMPLE_LEN;
+	rsp.hdr.sd			= 0;
+	rsp.hdr.packType	= 0;
+	rsp.hdr.math		= 0;
+	rsp.hdr.packLen1	= RCV_SAMPLE_LEN;
+	rsp.hdr.packLen2	= RCV_SAMPLE_LEN;
+	rsp.hdr.packLen3	= RCV_SAMPLE_LEN;
+	rsp.hdr.packLen4	= RCV_SAMPLE_LEN;
+
+	rq->len = sizeof(rsp.hdr) + RCV_SAMPLE_LEN*8;
+	
+	return rq;
+}
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static void UpdateTestFlashWrite()
 {
-//	static Ptr<MB> ptr;
-//	static u32 count = 0;
-//
-//	static CTM32 rtm;
-//
-//	if (rtm.Check(MS2CTM(1)))
-//	{
-//		testDspReqCount++;
-//
-//		count = 1000;
-//	};
-//
-////	if (count != 0)
-//	{
-//		ptr = CreateTestDspReq01();
-//
-//		if (ptr.Valid())
-//		{
-//			count--;
-//
-//			RspDsp01 *rsp = (RspDsp01*)(ptr->GetDataPtr());
-//			NandFlash_RequestWrite(ptr, rsp->CM.hdr.rw, true);
-//
-//		};
-//	};
+	static Ptr<MB> ptr;
+	static u32 count = 0;
+
+	//static CTM32 rtm;
+
+	if (/*rtm.Check(MS2CTM(1)) &&*/ NandFlash_Status() != 0 && mv.disableFireNoVibration != 0 && mv.levelNoVibration == 0xFFFF)
+	{
+		ptr = CreateTestRspRcv02();
+
+		if (ptr.Valid())
+		{
+			count--;
+
+			RspRcv02 *rsp = (RspRcv02*)(ptr->GetDataPtr());
+			NandFlash_RequestWrite(ptr, rsp->hdr.rw, true);
+
+		};
+	};
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -3889,16 +3845,17 @@ static void InitTaskList()
 {
 	static Task tsk[] =
 	{
-		Task(MainMode,			US2CTM(100)	),
-		Task(UpdateTemp,		MS2CTM(1)	),
-		Task(UpdateMan,			US2CTM(100)	),
-		Task(NandFlash_Update,	MS2CTM(1)	),
-		Task(UpdateAccel,		MS2CTM(1)	),
-		Task(UpdateI2C,			US2CTM(20)	),
-		Task(SaveVars,			MS2CTM(1)	),
-		Task(UpdateEMAC,		MS2CTM(1)	),
-		Task(UpdateRcvTrm,		US2CTM(20)	),
-		Task(UpdateSPI,			US2CTM(20)	)
+		Task(MainMode,				US2CTM(100)	),
+		Task(UpdateTemp,			MS2CTM(1)	),
+		Task(UpdateMan,				US2CTM(100)	),
+		Task(NandFlash_Update,		MS2CTM(1)	),
+		Task(UpdateAccel,			MS2CTM(1)	),
+		Task(UpdateI2C,				US2CTM(20)	),
+		Task(SaveVars,				MS2CTM(1)	),
+		Task(UpdateEMAC,			MS2CTM(1)	),
+		Task(UpdateRcvTrm,			US2CTM(20)	),
+		Task(UpdateSPI,				US2CTM(20)	),
+		Task(UpdateTestFlashWrite,	MS2CTM(1)	)
 	};
 
 	for (u16 i = 0; i < ArraySize(tsk); i++) taskList.Add(tsk+i);

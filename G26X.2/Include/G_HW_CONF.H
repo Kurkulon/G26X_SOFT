@@ -290,9 +290,9 @@
 	#define NAND_DELAY_PR()		{ delay(4);				}
 	#define NAND_DELAY_FEAT()	{ delay(NS2CLK(1000));	}
 
-	#define NAND_WE_PER		NS2CLK(60)-1	
-	#define NAND_WE_CC0		NS2CLK(40) 
-	#define NAND_WE_CC1		NS2CLK(40)
+	#define NAND_WE_PER		NS2CLK(100)-1	
+	#define NAND_WE_CC0		NS2CLK(60) 
+	#define NAND_WE_CC1		NS2CLK(60)
 
 	#define nandTCC			HW::NAND_TCC
 	//#define nandTC			HW::NAND_TC
