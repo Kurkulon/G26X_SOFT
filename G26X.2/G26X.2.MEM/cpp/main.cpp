@@ -12,6 +12,7 @@
 #include "SEGGER_RTT\SEGGER_RTT.h"
 #include "hw_com.h"
 #include "TaskList.h"
+#include "FLASH\Nand_ECC.h"
 
 #define RCV_TESTREQ02
 
@@ -185,7 +186,12 @@ static u16 rcvErrors = 0;
 //static u32 crcErr03 = 0;
 //static u32 crcErr04 = 0;
 static u32 rcv02rejVec = 0;
+static u32 retryRcv02 = 0;
+static u32 crcErr02 = 0;
+static u32 notRcv02 = 0;
 static u16 okRcv02 = 0;
+static u16 crcErrLen02 = 0;
+static u16 crcErrRW02 = 0;
 
 //static u32 notRcv02[RCV_MAX_NUM_STATIONS] = {0};
 //static u32 lenErr02[RCV_MAX_NUM_STATIONS] = {0};
@@ -356,6 +362,16 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 			
 			q->rsp->len = q->rb.len;
 		};
+	}
+	else if (q->rb.recieved)
+	{
+		crcErrLen02 = q->rb.len;
+		crcErrRW02 = rsp.hdr.rw;
+		crcErr02++;
+	}
+	else
+	{
+		notRcv02++;
 	};
 
 	if (!q->crcOK)
@@ -373,6 +389,8 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		{
 			q->tryCount--;
 			qRcv.Add(q);
+
+			retryRcv02 += 1;
 
 			//retryRcv02[a] += 1;
 		}
@@ -3853,7 +3871,7 @@ static void InitTaskList()
 		Task(UpdateI2C,				US2CTM(20)	),
 		Task(SaveVars,				MS2CTM(1)	),
 		Task(UpdateEMAC,			MS2CTM(1)	),
-		Task(UpdateRcvTrm,			US2CTM(20)	),
+		Task(UpdateRcvTrm,			US2CTM(1)	),
 		Task(UpdateSPI,				US2CTM(20)	),
 		Task(UpdateTestFlashWrite,	MS2CTM(1)	)
 	};
@@ -4158,10 +4176,6 @@ static void Test_MT_ListRef()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 int main()
 {
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_WHITE "main() start ...\n");
@@ -4181,9 +4195,24 @@ int main()
 
 	TM32 tm;
 
+	InitHardware();
+
 	//__breakpoint(0);
 
-	InitHardware();
+	//byte buf[512];
+
+	//COPY(0, buf, sizeof(buf));
+
+	//byte ecc1[6];
+
+	//Nand_ECC_Calc_V2(buf, 512, ecc1);
+
+	//for (u16 i = 0; i < 256; i++)
+	//{
+	//	//ecc1[i&3] ^= 1 << (i&7);
+	//	buf[i] ^= 3 << ((~i)&7);
+	//	Nand_ECC_Corr_V2(buf, 512, ecc1, 0, 0, 0);
+	//};
 
 	LoadVars();
 

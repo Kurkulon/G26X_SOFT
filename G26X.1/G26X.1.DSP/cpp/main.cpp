@@ -578,7 +578,7 @@ static void UpdateBlackFin()
 				req->dataOffset = 0;
 				rb.data = req->GetDataPtr();
 				rb.maxLen = req->MaxLen();
-				com.Read(&rb, ~0, US2COM(45+62500000/RCV_COM_BAUDRATE));
+				com.Read(&rb, ~0, US2COM(100+62500000/RCV_COM_BAUDRATE));
 				i++;
 			};
 
