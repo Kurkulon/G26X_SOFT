@@ -13,7 +13,13 @@
 //#define NAND_SAMSUNG
 #define NAND_MICRON
 
-#define NAND_ECC_CHECK
+//#define NAND_ECC_CHECK
+
+#define NAND_READ_CRC_SOFT
+//#define NAND_READ_CRC_HW
+
+#define NAND_WRITE_CRC_SOFT
+//#define NAND_WRITE_CRC_HW
 
 #define NAND_CHIP_BITS			2
 #define NAND_MAX_CHIP			(1<<NAND_CHIP_BITS)
@@ -27,7 +33,7 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static const bool verifyWritePage = true;			// Проверка записаной страницы, путём чтения страницы и сравнения с буфером
+static const bool verifyWritePage = false;			// Проверка записаной страницы, путём чтения страницы и сравнения с буфером
 static const bool verifySpare = true;				// Проверка записаной страницы, путём чтения страницы и сравнения с буфером
 static const bool readPageCheckSpareCRC = false;	// Проверка CRC при чтении страницы. Если CRC неправильная, то страница отбрасывается 
 
