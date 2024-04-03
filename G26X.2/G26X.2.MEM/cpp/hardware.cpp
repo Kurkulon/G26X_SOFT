@@ -12,6 +12,8 @@
 #include "DMA\DMA.h"
 #include "G_RCV.h"
 
+#define CRCDMA_PER		(NS2CLK(20)-1)
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #define SMALL_BUF_LEN	512
@@ -654,7 +656,7 @@ void InitHardware()
 
 	Init_ADC();
 
-	//Init_CRC_CCITT_DMA();
+	Init_CRC_CCITT_DMA();
 
 	WDT_Init();
 

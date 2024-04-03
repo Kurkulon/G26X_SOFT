@@ -13,6 +13,7 @@
 #include "hw_com.h"
 #include "TaskList.h"
 #include "FLASH\Nand_ECC.h"
+#include "CRC\CRC_CCITT_DMA.h"
 
 #define RCV_TESTREQ02
 
@@ -4199,20 +4200,11 @@ int main()
 
 	//__breakpoint(0);
 
-	//byte buf[512];
-
-	//COPY(0, buf, sizeof(buf));
-
-	//byte ecc1[6];
-
-	//Nand_ECC_Calc_V2(buf, 512, ecc1);
-
-	//for (u16 i = 0; i < 256; i++)
-	//{
-	//	//ecc1[i&3] ^= 1 << (i&7);
-	//	buf[i] ^= 3 << ((~i)&7);
-	//	Nand_ECC_Corr_V2(buf, 512, ecc1, 0, 0, 0);
-	//};
+	//static u16 crc1, crc2, crc3;
+	//crc1 = GetCRC16_CCIT_refl(0, 16384);
+	//CRC_CCITT_DMA_Async(0, 16384);
+	//while (!CRC_CCITT_DMA_CheckComplete(&crc2));
+	//CRC_CCITT_PIO(0, 16384, &crc3);
 
 	LoadVars();
 

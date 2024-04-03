@@ -10,16 +10,18 @@
 #include "hw_nand.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//#define NAND_SAMSUNG
+//#define NAND_SAMSUNG 
 #define NAND_MICRON
 
 //#define NAND_ECC_CHECK
 
-#define NAND_READ_CRC_SOFT
+//#define NAND_READ_CRC_SOFT
 //#define NAND_READ_CRC_HW
+#define NAND_READ_CRC_PIO
 
-#define NAND_WRITE_CRC_SOFT
-//#define NAND_WRITE_CRC_HW
+//#define NAND_WRITE_CRC_SOFT
+#define NAND_WRITE_CRC_HW
+//#define NAND_WRITE_CRC_PIO
 
 #define NAND_CHIP_BITS			2
 #define NAND_MAX_CHIP			(1<<NAND_CHIP_BITS)
