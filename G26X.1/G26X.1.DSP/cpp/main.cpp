@@ -566,6 +566,8 @@ static void UpdateBlackFin()
 
 	static ReqAT25 *req = 0;
 
+	static CTM32 tm;
+
 	switch(i)
 	{
 		case 0:
@@ -578,7 +580,7 @@ static void UpdateBlackFin()
 				req->dataOffset = 0;
 				rb.data = req->GetDataPtr();
 				rb.maxLen = req->MaxLen();
-				com.Read(&rb, ~0, US2COM(100+62500000/RCV_COM_BAUDRATE));
+				com.Read(&rb, ~0, US2COM(10+62500000/RCV_COM_BAUDRATE));
 				i++;
 			};
 
@@ -594,14 +596,14 @@ static void UpdateBlackFin()
 					
 					if (GetCRC16(rb.data, rb.len) == 0 && RequestBoot(req, &wb))
 					{
-						com.Write(&wb);
+						tm.Reset();
 						i++;
 					}
 					else 
 					{
 						if (RequestFunc(&rb, &wb))
 						{
-							com.Write(&wb);
+							tm.Reset();
 							i++;
 						}
 						else
@@ -622,6 +624,16 @@ static void UpdateBlackFin()
 			break;
 
 		case 2:
+
+			if (tm.Check(US2CTM(100)))
+			{
+				com.Write(&wb);
+				i++;
+			};
+
+			break;
+
+		case 3:
 
 			if (!com.Update())
 			{

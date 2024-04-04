@@ -15,7 +15,7 @@
 #include "FLASH\Nand_ECC.h"
 #include "CRC\CRC_CCITT_DMA.h"
 
-#define RCV_TESTREQ02
+//#define RCV_TESTREQ02
 
 #ifdef WIN32
 
@@ -42,7 +42,7 @@ enum { VERSION = 0x100 };
 enum { VERSION = 0x105 };
 #endif
 
-//#pragma O3
+//#pragma O0
 //#pragma Otime
 
 #ifndef _DEBUG
@@ -2402,6 +2402,7 @@ static void UpdateRcvTrm()
  
 			if (qRcv.Stoped() && qTrm.Stoped())
 			{
+				ctm.Reset();
 				i++;
 			};
 
@@ -2409,13 +2410,16 @@ static void UpdateRcvTrm()
 
 		case 4:
 
-			reqr = CreateRcvReqFire(n, next_n, fireCounter);
-
-			if (reqr.Valid())
+			if (ctm.Check(US2CTM(200)))
 			{
-				comRcv.Write(&reqr->wb);
-				
-				i++;
+				reqr = CreateRcvReqFire(n, next_n, fireCounter);
+
+				if (reqr.Valid())
+				{
+					comRcv.Write(&reqr->wb);
+					
+					i++;
+				};
 			};
 
 			break;
@@ -2604,7 +2608,10 @@ static void MainMode()
 
 					if ((r02.hdr.rw & manReqMask) == manReqWord && n < RCV_FIRE_NUM && r < RCV_MAX_NUM_STATIONS)
 					{
-						if (curRcv[n] == (r+1)) manVec30[n] = req->rsp;
+						if (curRcv[n] == (r+1)) 
+						{
+							manVec30[n] = req->rsp;
+						};
 					};
 
 					manCounter++;
