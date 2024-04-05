@@ -4209,8 +4209,7 @@ int main()
 
 	//static u16 crc1, crc2, crc3;
 	//crc1 = GetCRC16_CCIT_refl(0, 16384);
-	//CRC_CCITT_DMA_Async(0, 16384);
-	//while (!CRC_CCITT_DMA_CheckComplete(&crc2));
+	//crc2 = CRC_CCITT_DMA(0, 16384);
 	//CRC_CCITT_PIO(0, 16384, &crc3);
 
 	LoadVars();
