@@ -36,11 +36,7 @@
 #define __TEST__
 #endif
 
-#ifdef RCV_13AD
 enum { VERSION = 0x100 };
-#else
-enum { VERSION = 0x105 };
-#endif
 
 //#pragma O0
 //#pragma Otime
@@ -296,12 +292,15 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 
 	if (!rq.Valid()) return rq;
 
-	ReqRcv01 &req = *((ReqRcv01*)rq->reqData);
+#ifndef RCV_8AD
+	ReqRcv01		&req = *((ReqRcv01*)rq->reqData);
+#else
+	Req8AD_Rcv01	&req = *((Req8AD_Rcv01*)rq->reqData);
+#endif
 
 	REQ &q = *rq;
 
 	q.CallBack = 0;
-	q.ready = false;
 	q.tryCount = 0;
 	q.checkCRC = false;
 	q.updateCRC = false;
@@ -311,6 +310,8 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 
 	q.rb.data = 0;
 	q.rb.maxLen = 0;
+
+#ifndef RCV_8AD
 
 	Transmiter	&trans = mv.trans[transIndex[n]];
 
@@ -329,10 +330,24 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 
 	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
+#else
+
+	req.r[2].len		= req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
+	req.r[2].adr		= req.r[1].adr			= req.r[0].adr			= 0;
+	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
+	req.r[2].n			= req.r[1].n			= req.r[0].n			= n;
+	req.r[2].vc			= req.r[1].vc			= req.r[0].vc			= fc;
+
+	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
+
+#endif
+
 	return &q;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#ifndef RCV_8AD
 
 static bool CallBackRcvReq02(Ptr<REQ> &q)
 {
@@ -408,6 +423,96 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 	return true;
 }
 
+#else //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool CallBackRcvReq02(Ptr<REQ> &q)
+{
+	Req8AD_Rcv02 &req8 = *((Req8AD_Rcv02*)q->wb.data);
+	Rsp8AD_Rcv02 &rsp8 = *((Rsp8AD_Rcv02*)q->rb.data);
+	 
+	q->rsp->len = 0;
+
+	byte a = (req8.r[0].adr-1) & 7;
+
+	if (q->crcOK)
+	{
+		u16 len = sizeof(rsp8.hdr) + sizeof(rsp8.crc) + rsp8.hdr.len * 2;
+
+		if (q->rb.len < sizeof(rsp8.hdr) || (rsp8.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
+		{
+			q->crcOK = false;
+			q->rsp->len = 0;
+			//lenErr02[a]++;
+		}
+		else
+		{
+			RspRcv02 &rsp = *((RspRcv02*)(q->rsp->GetDataPtr()));
+
+			rsp.hdr.rw			= rsp8.hdr.rw;
+			rsp.hdr.cnt			= rsp8.hdr.cnt;
+			rsp.hdr.gain		= rsp8.hdr.gain;
+			rsp.hdr.st 			= rsp8.hdr.st;
+			rsp.hdr.sl 			= rsp8.hdr.len;
+			rsp.hdr.sd 			= rsp8.hdr.delay;
+			rsp.hdr.packType	= 0;
+			rsp.hdr.math		= 0;
+			rsp.hdr.packLen1 	= rsp.hdr.sl;
+			rsp.hdr.packLen2 	= rsp.hdr.sl;
+			rsp.hdr.packLen3 	= rsp.hdr.sl;
+			rsp.hdr.packLen4 	= rsp.hdr.sl;
+
+			okRcv02 += 1;
+
+			rcvStatus |= 1 << (rsp.hdr.rw & 7);
+			
+			q->rsp->len = q->rb.len + sizeof(rsp.hdr) - sizeof(rsp8.hdr);
+		};
+	}
+	else if (q->rb.recieved)
+	{
+		crcErrLen02 = q->rb.len;
+		crcErrRW02 = rsp8.hdr.rw;
+		crcErr02++;
+	}
+	else
+	{
+		notRcv02++;
+	};
+
+	if (!q->crcOK)
+	{
+		//if (q->rb.recieved)
+		//{
+		//	crcErr02[a]++;
+		//}
+		//else
+		//{
+		//	notRcv02[a]++;
+		//};
+
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qRcv.Add(q);
+
+			retryRcv02 += 1;
+
+			//retryRcv02[a] += 1;
+		}
+		else
+		{
+			rcvStatus &= ~(1 << (a)); 
+			rcvErrors |= (1 << (a));
+
+			rcv02rejVec += 1;
+			//rejRcv02[a] += 1;
+		};
+	};
+
+	return true;
+}
+
+#endif
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
@@ -423,8 +528,19 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 		
 		RspRcv02 &rsp = *((RspRcv02*)(rq->rsp->GetDataPtr()));
 
-		rq->rb.data = &rsp;
-		rq->rb.maxLen = rq->rsp->GetDataMaxLen();
+		#ifndef RCV_8AD
+
+			rq->rb.data = &rsp;
+			rq->rb.maxLen = rq->rsp->GetDataMaxLen();
+
+		#else
+
+			Rsp8AD_Rcv02 &rsp8 = *((Rsp8AD_Rcv02*)(((byte*)&rsp) + sizeof(rsp.hdr) - sizeof(Rsp8AD_Rcv02::hdr)));
+
+			rq->rb.data = &rsp8;
+			rq->rb.maxLen = rq->rsp->GetDataMaxLen() + sizeof(rsp.hdr) - sizeof(Rsp8AD_Rcv02::hdr);
+
+		#endif
 	}
 	else
 	{
@@ -432,23 +548,32 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 		rq->rb.maxLen = 0;
 	};
 
-	ReqRcv02 &req = *((ReqRcv02*)rq->reqData);
-
-	adr = (adr-1)&15; 
-	//n &= 3; //chnl &= 3; 
-
 	rq->rsp->len = 0;
-	
 	REQ &q = *rq;
+
+#ifndef RCV_8AD
+
+	ReqRcv02 &req = *((ReqRcv02*)rq->reqData);
+	adr = (adr-1)&15; 
+
+	q.crcType = REQ::CRC16_CCIT;
+
+#else
+
+	Req8AD_Rcv02 &req = *((Req8AD_Rcv02*)rq->reqData);
+
+	adr = (adr-1)&7; 
+
+	q.crcType = REQ::CRC16;
+
+#endif
 
 	q.CallBack = CallBackRcvReq02;
 	q.preTimeOut = MS2COM(1);
 	q.postTimeOut = US2COM(100);
-	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
-	q.crcType = REQ::CRC16_CCIT;
 	
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
@@ -457,6 +582,15 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 	req.r[1].adr	= req.r[0].adr	= adr+1;
 	req.r[1].func	= req.r[0].func	= 2;
 	req.r[1].n		= req.r[0].n	= n;
+
+#ifndef RCV_8AD
+
+#else
+
+	req.r[1].chnl	= req.r[0].chnl	= 0;
+
+#endif
+
 	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 #ifdef RCV_TESTREQ02
@@ -492,6 +626,8 @@ static bool CallBackRcvReq03(Ptr<REQ> &q)
 	}
 	else
 	{
+	#ifndef RCV_8AD
+
 		RspRcv03 &rsp = *((RspRcv03*)q->rb.data);
 
 		byte n = rsp.adr - 1;
@@ -501,6 +637,12 @@ static bool CallBackRcvReq03(Ptr<REQ> &q)
 		arrRcvVerDev[n]			= rsp.verdev;
 		arrRcvNumDevValid[n]	= rsp.numDevValid;
 		arrRcvFlashStatus[n]	= rsp.flashStatus;
+
+	#else
+
+
+	#endif
+
 	};
 
 	return true;
@@ -514,13 +656,22 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	
 	if (!rq.Valid()) return rq;
 
+	#ifndef RCV_8AD
+		typedef RspRcv03 RspT;
+		typedef ReqRcv03 ReqT;
+
+	#else
+		typedef Rsp8AD_Rcv03 RspT;
+		typedef Req8AD_Rcv03 ReqT;
+	#endif
+
 	if (adr != 0)
 	{
-		rq->rsp = AllocMemBuffer(sizeof(RspRcv03)+2);
+		rq->rsp = AllocMemBuffer(sizeof(RspT)+2);
 
 		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-		RspRcv03 &rsp = *((RspRcv03*)(rq->rsp->GetDataPtr()));
+		RspT &rsp = *((RspT*)(rq->rsp->GetDataPtr()));
 
 		rq->rb.data = &rsp;
 		rq->rb.maxLen = rq->rsp->GetDataMaxLen();
@@ -531,14 +682,13 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 		rq->rb.maxLen	= 0;
 	};
 
-	ReqRcv03 &req = *((ReqRcv03*)rq->reqData);
+	ReqT &req = *((ReqT*)rq->reqData);
 
 	REQ &q = *rq;
 
 	q.CallBack = CallBackRcvReq03;
 	q.preTimeOut = US2COM(500);
 	q.postTimeOut = US2COM(100);
-	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
@@ -547,10 +697,12 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-
 	req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
 	req.r[1].adr			= req.r[0].adr			= adr;
 	req.r[1].func			= req.r[0].func			= 3;
+
+#ifndef RCV_8AD
+
 	req.r[1].numDevValid	= req.r[0].numDevValid	= numDevRcvValid;
 	req.r[1].numDev			= req.r[0].numDev		= numDevRcv;
 
@@ -560,6 +712,11 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 
 		req.r[1].gain[i] = req.r[0].gain[i] = mv.trans[n].gain;
 	};
+
+#else
+
+
+#endif
 
 	req.r[1].crc = req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 	
@@ -584,6 +741,8 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 	}
 	else
 	{
+	#ifndef RCV_8AD
+
 		RspRcv04 &rsp = *((RspRcv04*)q->rb.data);
 
 		u16 i = rsp.adr - 1;
@@ -608,6 +767,11 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 			rspMan71[fireType].power[i + 2] = rsp.power[2];
 			rspMan71[fireType].power[i + 3] = rsp.power[3];
 		};
+
+	#else
+
+
+	#endif
 	};
 
 	return true;
@@ -621,19 +785,27 @@ static Ptr<REQ> CreateRcvReq04(byte adr, byte saveParams, u16 tryCount)
 	
 	if (!rq.Valid()) return rq;
 
-	rq->rsp = NandFlash_AllocWB(sizeof(RspRcv04)+2);
+	#ifndef RCV_8AD
+		typedef RspRcv04 RspT;
+		typedef ReqRcv04 ReqT;
+
+	#else
+		typedef Rsp8AD_Rcv04 RspT;
+		typedef Req8AD_Rcv04 ReqT;
+	#endif
+
+	rq->rsp = NandFlash_AllocWB(sizeof(RspT)+2);
 
 	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
 
-	ReqRcv04 &req = *((ReqRcv04*)rq->reqData);
-	RspRcv04 &rsp = *((RspRcv04*)(rq->rsp->GetDataPtr()));
+	ReqT &req = *((ReqT*)rq->reqData);
+	RspT &rsp = *((RspT*)(rq->rsp->GetDataPtr()));
 
 	REQ &q = *rq;
 
 	q.CallBack = CallBackRcvReq04;
 	q.preTimeOut = US2COM(500);
 	q.postTimeOut = US2COM(100);
-	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
@@ -648,7 +820,15 @@ static Ptr<REQ> CreateRcvReq04(byte adr, byte saveParams, u16 tryCount)
 	req.r[1].len		= req.r[0].len			= sizeof(req.r[0]) - 1;
 	req.r[1].adr		= req.r[0].adr			= adr;
 	req.r[1].func		= req.r[0].func			= 4;
+
+#ifndef RCV_8AD
+
 	req.r[1].saveParams	= req.r[0].saveParams	= saveParams;
+
+#else
+
+
+#endif
 						 
 	req.r[1].crc	= req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
@@ -668,7 +848,6 @@ static Ptr<REQ> CreateTrmReqFire(byte n)
 	REQ &q = *rq;
 
 	q.CallBack = 0;
-	q.ready = false;
 	q.checkCRC = false;
 	q.updateCRC = false;
 	
@@ -751,7 +930,6 @@ static Ptr<REQ> CreateTrmReq02(u16 tryCount)
 	q.CallBack = CallBackTrmReq02;
 	q.preTimeOut = MS2COM(1);
 	q.postTimeOut = US2COM(100);
-	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
@@ -833,7 +1011,6 @@ static Ptr<REQ> CreateTrmReq03(u16 tryCount)
 	q.CallBack = CallBackTrmReq03;
 	q.preTimeOut = MS2COM(1);
 	q.postTimeOut = US2COM(100);
-	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
@@ -849,9 +1026,6 @@ static Ptr<REQ> CreateTrmReq03(u16 tryCount)
 	return rq;
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static bool CallBackRcvBootReq00(Ptr<REQ> &q)
@@ -895,7 +1069,6 @@ static Ptr<REQ> CreateRcvBootReq00(u16 adr, BootRspV1::SF0 *rspdata, u16 tryCoun
 	q.CallBack = CallBackRcvBootReq00;
 	q.preTimeOut = MS2COM(10);
 	q.postTimeOut = US2COM(100);
-	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
@@ -955,7 +1128,6 @@ static Ptr<REQ> CreateRcvBootReq01(u16 adr, u32 len, u16 tryCount)
 	q.CallBack = CallBackRcvBootReq01;
 	q.preTimeOut = MS2COM(10);
 	q.postTimeOut = US2COM(100);
-	q.ready = false;
 	q.tryCount = tryCount;
 	q.checkCRC = true;
 	q.updateCRC = false;
@@ -1140,9 +1312,6 @@ static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount)
 	return rq;
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static bool CallBackTrmBootReq(Ptr<REQ> &q)
@@ -1398,12 +1567,10 @@ static u32 InitRspMan_00(__packed u16 *data)
 	*(data++)	= mv.numDevice;						//2. номер прибора
 	*(data++)	= verDevice;						//3. версия прибора 
 
-#ifdef RCV_13AD
 	*(data++)	= numDevRcv;						//4. номер модуля приёмников
 	*(data++)	= verDevRcv;						//5. версия модуля приёмников
 	*(data++)	= numDevTrm;						//6. номер модуля излучателей
 	*(data++)	= verDevTrm;						//7. версия модуля излучателей
-#endif
 
 	return data - start;
 }
@@ -1443,26 +1610,6 @@ static u32 InitRspMan_10(__packed u16 *data)
 	
 	*(data++)	= (manReqWord & manReqMask) | 0x10;		//	1.	Ответное слово		
 
-#ifndef RCV_13AD
-	*(data++)  	= mv.trmVoltage;						//	2.	Напряжение излучателей (0..1000 В)
-	*(data++)  	= mv.trans[0].pulseCount;				//	3.	Количество импульсов монополь (1..5)
-	*(data++)  	= mv.trans[1].pulseCount;				//	4.	Количество импульсов диполь (1..5)
-	*(data++)  	= mv.trans[0].freq;						//	5.	Монополь. Частота импульсов излучателя (1Гц)
-	*(data++)  	= mv.trans[1].freq;						//	6.	Диполь. Частота импульсов излучателя (1Гц)
-	*(data++)  	= mv.trans[0].duty;						//	7.	Монополь. Скважность импульсов излучателя (0.01%)
-	*(data++)  	= mv.trans[1].duty;						//	8.	Диполь. Скважность импульсов излучателя (0.01%)
-	*(data++)  	= mv.trans[0].gain;						//	9.	Монополь. КУ
-	*(data++)  	= mv.trans[0].st;						//	10.	Монополь. Шаг оцифровки
-	*(data++)  	= mv.trans[0].sl;						//	11.	Монополь. Длина оцифровки
-	*(data++)  	= mv.trans[0].sd;						//	12.	Монополь. Задержка оцифровки
-	*(data++)  	= mv.trans[1].gain;						//	13.	Диполь. КУ
-	*(data++)  	= mv.trans[1].st;						//	14.	Диполь. Шаг оцифровки
-	*(data++)  	= mv.trans[1].sl;						//	15.	Диполь. Длина оцифровки
-	*(data++)  	= mv.trans[1].sd;						//	16.	Диполь. Задержка оцифровки
-	*(data++)  	= mv.disableFireNoVibration;			//	17.	Отключение регистрации на стоянке(0 - нет, 1 - да)
-	*(data++)  	= mv.levelNoVibration;					//	18.	Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
-	*(data++)  	= mv.firePeriod;						//	19.	Период опроса(мс)(ushort)
-#else
 	*(data++)  	= mv.trans[0].freq;						//2.  Монополь1. Частота излучателя (1000..30000 шаг 1Гц)
 	*(data++)  	= mv.trans[0].amp;						//3.  Монополь1. Амплитуда излучателя (0..3000 вольт)
 	*(data++)  	= mv.trans[1].freq;						//4.  Монополь2. Частота импульсов излучателя (10000..30000 шаг 1Гц)
@@ -1492,7 +1639,6 @@ static u32 InitRspMan_10(__packed u16 *data)
 	*(data++)  	= mv.disableFireNoVibration;			//28. Отключение регистрации на стоянке(0 - нет, 1 - да)
 	*(data++)  	= mv.levelNoVibration;					//29. Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
 	*(data++)  	= mv.firePeriod;						//30. Период опроса(мс)(ushort)
-#endif
 	
 	return data - start;
 }
@@ -1548,21 +1694,6 @@ static u32 InitRspMan_20(u16 rw, __packed u16 *data)
 	*(data++) = GD(&fireCounter, u16, 0);												//	2. 	счётчик. младшие 2 байта
 	*(data++) = GD(&fireCounter, u16, 1);												//	3. 	счётчик. старшие 2 байта
 
-#ifndef RCV_13AD
-
-	*(data++) = GetRcvManQuality();//voltage;											//	4. 	напряжение передатчика
-	*(data++) = ((Get_NetResist()/1000)&0xFF)/*numStations*/|(((u16)rcvStatus)<<8);		//	5. 	мл.байт - к-во приемников, ст.байт-статус приёмников
-	*(data++) = Get_NetResist(); //rcvStatus;											//	6. 	сопротивление IdLine
-	*(data++) = (max+5)/10;																//	7. 	ТЕМПЕРАТУРА CPU
-	*(data++) = ax;																		//	8. 	AX
-	*(data++) = ay;																		//	9. 	AY
-	*(data++) = az;																		//	10.	AZ
-	*(data++) = at;																		//	11.	AT
-	*(data++) = temp;																	//	12.	Температура в приборе (short)(0.1гр)
-	*(data++) = vibration;																//	13.	Вибрация (у.е)(ushort)
-
-#else
-
 	*(data++) = (Get_NetResist()+250)/1000;		//4. к-во приемников
 	*(data++) = rcvStatus;			 			//5. статус приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
 	*(data++) = rcvErrors;			 			//6. статус ошибок линии приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
@@ -1580,8 +1711,6 @@ static u32 InitRspMan_20(u16 rw, __packed u16 *data)
 	*(data++) = trmTemp;			 			//18. Температура излучателя (short)(0.1гр)
 	*(data++) = trmCount;			 			//19. Счётчик запросов излучателя
 	*(data++) = GetRcvManQuality();	 			//20. Качество сигнала запроса телеметрии (%)
-
-#endif
 
 	return data - start;
 }
@@ -3556,6 +3685,8 @@ static void FlashInitBoot()
 
 	while (tryCount > 0)
 	{
+	#ifndef RCV_8AD
+
 		for (byte i = 1; i <= N; i++)
 		{
 			if ((rcvStatus & (1 << (i-1))) == 0)
@@ -3583,6 +3714,7 @@ static void FlashInitBoot()
 				};
 			};
 		};
+	#endif
 
 		if (!hs)
 		{
@@ -4228,11 +4360,15 @@ int main()
 
 	FlashInitBoot();
 
-	FlashRcv();
+	#ifndef RCV_8AD
+		FlashRcv();
+	#endif
 	
 	FlashTrm();
 
-	ReadNumDevRcvTrm();
+	#ifndef RCV_8AD
+		ReadNumDevRcvTrm();
+	#endif
 
 	InitTaskList();
 

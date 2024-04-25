@@ -229,10 +229,22 @@ __packed struct  ReqDsp07	// перезагрузить блэкфин
 
 union ReqUnion
 {
+#ifndef RCV_8AD
+
 	ReqRcv01 	rcv01;
 	ReqRcv02	rcv02;
 	ReqRcv03	rcv03;
 	ReqRcv04	rcv04;
+
+#else
+
+	Req8AD_Rcv01 	rcv01;
+	Req8AD_Rcv02	rcv02;
+	Req8AD_Rcv03	rcv03;
+	Req8AD_Rcv04	rcv04;
+
+#endif
+
 	ReqTrm01	trm01;	
 	ReqTrm02	trm02;
 	ReqTrm03	trm03;
