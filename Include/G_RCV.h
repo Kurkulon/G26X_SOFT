@@ -7,17 +7,34 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define RCV_MAX_NUM_STATIONS 13
+#ifdef _ADI_COMPILER
+	#pragma pack(1)
+	//#ifndef __packed
+	//	#define __packed /**/
+	//#endif
+#else
+
+	#define RCV_8AD
+
+#endif
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#define RCV_MAX_NUM_STATIONS	13
+
+#ifndef RCV_8AD
+	#define RCV_COM_BAUDRATE		12500000
+	#define RCV_COM_PARITY			2
+#else
+	#define RCV_COM_BAUDRATE		6250000
+	#define RCV_COM_PARITY			0
+#endif
 
 #define RCV_BOOT_SGUID			0X66C41909FA7C4F91 
 #define RCV_BOOT_REQ_WORD		((~(RCV_MAN_REQ_WORD)) & RCV_MAN_REQ_MASK)
 #define RCV_BOOT_REQ_MASK		RCV_MAN_REQ_MASK
 #define RCV_BOOT_COM_BAUDRATE	12500000
 #define RCV_BOOT_COM_PARITY		2
-
-
-#define RCV_COM_BAUDRATE		12500000
-#define RCV_COM_PARITY			2
 
 #define RCV_MAN_REQ_WORD 		0xAA00
 #define RCV_MAN_REQ_MASK 		0xFF00
@@ -31,19 +48,6 @@
 #define RCV_WAVEPACK
 
 #define RCV_SAMPLE_LEN 1024
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-#ifdef _ADI_COMPILER
-	#pragma pack(1)
-	//#ifndef __packed
-	//	#define __packed /**/
-	//#endif
-#else
-
-	//#define RCV_8AD
-
-#endif
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

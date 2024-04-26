@@ -100,7 +100,7 @@ static bool runMainMode = true;
 static bool startFire = false;
 static u32  fireCounter = 0;
 static u32  manCounter = 0;
-static byte numStations = RCV_MAX_NUM_STATIONS;
+static byte numStations = 2;//RCV_MAX_NUM_STATIONS;
 static u16  resistValue = 0;
 static u16  trmVoltage = 0;
 static u16  trmTemp = 0;
@@ -335,7 +335,7 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 	req.r[2].len		= req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
 	req.r[2].adr		= req.r[1].adr			= req.r[0].adr			= 0;
 	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
-	req.r[2].n			= req.r[1].n			= req.r[0].n			= n;
+	req.r[2].n			= req.r[1].n			= req.r[0].n			= (n > 0) ? (n-1) : 0;
 	req.r[2].vc			= req.r[1].vc			= req.r[0].vc			= fc;
 
 	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
@@ -436,7 +436,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 	if (q->crcOK)
 	{
-		u16 len = sizeof(rsp8.hdr) + sizeof(rsp8.crc) + rsp8.hdr.len * 2;
+		u16 len = sizeof(rsp8.hdr) + sizeof(rsp8.crc) + rsp8.hdr.len * 8;
 
 		if (q->rb.len < sizeof(rsp8.hdr) || (rsp8.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
 		{
@@ -448,9 +448,9 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		{
 			RspRcv02 &rsp = *((RspRcv02*)(q->rsp->GetDataPtr()));
 
-			rsp.hdr.rw			= rsp8.hdr.rw;
+			rsp.hdr.rw			= ((rsp8.hdr.rw & 0xF0) == 0x30) ? rsp8.hdr.rw : (rsp8.hdr.rw+0x10);
 			rsp.hdr.cnt			= rsp8.hdr.cnt;
-			rsp.hdr.gain		= rsp8.hdr.gain;
+			rsp.hdr.gain		= 1UL << rsp8.hdr.gain;
 			rsp.hdr.st 			= rsp8.hdr.st;
 			rsp.hdr.sl 			= rsp8.hdr.len;
 			rsp.hdr.sd 			= rsp8.hdr.delay;
@@ -581,12 +581,14 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
 	req.r[1].adr	= req.r[0].adr	= adr+1;
 	req.r[1].func	= req.r[0].func	= 2;
-	req.r[1].n		= req.r[0].n	= n;
 
 #ifndef RCV_8AD
 
+	req.r[1].n		= req.r[0].n	= n;
+
 #else
 
+	req.r[1].n		= req.r[0].n	= (n > 0) ? (n-1) : 0;
 	req.r[1].chnl	= req.r[0].chnl	= 0;
 
 #endif
@@ -715,6 +717,17 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 
 #else
 
+	req.r[1].st[0] = req.r[0].st[0] = mv.trans[0].st;
+	req.r[1].st[1] = req.r[0].st[1] = mv.trans[2].st;
+	req.r[1].st[2] = req.r[0].st[2] = mv.trans[2].st;
+
+	req.r[1].sl[0] = req.r[0].sl[0] = mv.trans[0].sl;
+	req.r[1].sl[1] = req.r[0].sl[1] = mv.trans[2].sl;
+	req.r[1].sl[2] = req.r[0].sl[2] = mv.trans[2].sl;
+
+	req.r[1].sd[0] = req.r[0].sd[0] = 0;
+	req.r[1].sd[1] = req.r[0].sd[1] = 0;
+	req.r[1].sd[2] = req.r[0].sd[2] = 0;
 
 #endif
 
@@ -741,37 +754,55 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 	}
 	else
 	{
-	#ifndef RCV_8AD
+		#ifndef RCV_8AD
 
-		RspRcv04 &rsp = *((RspRcv04*)q->rb.data);
+			RspRcv04 &rsp = *((RspRcv04*)q->rb.data);
 
-		u16 i = rsp.adr - 1;
+			u16 i = rsp.adr - 1;
 
-		arrRcvTemp[i]			= rsp.temp;
-		arrRcvNumDev[i]			= rsp.numdev;
-		arrRcvVerDev[i]			= rsp.verdev;
-		arrRcvNumDevValid[i]	= rsp.numDevValid;
-		arrRcvFlashStatus[i]	= rsp.flashStatus;
+			arrRcvTemp[i]			= rsp.temp;
+			arrRcvNumDev[i]			= rsp.numdev;
+			arrRcvVerDev[i]			= rsp.verdev;
+			arrRcvNumDevValid[i]	= rsp.numDevValid;
+			arrRcvFlashStatus[i]	= rsp.flashStatus;
 
-		if (fireType < RCV_FIRE_NUM && i < RCV_MAX_NUM_STATIONS)
-		{
-			i = i*4;
+			if (fireType < RCV_FIRE_NUM && i < RCV_MAX_NUM_STATIONS)
+			{
+				i = i*4;
 
-			rspMan71[fireType].maxAmp[i + 0] = rsp.maxAmp[0];
-			rspMan71[fireType].maxAmp[i + 1] = rsp.maxAmp[1];
-			rspMan71[fireType].maxAmp[i + 2] = rsp.maxAmp[2];
-			rspMan71[fireType].maxAmp[i + 3] = rsp.maxAmp[3];
+				rspMan71[fireType].maxAmp[i + 0] = rsp.maxAmp[0];
+				rspMan71[fireType].maxAmp[i + 1] = rsp.maxAmp[1];
+				rspMan71[fireType].maxAmp[i + 2] = rsp.maxAmp[2];
+				rspMan71[fireType].maxAmp[i + 3] = rsp.maxAmp[3];
 
-			rspMan71[fireType].power[i + 0] = rsp.power[0];
-			rspMan71[fireType].power[i + 1] = rsp.power[1];
-			rspMan71[fireType].power[i + 2] = rsp.power[2];
-			rspMan71[fireType].power[i + 3] = rsp.power[3];
-		};
+				rspMan71[fireType].power[i + 0] = rsp.power[0];
+				rspMan71[fireType].power[i + 1] = rsp.power[1];
+				rspMan71[fireType].power[i + 2] = rsp.power[2];
+				rspMan71[fireType].power[i + 3] = rsp.power[3];
+			};
 
-	#else
+		#else
 
+			Rsp8AD_Rcv04 &rsp = *((Rsp8AD_Rcv04*)q->rb.data);
 
-	#endif
+			u16 i = rsp.adr - 1;
+
+			if (fireType < RCV_FIRE_NUM && i < RCV_MAX_NUM_STATIONS)
+			{
+				i = i*4;
+
+				rspMan71[fireType].maxAmp[i + 0] = rsp.maxAmp[0];
+				rspMan71[fireType].maxAmp[i + 1] = rsp.maxAmp[1];
+				rspMan71[fireType].maxAmp[i + 2] = rsp.maxAmp[2];
+				rspMan71[fireType].maxAmp[i + 3] = rsp.maxAmp[3];
+
+				rspMan71[fireType].power[i + 0] = rsp.power[0];
+				rspMan71[fireType].power[i + 1] = rsp.power[1];
+				rspMan71[fireType].power[i + 2] = rsp.power[2];
+				rspMan71[fireType].power[i + 3] = rsp.power[3];
+			};
+
+		#endif
 	};
 
 	return true;
@@ -827,6 +858,9 @@ static Ptr<REQ> CreateRcvReq04(byte adr, byte saveParams, u16 tryCount)
 
 #else
 
+	req.r[1].ka[0] = req.r[0].ka[0] = mv.trans[0].sd;	//(mv.trans[0].gain) ? 4 : 1;
+	req.r[1].ka[1] = req.r[0].ka[1] = mv.trans[2].sd;	//(mv.trans[2].gain) ? 4 : 1;
+	req.r[1].ka[2] = req.r[0].ka[2] = mv.trans[2].sd;	//(mv.trans[2].gain) ? 4 : 1;
 
 #endif
 						 
@@ -2716,8 +2750,11 @@ static void MainMode()
 				{
 					RspRcv02 &r02 = *((RspRcv02*)(req->rsp->GetDataPtr()));
 
+				#ifndef RCV_8AD
 					bool crc = false;
-					//bool free = true;
+				#else
+					bool crc = true;
+				#endif
 
 					u16 rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
 					
@@ -2730,7 +2767,7 @@ static void MainMode()
 						//crc = true;
 					};
 
-					if (!NandFlash_RequestWrite(req->rsp, r02.hdr.rw, crc)) __breakpoint(0);
+					NandFlash_RequestWrite(req->rsp, r02.hdr.rw, crc);
 
 					u16 n = ((r02.hdr.rw >> 4) & 0xF) - 3;
 					u16 r = r02.hdr.rw & 0xF;
@@ -2809,30 +2846,28 @@ static void MainMode()
 			break;
 
 		case 8:
+		{
+			byte pft = fireType;
 
-			//if (ctm.Check(MS2CTM(mv.firePeriod/16)))
+			fireType = nextFireType; 
+
+			nextFireType = GetNextFireType(nextFireType); //do nextFireType = (nextFireType+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<nextFireType)) == 0);
+
+			fireCounter += 1;
+
+			if (fireType > pft)
 			{
-				byte pft = fireType;
+				mainModeState = 9;
+			}
+			else
+			{
+				mainModeState = 10;
 
-				fireType = nextFireType; 
-
-				nextFireType = GetNextFireType(nextFireType); //do nextFireType = (nextFireType+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<nextFireType)) == 0);
-
-				fireCounter += 1;
-
-				if (fireType > pft)
-				{
-					mainModeState = 9;
-				}
-				else
-				{
-					mainModeState = 10;
-
-					cmdWriteStart_20 = true;
-				};
+				cmdWriteStart_20 = true;
 			};
 
 			break;
+		};
 
 		case 9:
 
@@ -4358,16 +4393,16 @@ int main()
 
 	//__breakpoint(0);
 
-	FlashInitBoot();
-
 	#ifndef RCV_8AD
-		FlashRcv();
-	#endif
 	
-	FlashTrm();
+		FlashInitBoot();
 
-	#ifndef RCV_8AD
+		FlashRcv();
+	
+		FlashTrm();
+
 		ReadNumDevRcvTrm();
+
 	#endif
 
 	InitTaskList();

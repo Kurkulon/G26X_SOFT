@@ -576,11 +576,11 @@ static void Init_ADC()
 	HW::ADC0->AVGCTRL = ADC_SAMPLENUM_1024;
 	HW::ADC1->AVGCTRL = ADC_SAMPLENUM_1024;
 
-	HW::ADC0->SAMPCTRL = ADC_SAMPLEN(0);
-	HW::ADC1->SAMPCTRL = ADC_SAMPLEN(0);
+	HW::ADC0->SAMPCTRL = ADC_SAMPLEN(63);
+	HW::ADC1->SAMPCTRL = ADC_SAMPLEN(63);
 
-	HW::ADC0->CTRLA = ADC_PRESCALER_DIV16|ADC_ENABLE; 
-	HW::ADC1->CTRLA = ADC_PRESCALER_DIV16|ADC_ENABLE; 
+	HW::ADC0->CTRLA = ADC_PRESCALER_DIV256|ADC_ENABLE; 
+	HW::ADC1->CTRLA = ADC_PRESCALER_DIV256|ADC_ENABLE; 
 
 	HW::ADC0->SWTRIG = ADC_START;
 	HW::ADC1->SWTRIG = ADC_START;
@@ -590,13 +590,20 @@ static void Init_ADC()
 
 u16 Get_NetResist()
 {
-	return (HW::ADC0->RESULT * 15577) >> 16;
+	HW::ADC0->SWTRIG = ADC_START;
+
+	#ifndef RCV_8AD
+		return (HW::ADC0->RESULT * 15474) >> 16;
+	#else
+		return (HW::ADC0->RESULT * 10919) >> 16;
+	#endif
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 u16 Get_AVMAN()
 {
+	HW::ADC1->SWTRIG = ADC_START;
 	return (HW::ADC1->RESULT * 1617) >> 16;
 }
 
