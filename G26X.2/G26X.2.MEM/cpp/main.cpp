@@ -100,7 +100,13 @@ static bool runMainMode = true;
 static bool startFire = false;
 static u32  fireCounter = 0;
 static u32  manCounter = 0;
-static byte numStations = 2;//RCV_MAX_NUM_STATIONS;
+
+#ifndef RCV_8AD
+static byte numStations = RCV_MAX_NUM_STATIONS;
+#else
+static byte numStations = 8;
+#endif
+
 static u16  resistValue = 0;
 static u16  trmVoltage = 0;
 static u16  trmTemp = 0;
@@ -1728,7 +1734,7 @@ static u32 InitRspMan_20(u16 rw, __packed u16 *data)
 	*(data++) = GD(&fireCounter, u16, 0);												//	2. 	счётчик. младшие 2 байта
 	*(data++) = GD(&fireCounter, u16, 1);												//	3. 	счётчик. старшие 2 байта
 
-	*(data++) = (Get_NetResist()+250)/1000;		//4. к-во приемников
+	*(data++) = (Get_NetResist())/1000;			//4. к-во приемников
 	*(data++) = rcvStatus;			 			//5. статус приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
 	*(data++) = rcvErrors;			 			//6. статус ошибок линии приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
 	*(data++) = Get_NetResist();	 			//7. сопротивление IdLine
