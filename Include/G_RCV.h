@@ -14,7 +14,7 @@
 	//#endif
 #else
 
-	#define RCV_8AD
+	//#define RCV_8AD
 
 #endif
 
