@@ -671,7 +671,7 @@ static void UpdateSport()
 
 			if (dsc != 0)
 			{
-				SetGain(dsc->next_gain);
+				SetGain(dsc->next_gain >> 1, dsc->next_gain & 1);
 
 				#ifdef RCV_TEST_WAVEPACK
 
@@ -749,14 +749,14 @@ static void UpdateSport()
 
 				if (rsp.hdr.math == 0)
 				{
-					*p1 = t[0] - 0x8000;
-					*p2 = t[1] - 0x8000;
-					*p3 = t[2] - 0x8000;
-					*p4 = t[3] - 0x8000;
+					*p1 = subsat16(t[0]-0x8000, 0x113);
+					*p2 = subsat16(t[1]-0x8000, 0x113);
+					*p3 = subsat16(t[2]-0x8000, 0x113);
+					*p4 = subsat16(t[3]-0x8000, 0x113);
 				}
 				else if (rsp.hdr.math == 1) // Среднее
 				{
-					*p1 = (t[0]+t[1]+t[2]+t[3])/4 - 0x8000;
+					*p1 = subsat16((t[0]+t[1]+t[2]+t[3])/4-0x8000, 0x113);
 				}
 				else // Разница
 				{
@@ -808,62 +808,6 @@ static void UpdateSport()
 			rsp.hdr.packLen2 /= 2;
 			rsp.hdr.packLen3 /= 2;
 			rsp.hdr.packLen4 /= 2;
-
-
-			//if (rsp.hdr.packType == PACK_ULAW12 || rsp.hdr.packType == PACK_ULAW16)
-			//{
-			//	u16 plen = rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4;
-
-			//	if (rsp.hdr.packType == PACK_ULAW12)
-			//	{
-			//		WavePack_uLaw_12Bit((i16*)rsp.data, (byte*)rsp.data, plen);
-			//	}
-			//	else
-			//	{
-			//		WavePack_uLaw_16Bit((i16*)rsp.data, (byte*)rsp.data, plen);
-			//	};
-
-			//	rsp.hdr.packLen1 /= 2;
-			//	rsp.hdr.packLen2 /= 2;
-			//	rsp.hdr.packLen3 /= 2;
-			//	rsp.hdr.packLen4 /= 2;
-
-			//	dsc->len = sizeof(rsp.hdr) + plen;
-			//}
-			//else if (rsp.hdr.packType == PACK_ADPCMIMA)
-			//{
-			//	i16	*src	= (i16*)rsp.data;
-			//	byte *dst	= (byte*)rsp.data;
-
-			//	WavePack_ADPCMIMA(src, dst, rsp.hdr.packLen1); src += rsp.hdr.packLen1; dst += rsp.hdr.packLen1/2;
-			//	WavePack_ADPCMIMA(src, dst, rsp.hdr.packLen2); src += rsp.hdr.packLen2; dst += rsp.hdr.packLen2/2;
-			//	WavePack_ADPCMIMA(src, dst, rsp.hdr.packLen3); src += rsp.hdr.packLen3; dst += rsp.hdr.packLen3/2;
-			//	WavePack_ADPCMIMA(src, dst, rsp.hdr.packLen4); 
-
-			//	rsp.hdr.packLen1 /= 4;
-			//	rsp.hdr.packLen2 /= 4;
-			//	rsp.hdr.packLen3 /= 4;
-			//	rsp.hdr.packLen4 /= 4;
-
-			//	dsc->len = sizeof(rsp.hdr) + (rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4)*2;
-			//}
-			//else if (rsp.hdr.packType >= PACK_DCT0)
-			//{
-			//	i16	*src	= (i16*)rsp.data;
-			//	byte *dst	= (byte*)rsp.data;
-
-			//	rsp.hdr.packLen1 = WavePack(rsp.hdr.packType, src, dst, rsp.hdr.packLen1); src += dsc->sportLen; dst += rsp.hdr.packLen1;
-			//	rsp.hdr.packLen2 = WavePack(rsp.hdr.packType, src, dst, rsp.hdr.packLen2); src += dsc->sportLen; dst += rsp.hdr.packLen2; 
-			//	rsp.hdr.packLen3 = WavePack(rsp.hdr.packType, src, dst, rsp.hdr.packLen3); src += dsc->sportLen; dst += rsp.hdr.packLen3; 
-			//	rsp.hdr.packLen4 = WavePack(rsp.hdr.packType, src, dst, rsp.hdr.packLen4); 
-
-			//	dsc->len = sizeof(rsp.hdr) + rsp.hdr.packLen1 + rsp.hdr.packLen2 + rsp.hdr.packLen3 + rsp.hdr.packLen4;
-
-			//	rsp.hdr.packLen1 /= 2;
-			//	rsp.hdr.packLen2 /= 2;
-			//	rsp.hdr.packLen3 /= 2;
-			//	rsp.hdr.packLen4 /= 2;
-			//};
 
 			HW::PIOF->BCLR(7);
 

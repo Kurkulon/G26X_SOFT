@@ -73,7 +73,7 @@ extern void FreeDscSPORT(DSCRSP02* dsc);
 extern DSCRSP02* AllocDscSPORT();
 
 extern u16 GetTemp();
-extern void SetGain(u16 v);
+extern void SetGain(u16 v, bool preAmp);
 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -7,6 +7,8 @@
 
 //#pragma optimize_for_speed
 
+//#include "SPI.h"
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #include "ADSP\system_imp.h"
@@ -38,6 +40,9 @@ DMA_CH	dmaRxSp0(SPORT0_RX_DMA);
 DMA_CH	dmaRxSp1(SPORT1_RX_DMA);
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+//S_SPIM spi(1, 
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //static bool defSport0_Ready = false, defSport1_Ready = false;
@@ -241,9 +246,15 @@ void SyncReadSPORT(DSCRSP02 *dsc, u16 delay) // (void *dst1, void *dst2, u16 len
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void SetGain(u16 v)
+void SetGain(u16 v, bool preAmp)
 {
-	PIO_GAIN->WBIT(BM_GAIN, v == 0);
+	PIO_GAIN->WBIT(BM_GAIN, !preAmp);
+	
+	HW::SPI1->Baud	= 7; // SCLK=7MHz
+	HW::SPI1->Flg	= FLS5;	//FLS5|FLS2;
+	HW::SPI1->Ctl	= SPE|MSTR|SIZE|(TIMOD & 1);    // MSTR=1, CPOL=0, CPHA=0, LSBF=0, SIZE=1, EMISO=0, PSSE=0, GM=0, SZ=0, TIMOD=01
+	//*pPORTGIO_CLEAR = 1<<11;
+	HW::SPI1->TDBR	= 0x2A01|((v&7)<<4);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -252,6 +263,9 @@ static void InitGain()
 {
 	PIO_GAIN->ClrFER(BM_GAIN);
 	PIO_GAIN->DirSet(BM_GAIN);
+
+	HW::PIOG->SetFER(PG8|PG9|PG11);
+	HW::PIOG->ClrMUX(PG8|PG9|PG11);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
