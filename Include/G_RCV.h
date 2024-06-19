@@ -112,6 +112,7 @@ __packed struct RspRcvHdr02	// чтение вектора
 {
 	u16 rw;
 	u32 cnt;
+	u16 preAmp;
 	u16 gain;
 	u16 st;
 	u16 sl;
@@ -326,15 +327,20 @@ __packed struct RspRcv02	// чтение вектора
 __packed struct Transmiter
 {
 	u16 gain;
-	u16 st;	//sampleTime;
-	u16 sl;	//sampleLen;
-	u16 sd;	//sampleDelay;
+	u16 st;		//sampleTime;
+	u16 sl;		//sampleLen;
+	u16 sd;		//sampleDelay;
 	u16 freq;
 	u16 duty;
 	u16 amp;
 	u16 pulseCount;
 	u16 packType;
 	u16 math;
+
+	u16 GetGain() { return gain&7; }
+	void SetGain(u16 v) { gain = (gain & ~7)|(v&7); }
+	u16 GetPreAmp() { return gain>>7; }
+	void SetPreAmp(u16 v) { gain = (gain & ~(1<<7))|(v<<7); }
 };
 	
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

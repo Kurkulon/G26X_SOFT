@@ -1648,7 +1648,7 @@ static u32 InitRspMan_10(__packed u16 *data)
 {
 	__packed u16 *start = data;
 	
-	*(data++)	= (manReqWord & manReqMask) | 0x10;		//	1.	Ответное слово		
+	*(data++)	= (manReqWord & manReqMask) | 0x10;		//1.  Ответное слово
 
 	*(data++)  	= mv.trans[0].freq;						//2.  Монополь1. Частота излучателя (1000..30000 шаг 1Гц)
 	*(data++)  	= mv.trans[0].amp;						//3.  Монополь1. Амплитуда излучателя (0..3000 вольт)
@@ -1657,28 +1657,31 @@ static u32 InitRspMan_10(__packed u16 *data)
 	*(data++)  	= mv.trans[2].pulseCount;				//6.  Диполь. Количество импульсов (1..5)
 	*(data++)  	= mv.trans[2].freq;						//7.  Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
 	*(data++)  	= mv.trans[2].duty;						//8.  Диполь. Скважность импульсов излучателя (0..60 шаг 0.01%)
-	*(data++)  	= mv.trans[0].gain;						//9.  Монополь1. Предусилитель(0..1)
-	*(data++)  	= mv.trans[0].st;						//10. Монополь1. Шаг оцифровки (2..50)
-	*(data++)  	= mv.trans[0].sl;						//11. Монополь1. Длина оцифровки (16..1024)
-	*(data++)  	= mv.trans[0].sd;						//12. Монополь1. Задержка оцифровки 
-	*(data++)  	= mv.trans[0].packType;					//13. Монополь1. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-	*(data++)  	= mv.trans[0].math;						//14. Монополь1. Математика (0 - нет, 1 - Среднее по каналам) 
-	*(data++)  	= mv.trans[1].gain;						//15. Монополь2. Предусилитель(0..1)
-	*(data++)  	= mv.trans[1].st;						//16. Монополь2. Шаг оцифровки (2..50)
-	*(data++)  	= mv.trans[1].sl;						//17. Монополь2. Длина оцифровки (16..1024)
-	*(data++)  	= mv.trans[1].sd;						//18. Монополь2. Задержка оцифровки 
-	*(data++)  	= mv.trans[1].packType;					//19. Монополь2. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-	*(data++)  	= mv.trans[1].math;						//20. Монополь2. Математика (0 - нет, 1 - Среднее по каналам) 
-	*(data++)  	= mv.trans[2].gain;						//21. Диполь. Предусилитель(0..1)
-	*(data++)  	= mv.trans[2].st;						//22. Диполь. Шаг оцифровки (2..50)
-	*(data++)  	= mv.trans[2].sl;						//23. Диполь. Длина оцифровки (16..1024)
-	*(data++)  	= mv.trans[2].sd;						//24. Диполь. Задержка оцифровки 
-	*(data++)  	= mv.trans[2].packType;					//25. Диполь. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-	*(data++)  	= mv.trans[2].math;						//26. Диполь. Математика (0 - нет, 2 - Разница 1-3 2-4) 
-	*(data++)  	= mv.trmVoltage;						//27. Напряжение излучателя (0...950 вольт)
-	*(data++)  	= mv.disableFireNoVibration;			//28. Отключение регистрации на стоянке(0 - нет, 1 - да)
-	*(data++)  	= mv.levelNoVibration;					//29. Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
-	*(data++)  	= mv.firePeriod;						//30. Период опроса(мс)(ushort)
+	*(data++)  	= mv.trans[0].GetPreAmp();				//9.  Монополь1. Предусилитель(0..1)
+	*(data++)  	= mv.trans[0].GetGain();				//10. Монополь1. КУ[0..7]-(1,2,4,8,16,32,64,128)
+	*(data++)  	= mv.trans[0].st;						//11. Монополь1. Шаг оцифровки (2..50)
+	*(data++)  	= mv.trans[0].sl;						//12. Монополь1. Длина оцифровки (16..1024)
+	*(data++)  	= mv.trans[0].sd;						//13. Монополь1. Задержка оцифровки 
+	*(data++)  	= mv.trans[0].packType;					//14. Монополь1. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+	*(data++)  	= mv.trans[0].math;						//15. Монополь1. Математика (0 - нет, 1 - Среднее по каналам) 
+	*(data++)  	= mv.trans[1].GetPreAmp();				//16. Монополь2. Предусилитель(0..1)
+	*(data++)  	= mv.trans[1].GetGain();				//17. Монополь2. КУ[0..7]-(1,2,4,8,16,32,64,128)
+	*(data++)  	= mv.trans[1].st;						//18. Монополь2. Шаг оцифровки (2..50)
+	*(data++)  	= mv.trans[1].sl;						//19. Монополь2. Длина оцифровки (16..1024)
+	*(data++)  	= mv.trans[1].sd;						//20. Монополь2. Задержка оцифровки 
+	*(data++)  	= mv.trans[1].packType;					//21. Монополь2. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+	*(data++)  	= mv.trans[1].math;						//22. Монополь2. Математика (0 - нет, 1 - Среднее по каналам) 
+	*(data++)  	= mv.trans[2].GetPreAmp();				//23. Диполь. Предусилитель(0..1)
+	*(data++)  	= mv.trans[2].GetGain();				//24. Диполь. КУ[0..7]-(1,2,4,8,16,32,64,128)
+	*(data++)  	= mv.trans[2].st;						//25. Диполь. Шаг оцифровки (2..50)
+	*(data++)  	= mv.trans[2].sl;						//26. Диполь. Длина оцифровки (16..1024)
+	*(data++)  	= mv.trans[2].sd;						//27. Диполь. Задержка оцифровки 
+	*(data++)  	= mv.trans[2].packType;					//28. Диполь. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+	*(data++)  	= mv.trans[2].math;						//29. Диполь. Математика (0 - нет, 2 - Разница 1-3 2-4) 
+	*(data++)  	= mv.trmVoltage;						//30. Напряжение излучателя (0...950 вольт)
+	*(data++)  	= mv.disableFireNoVibration;			//31. Отключение регистрации на стоянке(0 - нет, 1 - да)
+	*(data++)  	= mv.levelNoVibration;					//32. Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
+	*(data++)  	= mv.firePeriod;						//33. Период опроса(мс)(ushort)
 	
 	return data - start;
 }
@@ -2050,26 +2053,29 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 		case 0x21:	mv.trans[2].freq			= LIM(data[2],	500,	10000			);	break;	//	0x21 - Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
 		case 0x22:	mv.trans[2].duty			= MIN(data[2],			6000			);	break;	//	0x22 - Диполь. Скважность импульсов излучателя (0..60 шаг 0.01%)
 																									
-		case 0x30:	mv.trans[0].gain			= MIN(data[2],			1				);	break;	//	0x30 - Монополь1. Предусилитель(0..1)
-		case 0x31:	mv.trans[0].st				= LIM(data[2],	2,		50				);	break;	//	0x31 - Монополь1. Шаг оцифровки (2..50)
-		case 0x32:	mv.trans[0].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x32 - Монополь1. Длина оцифровки (16..1024)
-		case 0x33:	mv.trans[0].sd				= MIN(data[2],			1024			);	break;	//	0x33 - Монополь1. Задержка оцифровки 
-		case 0x34:	mv.trans[0].packType		= MIN(data[2],			7				);	break;	//	0x34 - Монополь1. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-		case 0x35:	mv.trans[0].math			= data[2];									break;	//	0x35 - Монополь1. Математика (0 - нет, 1 - Среднее по каналам) 
+		case 0x30:	mv.trans[0].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x30 - Монополь1. Предусилитель(0..1)
+		case 0x31:	mv.trans[0].SetGain(		  MIN(data[2],			7				));	break;	//	0x31 - Монополь1. Предусилитель(0..1)
+		case 0x32:	mv.trans[0].st				= LIM(data[2],	2,		50				);	break;	//	0x31 - Монополь1. Шаг оцифровки (2..50)
+		case 0x33:	mv.trans[0].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x32 - Монополь1. Длина оцифровки (16..1024)
+		case 0x34:	mv.trans[0].sd				= MIN(data[2],			1024			);	break;	//	0x33 - Монополь1. Задержка оцифровки 
+		case 0x35:	mv.trans[0].packType		= MIN(data[2],			7				);	break;	//	0x34 - Монополь1. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+		case 0x36:	mv.trans[0].math			= data[2];									break;	//	0x35 - Монополь1. Математика (0 - нет, 1 - Среднее по каналам) 
 																									
-		case 0x40:	mv.trans[1].gain			= MIN(data[2],			1				);	break;	//	0x40 - Монополь2. Предусилитель(0..1)
-		case 0x41:	mv.trans[1].st				= LIM(data[2],	2,		50				);	break;	//	0x41 - Монополь2. Шаг оцифровки (2..50)
-		case 0x42:	mv.trans[1].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x42 - Монополь2. Длина оцифровки (16..1024)
-		case 0x43:	mv.trans[1].sd				= MIN(data[2],			1024			);	break;	//	0x43 - Монополь2. Задержка оцифровки 
-		case 0x44:	mv.trans[1].packType		= MIN(data[2],			7				);	break;	//	0x44 - Монополь2. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-		case 0x45:	mv.trans[1].math			= data[2];									break;	//	0x45 - Монополь2. Математика (0 - нет, 1 - Среднее по каналам) 
+		case 0x40:	mv.trans[1].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x30 - Монополь1. Предусилитель(0..1)
+		case 0x41:	mv.trans[1].SetGain(		  MIN(data[2],			7				));	break;	//	0x31 - Монополь1. Предусилитель(0..1)
+		case 0x42:	mv.trans[1].st				= LIM(data[2],	2,		50				);	break;	//	0x41 - Монополь2. Шаг оцифровки (2..50)
+		case 0x43:	mv.trans[1].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x42 - Монополь2. Длина оцифровки (16..1024)
+		case 0x44:	mv.trans[1].sd				= MIN(data[2],			1024			);	break;	//	0x43 - Монополь2. Задержка оцифровки 
+		case 0x45:	mv.trans[1].packType		= MIN(data[2],			7				);	break;	//	0x44 - Монополь2. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+		case 0x46:	mv.trans[1].math			= data[2];									break;	//	0x45 - Монополь2. Математика (0 - нет, 1 - Среднее по каналам) 
 																									
-		case 0x50:	mv.trans[2].gain			= MIN(data[2],			1				);	break;	//	0x50 - Диполь. Предусилитель(0..1)
-		case 0x51:	mv.trans[2].st				= LIM(data[2],	2,		50				);	break;	//	0x51 - Диполь. Шаг оцифровки (2..50)
-		case 0x52:	mv.trans[2].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x52 - Диполь. Длина оцифровки (16..1024)
-		case 0x53:	mv.trans[2].sd				= MIN(data[2],			1024			);	break;	//	0x53 - Диполь. Задержка оцифровки 
-		case 0x54:	mv.trans[2].packType		= MIN(data[2],			7				);	break;	//	0x54 - Диполь. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-		case 0x55:	mv.trans[2].math			= data[2];									break;	//	0x55 - Диполь. Математика (0 - нет, 2 - Разница 1-3 2-4) 
+		case 0x50:	mv.trans[2].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x30 - Монополь1. Предусилитель(0..1)
+		case 0x51:	mv.trans[2].SetGain(		  MIN(data[2],			7				));	break;	//	0x31 - Монополь1. Предусилитель(0..1)
+		case 0x52:	mv.trans[2].st				= LIM(data[2],	2,		50				);	break;	//	0x51 - Диполь. Шаг оцифровки (2..50)
+		case 0x53:	mv.trans[2].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x52 - Диполь. Длина оцифровки (16..1024)
+		case 0x54:	mv.trans[2].sd				= MIN(data[2],			1024			);	break;	//	0x53 - Диполь. Задержка оцифровки 
+		case 0x55:	mv.trans[2].packType		= MIN(data[2],			7				);	break;	//	0x54 - Диполь. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+		case 0x56:	mv.trans[2].math			= data[2];									break;	//	0x55 - Диполь. Математика (0 - нет, 2 - Разница 1-3 2-4) 
 																									
 		case 0x60:	mv.trmVoltage				= MIN(data[2],			950				);	break;	//	0x60 - Напряжение излучателя (0...950 вольт)
 		case 0x61:	mv.disableFireNoVibration	= data[2];									break;	//	0x61 - Отключение регистрации на стоянке(0 - нет, 1 - да)
@@ -2634,7 +2640,7 @@ static void UpdateRcvTrm()
 
 				byte tn = transIndex[n];
 
-				u32 t = 2000 + (u32)mv.trans[tn].sl * mv.trans[tn].st + mv.trans[tn].sd;
+				u32 t = 2000 + ((u32)mv.trans[tn].sl+64) * mv.trans[tn].st + mv.trans[tn].sd;
 
 				fireTime = US2CTM(t);
 
@@ -3324,6 +3330,7 @@ Ptr<MB> CreateTestRspRcv02()
 
 	rsp.hdr.rw			= (manReqWord|0x30)+((fireCounter&3)<<4);
 	rsp.hdr.cnt			= fireCounter++;
+	rsp.hdr.preAmp		= 0;
 	rsp.hdr.gain		= 0;
 	rsp.hdr.st			= 10;
 	rsp.hdr.sl			= RCV_SAMPLE_LEN;
@@ -3813,7 +3820,7 @@ static void InitMainVars()
 	mv.trans[1].packType	= 0;
 	mv.trans[1].math		= 0;
 
-	mv.trans[2].gain		= 1;
+	mv.trans[2].gain		= 128;
 	mv.trans[2].st 			= 10;	
 	mv.trans[2].sl 			= 512;	
 	mv.trans[2].sd 			= 500;	

@@ -197,7 +197,8 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	{
 		dsc->r02.hdr.cnt		= req.fc;
 		dsc->fireN				= n;
-		dsc->r02.hdr.gain		= ngain[n];
+		dsc->r02.hdr.preAmp		= (ngain[n]>>7)&1;
+		dsc->r02.hdr.gain		= ngain[n]&7;
 		dsc->next_fireN			= req.next_n;
 		dsc->next_gain			= req.next_gain;
 		dsc->r02.hdr.st			= MAX(req.st, 2);
@@ -671,7 +672,7 @@ static void UpdateSport()
 
 			if (dsc != 0)
 			{
-				SetGain(dsc->next_gain >> 1, dsc->next_gain & 1);
+				SetGain(dsc->next_gain & 7, dsc->next_gain & (1<<7));
 
 				#ifdef RCV_TEST_WAVEPACK
 
