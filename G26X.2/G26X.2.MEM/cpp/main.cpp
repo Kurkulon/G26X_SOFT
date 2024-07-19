@@ -2350,7 +2350,7 @@ static bool RequestMem_F0(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
-	//SaveParams();
+	SaveMainParams();
 
 	manTrmData[0] = (memReqWord & memReqMask) | 0xF0;
 
@@ -4104,11 +4104,9 @@ static void UpdateMisc()
 	enum C { S = (__LINE__+3) };
 	switch(i++)
 	{
-		CALL( UpdateEMAC();		);
-		CALL( UpdateRcvTrm();	);
-		CALL( SPI_Update();		);
-		CALL( UpdateParams();	);
-		CALL( I2C_Update();		); 
+		CALL( I2C_Update();			); 
+		CALL( SPI_Update();			);
+		CALL( NandFlash_Update();	);
 	};
 
 	i = (i > (__LINE__-S-3)) ? 0 : i;
@@ -4138,7 +4136,7 @@ static void Update()
 	}
 	else
 	{
-		I2C_Update();
+		UpdateMisc();
 	};
 }
 
