@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x100 };
+enum { VERSION = 0x101 };
 
 //#pragma O0
 //#pragma Otime

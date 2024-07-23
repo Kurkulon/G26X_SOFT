@@ -326,7 +326,7 @@ static void WDT_Init()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static void PrepareWFMOSC(u16 fireNum, u16 waveFreq)
+static void PrepareWFMOSC(u16 fireNum, u16 waveFreq, u16 klen)
 {
 	u16 N = 64;
 
@@ -344,7 +344,7 @@ static void PrepareWFMOSC(u16 fireNum, u16 waveFreq)
 	rsp.h.num	= fireNum;
 	rsp.h.amp	= 0;
 	rsp.h.st	= t;
-	rsp.h.sl	= (fireNum == 0) ? (N*3/2) : N;
+	rsp.h.sl	= N * klen / 2;
 	rsp.h.sd	= 0;
 
 	while(ADCTCC->SYNCBUSY);
@@ -481,7 +481,18 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 	if (fireNum <= 1)
 	{
-		PrepareWFMOSC(fireNum, waveFreq);
+		u16 kLen = 2;
+
+		if (waveAmp > 2100)
+		{
+			u16 t = waveAmp - 2100;
+		
+			kLen = 3 + (t / 460);
+
+			waveAmp = 2100;
+		};
+
+		PrepareWFMOSC(fireNum, waveFreq, kLen);
 
 		PIO_PWMHM->PINCFG[PIN_PWMHM] = PINGFG_PMUXEN;
 		PIO_PWMLM->PINCFG[PIN_PWMLM] = PINGFG_PMUXEN;
@@ -506,7 +517,7 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 		if (pwm)
 		{
-			waveAmp = (fireNum == 0) ? (waveAmp * 3 / 16) : (waveAmp/8);
+			waveAmp = (waveFreq >= 5000) ? (waveAmp * 3 / 16) : (waveAmp/8);
 			hi = US2PWM(pwmPeriodUS-0.5);
 			mid = US2PWM(pwmPeriodUS/2);
 			lo = US2PWM(0.5);
@@ -530,7 +541,7 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 		const u16 ki = 256 * ArraySize(sinArr) / waveLen;
 
-		if (fireNum == 0) waveLen = waveLen * 3 / 2;
+		waveLen = waveLen * kLen / 2;
 
 		for (u32 i = 0; i < waveLen; i++)
 		{
