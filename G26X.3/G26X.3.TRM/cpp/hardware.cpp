@@ -328,7 +328,7 @@ static void WDT_Init()
 
 static void PrepareWFMOSC(u16 fireNum, u16 waveFreq, u16 klen)
 {
-	u16 N = 64;
+	u16 N = 32;
 
 	ADCTCC->CTRLA &= ~TCC_ENABLE;
 
@@ -344,7 +344,7 @@ static void PrepareWFMOSC(u16 fireNum, u16 waveFreq, u16 klen)
 	rsp.h.num	= fireNum;
 	rsp.h.amp	= 0;
 	rsp.h.st	= t;
-	rsp.h.sl	= N * klen / 2;
+	rsp.h.sl	= (N * klen + 128) / 256;
 	rsp.h.sd	= 0;
 
 	while(ADCTCC->SYNCBUSY);
@@ -481,13 +481,13 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 	if (fireNum <= 1)
 	{
-		u16 kLen = 2;
+		u16 kLen = 256;
 
 		if (waveAmp > 2100)
 		{
-			u16 t = waveAmp - 2100;
+			u32 t = waveAmp - 2100;
 		
-			kLen = 3 + (t / 460);
+			kLen += (t * 256 + 450) / 900;
 
 			waveAmp = 2100;
 		};
@@ -541,7 +541,7 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 		const u16 ki = 256 * ArraySize(sinArr) / waveLen;
 
-		waveLen = waveLen * kLen / 2;
+		waveLen = (waveLen * kLen + 128) / 256;
 
 		for (u32 i = 0; i < waveLen; i++)
 		{
