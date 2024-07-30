@@ -20,6 +20,8 @@
 //#define BOOT_START_BREAKPOINT
 //#define BOOT_EXIT_BREAKPOINT
 
+#define BOOT_EMAC_TIMEOUT	15000
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifdef BOOT_EMAC
