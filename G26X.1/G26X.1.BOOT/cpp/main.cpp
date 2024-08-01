@@ -24,6 +24,7 @@
 //#define MASK_RTS				(1UL<<PIN_RTS)
 
 #define ADSP_CHECKFLASH
+#define ADSP_CRC_PROTECTION
 
 #define	NUM_SMALL_BUF	60      
 #define	NUM_MEDIUM_BUF	1
