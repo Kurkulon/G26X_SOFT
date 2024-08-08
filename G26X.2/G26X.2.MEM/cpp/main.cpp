@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x101 };
+enum { VERSION = 0x100 };
 
 //#pragma O0
 //#pragma Otime
@@ -170,7 +170,7 @@ static u16 memReqMask = 0xFF00;
 
 static u16 verDevice = VERSION;
 
-static u16 verMemDevice = 0x100;
+static u16 verMemDevice = 0x300;
 
 static byte mainModeState = 0;
 static byte fireType = 0;
@@ -2183,9 +2183,11 @@ static bool RequestMem_10(u16 *data, u16 len, MTB* mtb)
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
 	manTrmData[0] = (memReqWord & memReqMask) | 0x10;
+	manTrmData[1] = NandFlash_Chip_Mask_Get();
+	manTrmData[2] = NandFlash_Full_Size_Get() >> 20;
 
 	mtb->data1 = manTrmData;
-	mtb->len1 = 1;
+	mtb->len1 = 3;
 	mtb->data2 = 0;
 	mtb->len2 = 0;
 
@@ -2198,7 +2200,11 @@ static bool RequestMem_20(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
-	__packed struct Rsp {u16 rw; u16 device; u16 session; u32 rcvVec; u32 rejVec; u32 wrVec; u32 errVec; u16 wrAdr[3]; u16 temp; byte status; byte flags; RTC rtc; };
+	__packed struct Rsp 
+	{
+		u16 rw; u16 device; u16 session; u32 rcvVec; u32 rejVec; u32 wrVec; u32 errVec; u16 wrAdr[3]; u16 temp; byte status; byte flags; RTC rtc; 
+		u16 blockErr; u16 pageErr; u16 percentFree; 
+	};
 
 	if (len != 1) return false;
 
@@ -2217,8 +2223,18 @@ static bool RequestMem_20(u16 *data, u16 len, MTB* mtb)
 
 	GetTime(&rsp.rtc);
 
+	rsp.blockErr	= NandFlash_BlockErr_Get();
+	rsp.pageErr		= NandFlash_PageErr_Get();
+
+	u32 used = NandFlash_Used_Size_Get() >> 20;
+	u32 full = NandFlash_Full_Size_Get() >> 20;
+
+	if (full < used) used = full;
+
+	rsp.percentFree	= ((full - used) * 10000 + full/2) / full;
+
 	mtb->data1 = manTrmData;
-	mtb->len1 = 20;
+	mtb->len1 = sizeof(rsp)/2;
 	mtb->data2 = 0;
 	mtb->len2 = 0;
 
