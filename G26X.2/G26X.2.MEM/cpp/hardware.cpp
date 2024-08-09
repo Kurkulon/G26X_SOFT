@@ -556,6 +556,8 @@ i32	Get_FRAM_I2C_SessionsAdr() { return FRAM_I2C_SESSIONS_ADR; }
 
 static void Init_ADC()
 {
+#ifndef WIN32
+
 	HW::GCLK->PCHCTRL[GCLK_ADC0] = GEN_MCK|GCLK_CHEN; 
 	HW::GCLK->PCHCTRL[GCLK_ADC1] = GEN_MCK|GCLK_CHEN; 
 	HW::MCLK->ClockEnable(PID_ADC0); 
@@ -584,12 +586,16 @@ static void Init_ADC()
 
 	HW::ADC0->SWTRIG = ADC_START;
 	HW::ADC1->SWTRIG = ADC_START;
+
+#endif
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 u16 Get_NetResist()
 {
+#ifndef WIN32
+
 	HW::ADC0->SWTRIG = ADC_START;
 
 	#ifndef RCV_8AD
@@ -597,14 +603,21 @@ u16 Get_NetResist()
 	#else
 		return (HW::ADC0->RESULT * 10919) >> 16;
 	#endif
+#else
+	return 0;
+#endif
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 u16 Get_AVMAN()
 {
+#ifndef WIN32
 	HW::ADC1->SWTRIG = ADC_START;
 	return (HW::ADC1->RESULT * 1617) >> 16;
+#else
+	return 0;
+#endif
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

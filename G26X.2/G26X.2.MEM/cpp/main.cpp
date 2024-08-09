@@ -2148,8 +2148,10 @@ static bool RequestMan(u16 *buf, u16 len, MTB* mtb)
 	{ 
 		mtb->baud = manTrmBaud; 
 	
+	#if defined(_DEBUG) && !defined(WIN32)
 		if (mtb->data1 != 0 && !HW::RamCheck(mtb->data1)) __breakpoint(0);
 		if (mtb->data2 != 0 && !HW::RamCheck(mtb->data2)) __breakpoint(0);
+	#endif
 	};
 
 	return r;
@@ -2472,8 +2474,10 @@ static void UpdateMan()
 				//mtb.len1 = 2;
 				//mtb.data1 = manTrmData;
 
+			#if defined(_DEBUG) && !defined(WIN32)
 				if (mtb.data1 != 0 && !HW::RamCheck(mtb.data1)) __breakpoint(0);
 				if (mtb.data2 != 0 && !HW::RamCheck(mtb.data2)) __breakpoint(0);
+			#endif	
 
 				SendManData(&mtb);
 
@@ -4489,7 +4493,7 @@ int main()
 			}
 			else if (key == 'p')
 			{
-				NAND_FullErase();
+				NandFlash_FullErase();
 			};
 		};
 
