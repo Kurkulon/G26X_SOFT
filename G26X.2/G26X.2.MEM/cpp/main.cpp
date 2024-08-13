@@ -1801,7 +1801,7 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 
 	if (data == 0 || reqlen == 0 || reqlen > 4 || mtb == 0) return false;
 
-	byte nf = ((req.rw >> 4) - 3) & 7;
+	byte nf = ((req.rw >> 4) - 3) & 3;
 	byte nr = req.rw & 15;
 
 	curRcv[nf] = nr+1;

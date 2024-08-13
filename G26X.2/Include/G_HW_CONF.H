@@ -283,8 +283,8 @@
 
 	#define NAND_DELAY_WP()		{ delay(4);				}
 	#define NAND_DELAY_WH()		{ delay(4);				}
-	#define NAND_DELAY_RP()		{ delay(2);				}
-	#define NAND_DELAY_REH()	{ delay(2);				}
+	#define NAND_DELAY_RP()		{ delay(4);				}
+	#define NAND_DELAY_REH()	{ delay(4);				}
 	#define NAND_DELAY_WHR()	{ delay(10);			}
 	#define NAND_DELAY_ADL()	{ delay(20);			}
 	#define NAND_DELAY_PR()		{ delay(4);				}

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "types.h"
+
 #if defined(__CC_ARM) || defined(_MSC_VER)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
