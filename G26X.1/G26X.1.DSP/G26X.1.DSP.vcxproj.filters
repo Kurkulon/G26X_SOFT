@@ -23,6 +23,12 @@
     <ClCompile Include="cpp\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="cpp\flash.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cpp\pack.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cpp\hardware.h">
@@ -39,6 +45,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Include\G_RCV.h">
       <Filter>Global Include</Filter>
+    </ClInclude>
+    <ClInclude Include="cpp\pack.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

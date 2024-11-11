@@ -1,6 +1,8 @@
 #ifndef PACK_H__17_02_2024__00_00
 #define PACK_H__17_02_2024__00_00
 
+//#define WAVEPACK_V2
+
 #include "WAVEPACK\wavepack.h"
 
 //enum PackType { PACK_NO = 0, PACK_ULAW12, PACK_ULAW16, PACK_ADPCMIMA, PACK_DCT0, PACK_DCT1, PACK_DCT2, PACK_DCT3 };

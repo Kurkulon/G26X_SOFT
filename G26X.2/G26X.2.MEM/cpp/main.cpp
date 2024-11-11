@@ -196,6 +196,14 @@ static u16 okRcv02 = 0;
 static u16 crcErrLen02 = 0;
 static u16 crcErrRW02 = 0;
 
+static u32 rcv05rejVec = 0;
+static u32 retryRcv05 = 0;
+static u32 crcErr05 = 0;
+static u32 notRcv05 = 0;
+static u16 okRcv05 = 0;
+static u16 crcErrLen05 = 0;
+static u16 crcErrRW05 = 0;
+
 //static u32 notRcv02[RCV_MAX_NUM_STATIONS] = {0};
 //static u32 lenErr02[RCV_MAX_NUM_STATIONS] = {0};
 //static u32 rejRcv02[RCV_MAX_NUM_STATIONS] = {0};
@@ -873,6 +881,128 @@ static Ptr<REQ> CreateRcvReq04(byte adr, byte saveParams, u16 tryCount)
 	req.r[1].crc	= req.r[0].crc = GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
 
 	return &q;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool CallBackRcvReq05(Ptr<REQ> &q)
+{
+	ReqRcv05 &req = *((ReqRcv05*)q->wb.data);
+	RspRcv02 &rsp = *((RspRcv02*)q->rb.data);
+
+	//bool crcOK = q->crcOK;
+
+	q->rsp->len = 0;
+
+	byte a = (req.r[0].adr-1) & 15;
+
+	if (q->crcOK)
+	{
+		u16 len = sizeof(rsp.hdr) + sizeof(rsp.crc) + ((rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4) * 2);
+
+		if (q->rb.len < sizeof(rsp.hdr) || (rsp.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
+		{
+			q->crcOK = false;
+			q->rsp->len = 0;
+		}
+		else
+		{
+			okRcv05 += 1;
+
+			q->rsp->len = q->rb.len;
+
+			u16 n = ((rsp.hdr.rw >> 4) & 0xF) - 3;
+			u16 r = rsp.hdr.rw & 0xF;
+
+			if ((rsp.hdr.rw & manReqMask) == manReqWord && n < RCV_FIRE_NUM && r < RCV_MAX_NUM_STATIONS)
+			{
+				if (curRcv[n] == (r+1)) 
+				{
+					manVec30[n] = q->rsp;
+				};
+			};
+
+		};
+	}
+	else if (q->rb.recieved)
+	{
+		crcErrLen05 = q->rb.len;
+		crcErrRW05 = rsp.hdr.rw;
+		crcErr05++;
+	}
+	else
+	{
+		notRcv05++;
+	};
+
+	if (!q->crcOK)
+	{
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qRcv.Add(q);
+
+			retryRcv05 += 1;
+		}
+		else
+		{
+			rcv05rejVec += 1;
+		};
+	};
+
+	return true;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateRcvReq05(byte adr, byte n, u16 tryCount)
+{
+	Ptr<REQ> rq(AllocREQ());
+
+	if (!rq.Valid()) return rq;
+
+	if (adr != 0)
+	{
+		rq->rsp = AllocMemBuffer(sizeof(RspRcv02)+2);
+		if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+
+		RspRcv02 &rsp = *((RspRcv02*)(rq->rsp->GetDataPtr()));
+
+		rq->rb.data = &rsp;
+		rq->rb.maxLen = rq->rsp->GetDataMaxLen();
+
+	}
+	else
+	{
+		rq->rb.data = 0;
+		rq->rb.maxLen = 0;
+	};
+
+	rq->rsp->len = 0;
+	REQ &q = *rq;
+
+	ReqRcv05 &req = *((ReqRcv05*)rq->reqData);
+	adr = (adr-1)&15; 
+
+	q.crcType = REQ::CRC16_CCIT;
+
+	q.CallBack = CallBackRcvReq05;
+	q.preTimeOut = MS2COM(1);
+	q.postTimeOut = US2COM(100);
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+
+	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
+	req.r[1].adr	= req.r[0].adr	= adr+1;
+	req.r[1].func	= req.r[0].func	= 5;
+	req.r[1].n		= req.r[0].n	= n;
+	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, sizeof(req.r[0])-3);
+
+	return rq;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2761,7 +2891,7 @@ static void MainMode()
 
 			break;
 
-		case 3:
+		case 3: // —читывание вектора без сжати€ и без математики
 
 			req = CreateRcvReq02(rcv, fireType, 3);
 
@@ -2790,14 +2920,14 @@ static void MainMode()
 
 					u16 rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
 					
-					if (r02.hdr.rw != rw || r02.hdr.cnt != fireCounter)
-					{
-						//__breakpoint(0);
+					//if (r02.hdr.rw != rw || r02.hdr.cnt != fireCounter)
+					//{
+					//	//__breakpoint(0);
 
-						//r02.hdr.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
-						//r02.hdr.cnt = fireCounter;
-						//crc = true;
-					};
+					//	//r02.hdr.rw = manReqWord | ((3+fireType) << 4) | (rcv - 1);
+					//	//r02.hdr.cnt = fireCounter;
+					//	//crc = true;
+					//};
 
 					NandFlash_RequestWrite(req->rsp, r02.hdr.rw, crc);
 
@@ -2808,7 +2938,15 @@ static void MainMode()
 					{
 						if (curRcv[n] == (r+1)) 
 						{
-							manVec30[n] = req->rsp;
+							if (mv.trans[transIndex[n]].packType == 0 && mv.trans[transIndex[n]].math == 0)
+							{
+								manVec30[n] = req->rsp;
+							}
+							else
+							{
+								qRcv.Add(CreateRcvReq05(rcv, fireType, 3));
+							};
+
 						};
 					};
 
@@ -2889,7 +3027,7 @@ static void MainMode()
 
 			if (fireType > pft)
 			{
-				mainModeState = 9;
+				mainModeState++;
 			}
 			else
 			{
@@ -3007,7 +3145,7 @@ static bool AccelWriteReg(byte reg, u16 count)
 static void UpdateAccel()
 {
 	static byte i = 0; 
-	static i32 fx = 0, fy = 0, fz = 0, fv = 0;
+	static i32 fx = 0, fy = 0, fz = 0, fv = 0, ft = 0;
 
 	static TM32 tm;
 
@@ -3133,13 +3271,14 @@ static void UpdateAccel()
 				fx += (x - fx) / 16;
 				fy += (y - fy) / 16;
 				fz += (z - fz) / 16;
+				ft += (t - ft) / 4;
 
 				ay = -(fz / 65536); 
 				ax = -(fy / 65536); 
 				az =  (fx / 65536);
 
 				//at = 2500 + ((1852 - t) * 2000 + 91) / 181;
-				at = 2500 + ((1852 - t) * 11315 + 512) / 1024;
+				at = 2500 + ((1852 - ft) * 11315 + 512) / 1024;
 
 				i32 vx = ABS(x - fx) / 64;
 				i32 vy = ABS(y - fy) / 64;

@@ -14,7 +14,7 @@
 //#include "G_TRM.H"
 
 
-enum { VERSION = 0x102 };
+enum { VERSION = 0x103 };
 
 //#pragma O3
 //#pragma Otime
@@ -42,18 +42,26 @@ static MainVars mv;
 
 u32 fps;
 
-static u16 manRcvData[10];
-static u16 manTrmData[50];
-static u16 manTrmBaud = 0;
-//static u16 memTrmBaud = 0;
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#ifdef MANCH_REQ
+
+	static u16 manRcvData[10];
+	static u16 manTrmData[50];
+	static u16 manTrmBaud = 0;
+
+	static const u16 manReqWord = 0xA700;
+	static const u16 manReqMask = 0xFF00;
+
+#endif
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 u16 txbuf[128 + 512 + 16];
 
 static u16 reqFireVoltage = 0;
 static u16 curFireVoltage = 300;
 
-static const u16 manReqWord = 0xA700;
-static const u16 manReqMask = 0xFF00;
 
 static u16 verDevice = VERSION;
 static bool numDevValid = false;
@@ -439,7 +447,7 @@ static bool Request03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 {
 	static u16 buf[2];
 
-	ReqTrm03::Req &req = *((ReqTrm03::Req*)data);
+//	ReqTrm03::Req &req = *((ReqTrm03::Req*)data);
 
 	curRsp72 = GetReadyRsp72();
 
@@ -532,7 +540,7 @@ static void UpdateCom()
 	static CTM32 ctm;
 	static ComPort::WriteBuffer wb;
 	static ComPort::ReadBuffer rb;
-	static MTB mtb;
+//	static MTB mtb;
 	static u16 buf[16];
 	
 	switch(i)
@@ -669,7 +677,7 @@ static void UpdateHV()
 	static byte rbuf[4];
 	static TM32 tm;
 	//static CTM32 ctm;
-	static i32 filtFV = 0;
+//	static i32 filtFV = 0;
 	//static i32 filtMV = 0;
 	static u16 correction = 0x200;
 	static u16 dstFV = 0;
@@ -1064,7 +1072,7 @@ int main()
 		{
 			fps = fc; fc = 0; 
 
-			//PrepareFire(0, fireFreq, fireAmp, true);
+			//PrepareFire(3, 3000, 1000, 1, 5000);
 		};
 	}; // while (1)
 }

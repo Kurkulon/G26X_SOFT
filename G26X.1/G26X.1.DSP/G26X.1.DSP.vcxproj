@@ -63,8 +63,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="cpp\com.cpp" />
+    <ClCompile Include="cpp\flash.cpp" />
     <ClCompile Include="cpp\hardware.cpp" />
     <ClCompile Include="cpp\main.cpp" />
+    <ClCompile Include="cpp\pack.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Include\G_RCV.h" />
@@ -72,6 +74,7 @@
     <ClInclude Include="..\Include\G26X_1_UpdateADC_imp.h" />
     <ClInclude Include="cpp\hardware.h" />
     <ClInclude Include="cpp\hw_conf.h" />
+    <ClInclude Include="cpp\pack.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="makeobj" />
