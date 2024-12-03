@@ -669,6 +669,11 @@ static void UpdateTemp()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+//static u16 prevDstFV = 0;
+//static u16 prevCurFV = 0;
+//static i16 dCurFV = 0;
+//static i16 dDstFV = 0;
+
 static void UpdateHV()
 {
 	static byte i = 0;
@@ -681,6 +686,8 @@ static void UpdateHV()
 	//static i32 filtMV = 0;
 	static u16 correction = 0x200;
 	static u16 dstFV = 0;
+
+	//static u16 count = 0;
 
 	//if (!ctm.Check(US2CCLK(50))) return;
 
@@ -813,6 +820,8 @@ static void UpdateHV()
 
 				t = ~(((u32)t * (65535*16384/955)) / 16384); 
 
+				if (DacHvInverted()) t = ~t;
+
 				wbuf[0] = 8;	
 				wbuf[1] = t>>8;
 				wbuf[2] = t;
@@ -826,6 +835,19 @@ static void UpdateHV()
 				dsc.wlen2 = 0;
 
 				I2C_AddRequest(&dsc);
+
+				//count++;
+
+				//if (count >= 100)
+				//{
+				//	count = 0;
+
+				//	dCurFV = (i16)curFireVoltage - (i16)prevCurFV;
+				//	dDstFV = (i16)dstFV - (i16)prevDstFV;
+
+				//	prevDstFV = dstFV;
+				//	prevCurFV = curFireVoltage;
+				//};
 
 				i++;
 			};
@@ -1055,6 +1077,7 @@ int main()
 #endif
 
 	u32 fc = 0;
+	u16 n = 0;
 
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_WHITE "Main Loop start ...\n");
 
@@ -1068,11 +1091,12 @@ int main()
 
 		fc++;
 
-		if (tm.Check(1000))
+		if (tm.Check(250))
 		{
 			fps = fc; fc = 0; 
 
-			//PrepareFire(3, 3000, 1000, 1, 5000);
+			//PrepareFire((n++)&3, 3000, 1000, 2, 5000); CM4::NVIC->STIR = EIC_0_IRQ+PWM_EXTINT;
+			//PrepareFire((n++)&3, 3000, 1000, 2, 5000); HW::EVSYS->SWEVT = 1;
 		};
 	}; // while (1)
 }

@@ -14,6 +14,7 @@
 #include <math.h>
 #include "G26X_3_HW_CONF.H"
 
+//#define TRM_SYNC_IRQ
 
 const float pi = 3.14159265358979f;
 //extern u16 curFireVoltage;
@@ -33,6 +34,8 @@ u16 waveLen = 2;
 
 byte isrFireNum = 0;
 bool postFire = false;
+
+bool dachvInverted = false;
 
 static Rsp72 rsp72buf[8];
 
@@ -201,7 +204,10 @@ static void WDT_Init()
 
 	#define PWMCOUNT_EVENT_GEN			CONCAT3(EVGEN_, PWMCOUNT_TCC, _OVF)
 	#define PWMCOUNT0_EVSYS_USER		CONCAT3(EVSYS_USER_, PWMCOUNT_TCC, _EV_0)
+
+	#ifndef TRM_SYNC_IRQ
 	#define PWMCOUNT1_EVSYS_USER		CONCAT3(EVSYS_USER_, PWMCOUNT_TCC, _EV_1)
+	#endif
 
 	inline void PWMCOUNT_ClockEnable()	{ HW::GCLK->PCHCTRL[GCLK_PWMCOUNT] = PWMCOUNT_GEN|GCLK_CHEN; HW::MCLK->ClockEnable(PID_PWMCOUNT); }
 
@@ -217,7 +223,13 @@ static void WDT_Init()
 	#define PWMTCC						HW::PWM_TCC
 	#define PWM_GEN						CONCAT2(GEN_,PWM_TCC)
 	#define PWM_GEN_CLK					CONCAT2(CLK_,PWM_TCC) 
+
+	#ifdef TRM_SYNC_IRQ
+	#define PWM_IRQ						(EIC_0_IRQ+PWM_EXTINT)
+	#else
 	#define PWM_IRQ						CONCAT2(PWM_TCC,_0_IRQ)
+	#endif
+
 	#define GCLK_PWM					CONCAT2(GCLK_,PWM_TCC)
 	#define PID_PWM						CONCAT2(PID_,PWM_TCC)
 
@@ -253,6 +265,10 @@ static void WDT_Init()
 	#define PWM_DMCH_TRIGSRC			CONCAT3(DMCH_TRIGSRC_, PWM_TCC, _OVF)
 
 	inline void PWM_ClockEnable()		{ HW::GCLK->PCHCTRL[GCLK_PWM] = PWM_GEN|GCLK_CHEN; HW::MCLK->ClockEnable(PID_PWM); }
+
+	#ifdef TRM_SYNC_IRQ
+		#undef EVENT_PWM_SYNC
+	#endif
 
 #else
 	#error  Must defined PWM_TCC
@@ -397,7 +413,9 @@ static void Init_WFMOSC()
 	ADCTCC->EVCTRL = TCC_TCEI0|TCC_EVACT0_RETRIGGER;
 	ADCTCC->INTENCLR = ~0;
 
+#ifndef TRM_SYNC_IRQ
 	HW::EVSYS->USER[ADC_EVSYS_USER] = EVENT_PWM_SYNC+1;
+#endif
 
 	for (u16 i = 0; i < ArraySize(rsp72buf); i++) freeRsp72.Add(rsp72buf+i);
 }
@@ -427,23 +445,89 @@ bool IsFireOK()
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void DisableFire()
+inline void EnableTrmSync()
 {
-	HW::EVSYS->CH[EVENT_PWM_SYNC].CHANNEL = EVGEN_NONE;
-	PIO_URXD0->SetWRCONFIG(URXD0, PMUX_URXD0|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN); 
-	PWMTCC->CTRLA &= ~TCC_ENABLE;
+	PIO_URXD0->SetWRCONFIG(URXD0, PORT_PMUX_A|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN); 
+	HW::EVSYS->CH[EVENT_PWM_SYNC].CHANNEL	= (EVGEN_EIC_EXTINT_0+PWM_EXTINT)|EVSYS_PATH_ASYNCHRONOUS;
+
+	#ifdef TRM_SYNC_IRQ
+		HW::EIC->INTENSET = EIC_EXTINT0<<PWM_EXTINT;
+	#else
+		PWMTCC->INTFLAG = ~0;
+		PWMTCC->INTENSET = TCC_TRG|TCC_OVF|TCC_CNT;
+	#endif
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+inline void DisableTrmSync()
+{
+	#ifdef TRM_SYNC_IRQ
+		HW::EIC->INTENCLR = EIC_EXTINT0<<PWM_EXTINT;
+	#else
+		PWMTCC->INTENCLR = ~0;
+		HW::EVSYS->CH[EVENT_PWM_SYNC].CHANNEL	= EVGEN_NONE;
+	#endif
+
+	PIO_URXD0->SetWRCONFIG(URXD0, PMUX_URXD0|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN); 
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void DisableFire()
+{
+	PWMTCC->CTRLA		&= ~TCC_ENABLE;
+	PWMCOUNTTCC->CTRLA	&= ~TCC_ENABLE;
+	
+	DisableTrmSync();
+
+	PIO_PWMHM->PINCFG[PIN_PWMHM] = 0;
+	PIO_PWMLM->PINCFG[PIN_PWMLM] = 0;
+	PIO_PWMHX->PINCFG[PIN_PWMHX] = 0;
+	PIO_PWMLX->PINCFG[PIN_PWMLX] = 0;
+	PIO_PWMHY->PINCFG[PIN_PWMHY] = 0;
+	PIO_PWMLY->PINCFG[PIN_PWMLY] = 0;
+}
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static __irq void TrmStartIRQ()
+{
+	HW::PIOB->BSET(23);
+
+#ifdef TRM_SYNC_IRQ
+
+	PWMTCC->CTRLBSET		= TCC_CMD_RETRIGGER;
+	PWMCOUNTTCC->CTRLBSET	= TCC_CMD_RETRIGGER;
+
+	HW::EIC->INTFLAG = EIC_EXTINT0<<PWM_EXTINT;
+
+#else
+
+	PWMTCC->INTFLAG = ~0;
+
+#endif
+
+	DisableTrmSync();
+
+	HW::PIOB->BCLR(23);
+}
+
+#pragma pop
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#pragma push
+//#pragma O3
+//#pragma Otime
 
 static __irq void PwmCountIRQ()
 {
 	HW::PIOB->BSET(23);
 
+	PWMTCC->CTRLBSET = TCC_CMD_STOP;
+
 	if (!postFire)
 	{
-		PWMTCC->CTRLBSET = TCC_CMD_STOP;
-
 		PIO_PWMHM->PINCFG[PIN_PWMHM] = 0;
 		PIO_PWMLM->PINCFG[PIN_PWMLM] = 0;
 
@@ -453,27 +537,34 @@ static __irq void PwmCountIRQ()
 		if (isrFireNum == 2)
 		{
 			PIO_PWMLY->PINCFG[PIN_PWMLY] = 0;
+			postFire = true;
 		}
 		else if (isrFireNum == 3)
 		{
 			PIO_PWMLX->PINCFG[PIN_PWMLX] = 0;
+			postFire = true;
 		}
 		else
 		{
+			//PWMCOUNTTCC->CTRLBSET = TCC_CMD_STOP;
 			PWMCOUNTTCC->CTRLA &= ~TCC_ENABLE;
-			DisableFire();
+			PWMTCC->CTRLA &= ~TCC_ENABLE;
+	
+			pwmstat = true;
 		};
 
 		PWMCOUNTTCC->INTFLAG = ~0;
 
-		PIO_WF_PWM->EVCTRL.EV[0] = 0;
-		PIO_WF_PWM->SET(WF_PWM);
+		#ifndef TRM_SYNC_IRQ
+			PIO_WF_PWM->EVCTRL.EV[0] = 0;
+			PIO_WF_PWM->SET(WF_PWM);
+		#endif
+
 		PIO_DRVEN->CLR(DRVEN);
 
-		pwmstat = true;
 		PWM_DMA.Disable();
 
-		if (isrFireNum == 2 || isrFireNum == 3)
+		if (postFire)
 		{
 			PWMTCC->PER			= US2PWM(postFirePeriodUS);
 			PWMTCC->CC[0]		= US2PWM(postFirePeriodUS/2);
@@ -483,25 +574,29 @@ static __irq void PwmCountIRQ()
 
 			PWMCOUNTTCC->CTRLBSET	= TCC_CMD_RETRIGGER;
 			PWMTCC->CTRLBSET		= TCC_CMD_RETRIGGER;
-
-			//HW::EVSYS->SWEVT = 1;
-
-			postFire = true;
 		};
 	}
 	else
 	{
-		PWMTCC->CTRLBSET = TCC_CMD_STOP;
-
 		PIO_PWMLY->PINCFG[PIN_PWMLY] = 0;
 		PIO_PWMLX->PINCFG[PIN_PWMLX] = 0;
 
-		PWMCOUNTTCC->INTFLAG = ~0;
 		PWMCOUNTTCC->CTRLA &= ~TCC_ENABLE;
 		PWMTCC->CTRLA &= ~TCC_ENABLE;
 
+		//PWMCOUNTTCC->CTRLBSET = TCC_CMD_STOP;
+		//PWMTCC->CTRLBSET = TCC_CMD_STOP;
+
+		PWMCOUNTTCC->INTFLAG = ~0;
+		PWMTCC->INTFLAG = ~0;
+
+		//DisableFire();
+
 		postFire = false;
+		pwmstat = true;
 	};
+
+	//DisableTrmSync();
 
 	HW::PIOB->BCLR(23);
 }
@@ -525,6 +620,9 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 
 	PWMTCC->CTRLA &= ~TCC_ENABLE;
 	PWMCOUNTTCC->CTRLA &= ~TCC_ENABLE;
+
+	//PWMCOUNTTCC->CTRLBSET = TCC_CMD_STOP;
+	//PWMTCC->CTRLBSET = TCC_CMD_STOP;
 
 	if (waveFreq < 500) waveFreq = 500;
 
@@ -588,9 +686,10 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 			amp = -(waveAmp*5/16);
 			dst = &(HW::DAC->DATA[0]);
 			
-			HW::EVSYS->USER[EVSYS_USER_PORT_EV_0] = EVENT_PWM_SYNC+1;
-
-			PIO_WF_PWM->EVCTRL.EV[0] = PORT_PORTEI|PORT_EVACT_CLR|PORT_PID(PIN_WF_PWM);
+			#ifndef TRM_SYNC_IRQ
+				HW::EVSYS->USER[EVSYS_USER_PORT_EV_0] = EVENT_PWM_SYNC+1;
+				PIO_WF_PWM->EVCTRL.EV[0] = PORT_PORTEI|PORT_EVACT_CLR|PORT_PID(PIN_WF_PWM);
+			#endif
 		};
 
 		const u16 ki = 256 * ArraySize(sinArr) / waveLen;
@@ -639,7 +738,7 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 		};
 
 		u32 per = US2PWM((1000000+waveFreq/2)/waveFreq);
-		u32 cc = per - (per * fireDuty + 5000) / 10000;
+		u32 cc = (per * fireDuty + 5000) / 10000;
 
 		//PWMTCC->PERBUF		= per;
 		PWMTCC->PER			= per;
@@ -652,10 +751,12 @@ void PrepareFire(u16 fireNum, u16 waveFreq, u16 waveAmp, u16 fireCount, u16 fire
 		PWMCOUNTTCC->CTRLA |= TCC_ENABLE;
 
 		PWMTCC->CTRLA |= TCC_ENABLE;
-	}
+	};
 
-	PIO_URXD0->SetWRCONFIG(URXD0, PORT_PMUX_A|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN); 
-	HW::EVSYS->CH[EVENT_PWM_SYNC].CHANNEL = (EVGEN_EIC_EXTINT_0+PWM_EXTINT)|EVSYS_PATH_ASYNCHRONOUS;
+	PWMCOUNTTCC->CTRLBSET	= TCC_CMD_RETRIGGER;
+
+	EnableTrmSync();
+
 	//HW::EVSYS->SWEVT = 1;
 
 	HW::PIOA->BCLR(21);
@@ -687,38 +788,66 @@ static void Init_PWM()
 	PIO_PWMHM->DIRSET	= PWMHM;
 	PIO_POL->DIRSET		= POLWML|POLWMH;
 
-	PIO_PWMLX->SetWRCONFIG(PWMLX, PMUX_PWMLX|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
-	PIO_PWMLY->SetWRCONFIG(PWMLY, PMUX_PWMLY|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
-	PIO_PWMHX->SetWRCONFIG(PWMHX, PMUX_PWMHX|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
-	PIO_PWMHY->SetWRCONFIG(PWMHY, PMUX_PWMHY|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
-	PIO_PWMLM->SetWRCONFIG(PWMLM, PMUX_PWMLM|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
-	PIO_PWMHM->SetWRCONFIG(PWMHM, PMUX_PWMHM|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
+	PIO_PWMLX->SetWRCONFIG(PWMLX, PMUX_PWMLX|PORT_WRPMUX|PORT_WRPINCFG);
+	PIO_PWMLY->SetWRCONFIG(PWMLY, PMUX_PWMLY|PORT_WRPMUX|PORT_WRPINCFG);
+	PIO_PWMHX->SetWRCONFIG(PWMHX, PMUX_PWMHX|PORT_WRPMUX|PORT_WRPINCFG);
+	PIO_PWMHY->SetWRCONFIG(PWMHY, PMUX_PWMHY|PORT_WRPMUX|PORT_WRPINCFG);
+	PIO_PWMLM->SetWRCONFIG(PWMLM, PMUX_PWMLM|PORT_WRPMUX|PORT_WRPINCFG);
+	PIO_PWMHM->SetWRCONFIG(PWMHM, PMUX_PWMHM|PORT_WRPMUX|PORT_WRPINCFG);
+
+	//PIO_PWMHM->PINCFG[PIN_PWMHM] = 0;
+	//PIO_PWMLM->PINCFG[PIN_PWMLM] = 0;
+	//PIO_PWMHX->PINCFG[PIN_PWMHX] = 0;
+	//PIO_PWMLX->PINCFG[PIN_PWMLX] = 0;
+	//PIO_PWMHY->PINCFG[PIN_PWMHY] = 0;
+	//PIO_PWMLY->PINCFG[PIN_PWMLY] = 0;
 
 	PIO_WF_PWM->SET(WF_PWM);
 	PIO_POL->CLR(POLWML|POLWMH);
 
 	PWMTCC->CTRLA = PWM_PRESC_DIV;
 	PWMTCC->WAVE = TCC_WAVEGEN_NPWM;//|TCC_SWAP0;
-	PWMTCC->DRVCTRL = TCC_NRE0|TCC_NRE1|TCC_NRE2|TCC_NRE3|TCC_NRE4|TCC_NRE5|TCC_NRV0|TCC_NRV1|TCC_NRV3|TCC_INVEN3|TCC_INVEN0|TCC_INVEN1|TCC_INVEN4|TCC_INVEN5;
-	PWMTCC->WEXCTRL = TCC_OTMX(2)|TCC_DTIEN0|TCC_DTIEN1|TCC_DTLS(1)|TCC_DTHS(1); //0x01010F02;
+	PWMTCC->DRVCTRL = TCC_NRE0|TCC_NRE1|TCC_NRE2|TCC_NRE3|TCC_NRE4|TCC_NRE5|/*TCC_NRV0|TCC_NRV1|*/TCC_NRV3|TCC_INVEN3|TCC_INVEN0|TCC_INVEN1/*|TCC_INVEN4|TCC_INVEN5*/;
+	PWMTCC->WEXCTRL = TCC_OTMX(2);//|TCC_DTIEN0|TCC_DTIEN1|TCC_DTLS(1)|TCC_DTHS(1); //0x01010F02;
 	PWMTCC->PER = US2PWM(pwmPeriodUS)-1;
 	PWMTCC->CCBUF[0] = US2PWM(pwmPeriodUS/2); 
-	PWMTCC->EVCTRL = TCC_OVFEO|TCC_TCEI0|TCC_EVACT0_RETRIGGER|TCC_TCEI1|TCC_EVACT1_STOP;
+
+	#ifdef TRM_SYNC_IRQ
+		PWMTCC->EVCTRL = TCC_OVFEO;//|TCC_TCEI0|TCC_EVACT0_RETRIGGER;//|TCC_TCEI1|TCC_EVACT1_STOP;
+	#else
+		PWMTCC->EVCTRL = TCC_OVFEO|TCC_TCEI0|TCC_EVACT0_RETRIGGER|TCC_TCEI1|TCC_EVACT1_STOP;
+	#endif
+
 	PWMTCC->INTENCLR = ~0;
 
+	VectorTableExt[PWM_IRQ] = TrmStartIRQ;
+	CM4::NVIC->CLR_PR(PWM_IRQ);
+	CM4::NVIC->SET_ER(PWM_IRQ);
+
+#ifndef TRM_SYNC_IRQ
 	HW::GCLK->PCHCTRL[EVENT_PWM_SYNC+GCLK_EVSYS0] = GCLK_GEN(GEN_MCK)|GCLK_CHEN;
+#endif
 	HW::GCLK->PCHCTRL[EVENT_PWM+GCLK_EVSYS0] = GCLK_GEN(GEN_MCK)|GCLK_CHEN;
 	HW::GCLK->PCHCTRL[EVENT_PWMCOUNT+GCLK_EVSYS0] = GCLK_GEN(GEN_MCK)|GCLK_CHEN;
 
 	HW::EIC->CTRLA = 0; while(HW::EIC->SYNCBUSY);
 
+#ifdef TRM_SYNC_IRQ
+	HW::EIC->EVCTRL &= ~(EIC_EXTINT0<<PWM_EXTINT);
+#else
 	HW::EIC->EVCTRL |= EIC_EXTINT0<<PWM_EXTINT;
+#endif
 	HW::EIC->SetConfig(PWM_EXTINT, 0, EIC_SENSE_FALL);
 	HW::EIC->INTENCLR = EIC_EXTINT0<<PWM_EXTINT;
 	HW::EIC->CTRLA = EIC_ENABLE;
 
-	HW::EVSYS->CH[EVENT_PWM_SYNC].CHANNEL = (EVGEN_EIC_EXTINT_0+PWM_EXTINT)|EVSYS_PATH_ASYNCHRONOUS;
+#ifdef TRM_SYNC_IRQ
+#else
+	HW::EVSYS->CH[EVENT_PWM_SYNC].CHANNEL	= (EVGEN_EIC_EXTINT_0+PWM_EXTINT)|EVSYS_PATH_ASYNCHRONOUS;
+	HW::EVSYS->CH[EVENT_PWM_SYNC].INTENCLR	= 2;
 	HW::EVSYS->USER[PWM_EVSYS0_USER] = EVENT_PWM_SYNC+1;
+#endif
+
 	HW::EVSYS->USER[PWM_EVSYS1_USER] = EVENT_PWMCOUNT+1;
 
 	HW::EVSYS->CH[EVENT_PWM].CHANNEL = PWM_EVENT_GEN|EVSYS_PATH_ASYNCHRONOUS;
@@ -735,7 +864,10 @@ static void Init_PWM()
 	PWMCOUNTTCC->CTRLBSET = TCC_ONESHOT;
 
 	HW::EVSYS->CH[EVENT_PWMCOUNT].CHANNEL = PWMCOUNT_EVENT_GEN|EVSYS_PATH_ASYNCHRONOUS;
+
+#ifndef TRM_SYNC_IRQ
 	HW::EVSYS->USER[PWMCOUNT1_EVSYS_USER] = EVENT_PWM_SYNC+1;
+#endif
 
 	VectorTableExt[PWMCOUNT_IRQ] = PwmCountIRQ;
 	CM4::NVIC->CLR_PR(PWMCOUNT_IRQ);
@@ -759,9 +891,15 @@ static void Init_PWM()
 
 static void Init_HV()
 {
-	static DSCI2C dsc;
-	static byte wbuf[4];
-	static TM32 tm;
+	DSCI2C dsc;
+	byte wbuf[4];
+	
+	TM32 tm;
+
+	PIO_FBHV->DIRCLR	 = FBHV;
+	PIO_FBHV->OUTCLR	 = FBHV;
+	PIO_FBHV->CTRL		|= FBHV;
+	PIO_FBHV->SetWRCONFIG(FBHV, PORT_WRPINCFG|PORT_PULLEN|PORT_INEN);
 
 	wbuf[0] = 3;	
 	wbuf[1] = 1;	
@@ -796,8 +934,8 @@ static void Init_HV()
 	tm.Reset();	while (!dsc.ready && !tm.Check(10)) I2C_Update();
 
 	wbuf[0] = 8;	
-	wbuf[1] = ~0;
-	wbuf[2] = ~0;
+	wbuf[1] = 0;
+	wbuf[2] = 0;
 
 	dsc.adr = 0x48;
 	dsc.wdata = wbuf;
@@ -810,6 +948,33 @@ static void Init_HV()
 	I2C_AddRequest(&dsc);
 
 	tm.Reset();	while (!dsc.ready && !tm.Check(10)) I2C_Update();
+
+	CTM32 ctm;
+
+	ctm.Reset();
+
+	while (!ctm.Check(US2CTM(50)));
+
+	dachvInverted = PIO_FBHV->IN & FBHV;
+
+	if (!dachvInverted)
+	{
+		wbuf[0] = 8;	
+		wbuf[1] = ~0;
+		wbuf[2] = ~0;
+
+		dsc.adr = 0x48;
+		dsc.wdata = wbuf;
+		dsc.wlen = 3;
+		dsc.rdata = 0;
+		dsc.rlen = 0;
+		dsc.wdata2 = 0;
+		dsc.wlen2 = 0;
+
+		I2C_AddRequest(&dsc);
+
+		tm.Reset();	while (!dsc.ready && !tm.Check(10)) I2C_Update();
+	};
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -986,7 +1151,7 @@ void InitHardware()
 
 	Init_time(MCK);
 	I2C_Init();
-	//Init_HV();
+	Init_HV();
 
 	RTT_Init();
 

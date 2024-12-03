@@ -52,6 +52,8 @@ extern void InitHardware();
 extern void UpdateHardware();
 extern u16 GetCurFireVoltage();
 
+inline bool DacHvInverted() { extern bool dachvInverted; return dachvInverted; }
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //__forceinline u32 Push_IRQ()

@@ -770,7 +770,7 @@ static void UpdateSport()
 
 							u16 max = 0;
 							u16 min = 65535;
-							u16 pow = 0;
+							u32 pow = 0;
 
 					for (u16 i = 0; i < unp.hdr.sl; i++)
 					{
