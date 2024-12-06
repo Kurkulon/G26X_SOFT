@@ -16,6 +16,8 @@
 
 #endif
 
+#define FDCT_BAND_DIV 2
+
 //#include "WAVEPACK\fdct_imp.h"
 #include "WAVEPACK\wavepack_imp.h"
 

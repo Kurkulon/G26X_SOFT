@@ -768,22 +768,25 @@ static void UpdateSport()
 					const	u16	*src	= rsp.data + dsc->sportLen*n;
 							u16	*dst	= unp.data + unp.hdr.sl*n;
 
-							u16 max = 0;
-							u16 min = 65535;
+							i32 max = 0;
+							i32 min = 65535;
 							u32 pow = 0;
 
 					for (u16 i = 0; i < unp.hdr.sl; i++)
 					{
-						u16 t = *src++;
+						i32 t = *src++;
 
-						max = __builtin_max(t, max);
-						min = __builtin_min(t, min);
-						pow += __builtin_abs((i16)(t - 0x8000));
+						t -= 0x8000;
+						
+						*dst++ = t;
 
-						*dst++ = t-0x8000;
+						max = Max32(t, max);
+						min = Min32(t, min);
+
+						pow += ABS(t);//__builtin_abs((i16)(t - 0x8000));
 					};
 
-					maxAmp[n]	= max - min;
+					maxAmp[n]	= Min32(ABS((max-min)/2), 32767); // - min;
 					power[n]	= (unp.hdr.sl > 0) ? (pow / unp.hdr.sl) : 0;
 				};
 
@@ -882,7 +885,7 @@ static void UpdateSport()
 				for (u16 i = 0; i < dsc->sportLen; i++)
 				{
 					*p1 = subsat16(*(p3++)-0x8000, *p1-0x8000); p1++;	
-					*p2 = subsat16(*(p4++)-0x8000, *p2-0x8000); p2++;
+					*p2 = subsat16(*p2-0x8000, *(p4++)-0x8000); p2++;
 				};
 
 			};
