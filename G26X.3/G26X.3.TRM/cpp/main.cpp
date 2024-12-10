@@ -808,9 +808,18 @@ static void UpdateHV()
 					};
 				};
 
-				dstFV += (i16)reqFireVoltage - (dstFV+4)/8;
+				if (reqFireVoltage > dstFV)
+				{
+					dstFV += 2;
+				}
+				else if (reqFireVoltage < dstFV)
+				{
+					dstFV = reqFireVoltage;
+				};
 
-				t = (dstFV+4)/8;
+				//dstFV += (i16)reqFireVoltage - (dstFV+16)/32;
+
+				t = dstFV;//(dstFV+16)/32;
 
 				u32 k = (0x1E00 + correction) >> 3;
 
