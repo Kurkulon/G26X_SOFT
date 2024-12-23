@@ -3957,38 +3957,38 @@ static void InitMainVars()
 	mv.numDevice			= 11111;
 	mv.numMemDevice			= 11111;
 
-	mv.trans[0].gain		= 0;
+	mv.trans[0].gain		= 128;
 	mv.trans[0].st 			= 5;	
 	mv.trans[0].sl 			= 512;	
 	mv.trans[0].sd 			= 200;	
 	mv.trans[0].freq		= 16000;
 	mv.trans[0].duty		= 50;
-	mv.trans[0].amp			= 1200;
+	mv.trans[0].amp			= 3000;
 	mv.trans[0].pulseCount	= 1;
-	mv.trans[0].packType	= 0;
-	mv.trans[0].math		= 0;
+	mv.trans[0].packType	= 7;	// PACK_DCT3
+	mv.trans[0].math		= 1;
 
-	mv.trans[1].gain		= 1;
+	mv.trans[1].gain		= 128;
 	mv.trans[1].st 			= 10;	
 	mv.trans[1].sl 			= 512;	
 	mv.trans[1].sd 			= 200;	
-	mv.trans[1].freq		= 3000;
+	mv.trans[1].freq		= 1000;
 	mv.trans[1].duty		= 50;
-	mv.trans[1].amp			= 1200;
+	mv.trans[1].amp			= 3000;
 	mv.trans[1].pulseCount	= 1;
-	mv.trans[1].packType	= 0;
-	mv.trans[1].math		= 0;
+	mv.trans[1].packType	= 7;	// PACK_DCT3
+	mv.trans[1].math		= 1;
 
 	mv.trans[2].gain		= 128;
 	mv.trans[2].st 			= 10;	
 	mv.trans[2].sl 			= 512;	
 	mv.trans[2].sd 			= 500;	
-	mv.trans[2].freq		= 1000;
+	mv.trans[2].freq		= 3000;
 	mv.trans[2].duty		= 5000;
 	mv.trans[2].amp			= 1200;
-	mv.trans[2].pulseCount	= 1;
-	mv.trans[2].packType	= 0;
-	mv.trans[2].math		= 0;
+	mv.trans[2].pulseCount	= 2;
+	mv.trans[2].packType	= 7;	// PACK_DCT3
+	mv.trans[2].math		= 1;
 
 	mv.trmVoltage				= 800;
 	mv.disableFireNoVibration	= 0;
