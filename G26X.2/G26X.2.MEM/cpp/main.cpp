@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x100 };
+enum { VERSION = 0x101 };
 
 //#pragma O0
 //#pragma Otime
@@ -165,7 +165,7 @@ static byte indManVec72 = 0;
 static u16 manReqWord = RCV_MAN_REQ_WORD;
 static u16 manReqMask = RCV_MAN_REQ_MASK;
 
-static u16 memReqWord = 0x3B00;
+static u16 memReqWord = 0x3F00;
 static u16 memReqMask = 0xFF00;
 
 static u16 verDevice = VERSION;

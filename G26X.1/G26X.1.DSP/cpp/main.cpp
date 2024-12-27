@@ -12,7 +12,7 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 static void CheckFlash();
 
-enum { VERSION = 0x101 };
+enum { VERSION = 0x102 };
 
 static u16 numDevice = 0;
 static u16 numDevValid = 0;
@@ -270,7 +270,7 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	}
 	else
 	{
-		buf[0] = 0xAA30 + (n<<4) + req.adr-1;
+		buf[0] = (RCV_MAN_REQ_WORD|0X30) + (n<<4) + req.adr-1;
 		buf[1] = GetCRC16_CCIT_refl(buf, 2);
 
 		wb->data = buf;
@@ -374,7 +374,7 @@ static bool RequestFunc05(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	}
 	else
 	{
-		buf[0] = 0xAA30 + (n<<4) + req.adr-1;
+		buf[0] = (RCV_MAN_REQ_WORD|0X30) + (n<<4) + req.adr-1;
 		buf[1] = GetCRC16_CCIT_refl(buf, 2);
 
 		wb->data = buf;
@@ -748,7 +748,7 @@ static void UpdateSport()
 				RspRcv02 &rsp = dsc->r02;
 				RspRcv02 &unp = dscunp->r02;
 
-				rsp.hdr.rw			= 0xAA30 + (dsc->fireN<<4) + GetNetAdr()-1;
+				rsp.hdr.rw			= (RCV_MAN_REQ_WORD|0X30) + (dsc->fireN<<4) + GetNetAdr()-1;
 				unp.hdr.rw			= rsp.hdr.rw;
 				unp.hdr.cnt			= rsp.hdr.cnt;
 				unp.hdr.preAmp		= rsp.hdr.preAmp;
@@ -834,7 +834,7 @@ static void UpdateSport()
 
 			RspRcv02 &rsp = dsc->r02;
 
-			//rsp.hdr.rw			= 0xAA30 + (dsc->fireN<<4) + GetNetAdr()-1;
+			//rsp.hdr.rw			= (RCV_MAN_REQ_WORD|0X30) + (dsc->fireN<<4) + GetNetAdr()-1;
 
 			rsp.hdr.packLen1	= dsc->sportLen;
 
