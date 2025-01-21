@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x101 };
+enum { VERSION = 0x102 };
 
 //#pragma O0
 //#pragma Otime
@@ -380,6 +380,8 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 		if (q->rb.len < sizeof(rsp.hdr) || (rsp.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
 		{
+			SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "\nRcvReq02 RW:0x%04X rb.len = %-6u rsp.hdr Error ", rsp.hdr.rw, q->rb.len);
+
 			q->crcOK = false;
 			q->rsp->len = 0;
 			//lenErr02[a]++;
@@ -395,12 +397,16 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 	}
 	else if (q->rb.recieved)
 	{
+		SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "\nRcvReq02 RW:0x%04X rb.len = %-6u CRC Error ", rsp.hdr.rw, q->rb.len);
+
 		crcErrLen02 = q->rb.len;
 		crcErrRW02 = rsp.hdr.rw;
 		crcErr02++;
 	}
 	else
 	{
+		SEGGER_RTT_printf(0, RTT_CTRL_TEXT_WHITE "\nRcvReq02 Adr:%u Not Recieved ", a+1);
+
 		notRcv02++;
 	};
 
@@ -426,6 +432,8 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		}
 		else
 		{
+			SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_RED "\nRcvReq02 RW:0x%04X rb.len = %-6u Rejected ", rsp.hdr.rw, q->rb.len);
+
 			rcvStatus &= ~(1 << (a)); 
 			rcvErrors |= (1 << (a));
 
@@ -2893,7 +2901,7 @@ static void MainMode()
 
 		case 3: // —читывание вектора без сжати€ и без математики
 
-			req = CreateRcvReq02(rcv, fireType, 3);
+			req = CreateRcvReq02(rcv, fireType, 5);
 
 			if (req.Valid())
 			{
@@ -4559,7 +4567,7 @@ int main()
 
 	comTrm.Connect(ComPort::ASYNC, TRM_COM_BAUDRATE, TRM_COM_PARITY, TRM_COM_STOPBITS);
 
-	comRcv.Connect(ComPort::ASYNC, RCV_COM_BAUDRATE, RCV_COM_PARITY, 1);
+	comRcv.Connect(ComPort::ASYNC, RCV_COM_BAUDRATE, RCV_COM_PARITY, 2);
 
 	//__breakpoint(0);
 
@@ -4594,6 +4602,9 @@ int main()
 		if (tm.Check(1000))
 		{ 
 			fps = fc; fc = 0; 
+
+			if ((fps & 3) == 0) SEGGER_RTT_printf(0, RTT_CTRL_TEXT_WHITE "%u\n", fps);
+
 
 #ifdef WIN32
 

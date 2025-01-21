@@ -12,7 +12,7 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 static void CheckFlash();
 
-enum { VERSION = 0x102 };
+enum { VERSION = 0x103 };
 
 static u16 numDevice = 0;
 static u16 numDevValid = 0;
@@ -1120,7 +1120,7 @@ void main( void )
 
 	WavePack_Init();
 
-	com.Connect(RCV_COM_BAUDRATE, RCV_COM_PARITY);
+	com.Connect(ComPort::ASYNC, RCV_COM_BAUDRATE, RCV_COM_PARITY, 2);
 
 	LoadParams();
 
