@@ -380,7 +380,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 		if (q->rb.len < sizeof(rsp.hdr) || (rsp.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
 		{
-			SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "\nRcvReq02 RW:0x%04X rb.len = %-6u rsp.hdr Error ", rsp.hdr.rw, q->rb.len);
+			//SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "\nRcvReq02 RW:0x%04X rb.len = %-6u rsp.hdr Error ", rsp.hdr.rw, q->rb.len);
 
 			q->crcOK = false;
 			q->rsp->len = 0;
@@ -397,7 +397,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 	}
 	else if (q->rb.recieved)
 	{
-		SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "\nRcvReq02 RW:0x%04X rb.len = %-6u CRC Error ", rsp.hdr.rw, q->rb.len);
+		//SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "\nRcvReq02 RW:0x%04X rb.len = %-6u CRC Error ", rsp.hdr.rw, q->rb.len);
 
 		crcErrLen02 = q->rb.len;
 		crcErrRW02 = rsp.hdr.rw;
@@ -405,7 +405,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 	}
 	else
 	{
-		SEGGER_RTT_printf(0, RTT_CTRL_TEXT_WHITE "\nRcvReq02 Adr:%u Not Recieved ", a+1);
+		//SEGGER_RTT_printf(0, RTT_CTRL_TEXT_WHITE "\nRcvReq02 Adr:%u Not Recieved ", a+1);
 
 		notRcv02++;
 	};
@@ -432,7 +432,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		}
 		else
 		{
-			SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_RED "\nRcvReq02 RW:0x%04X rb.len = %-6u Rejected ", rsp.hdr.rw, q->rb.len);
+			//SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_RED "\nRcvReq02 RW:0x%04X rb.len = %-6u Rejected ", rsp.hdr.rw, q->rb.len);
 
 			rcvStatus &= ~(1 << (a)); 
 			rcvErrors |= (1 << (a));
@@ -4603,7 +4603,7 @@ int main()
 		{ 
 			fps = fc; fc = 0; 
 
-			if ((fps & 3) == 0) SEGGER_RTT_printf(0, RTT_CTRL_TEXT_WHITE "%u\n", fps);
+			//if ((fps & 3) == 0) SEGGER_RTT_printf(0, RTT_CTRL_TEXT_WHITE "%u\n", fps);
 
 
 #ifdef WIN32
