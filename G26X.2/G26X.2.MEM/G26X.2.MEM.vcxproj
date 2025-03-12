@@ -56,6 +56,14 @@
     <NMakeOutput>$(OutDir)G26X.2.MEM.axf</NMakeOutput>
     <NMakePreprocessorDefinitions>_DEBUG;__softfp=;CPU_SAME53;__CC_ARM;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;</NMakeIncludeSearchPath>
+    <ExecutablePath />
+    <IncludePath />
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SAME53_Release|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
@@ -66,6 +74,14 @@
     <NMakeOutput>$(OutDir)G26X.2.MEM.axf</NMakeOutput>
     <NMakePreprocessorDefinitions>__softfp=;CPU_SAME53;__CC_ARM;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;</NMakeIncludeSearchPath>
+    <ExecutablePath />
+    <IncludePath />
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win32_Debug|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
@@ -76,6 +92,14 @@
     <NMakeOutput>$(OutDir)G26X.2.MEM.exe</NMakeOutput>
     <NMakePreprocessorDefinitions>_DEBUG;__softfp=;WIN32;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS\cpp;$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <ExecutablePath />
+    <IncludePath />
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
   </PropertyGroup>
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>

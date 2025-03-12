@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x102 };
+enum { VERSION = 0x103 };
 
 //#pragma O0
 //#pragma Otime
@@ -2856,7 +2856,7 @@ static void MainMode()
 				{
 					qRcv.Add(req);
 
-					if (cmdRcvSaveParams) saveRcvParams = 1;
+					if (cmdRcvSaveParams) saveRcvParams = 1, cmdRcvSaveParams = false;
 
 					mainModeState++;
 				};
@@ -3014,7 +3014,6 @@ static void MainMode()
 				}
 				else
 				{
-					cmdRcvSaveParams = false;
 					saveRcvParams = 0;
 
 					mainModeState++;
