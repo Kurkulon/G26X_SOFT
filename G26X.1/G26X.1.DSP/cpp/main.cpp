@@ -575,7 +575,7 @@ static bool RequestBoot(ReqAT25 *r, ComPort::WriteBuffer *wb)
 	u16 t = req.F0.rw;
 	u16 adr = GetNetAdr();
 
-	bool cm = (t & bootReqWord) == bootReqWord;
+	bool cm = (t & bootReqMask) == bootReqWord;
 	bool ca = req.F0.adr == adr || req.F0.adr == 0;
 
 	if (!ca || !cm || r->len < 2)
