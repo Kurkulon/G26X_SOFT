@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x103 };
+enum { VERSION = 0x104 };
 
 //#pragma O0
 //#pragma Otime
@@ -109,6 +109,7 @@ static byte numStations = 8;
 
 static u16  resistValue = 0;
 static u16  trmVoltage = 0;
+static u16  trmVoltageLast = 0;
 static u16  trmTemp = 0;
 static u16  trmCount = 0;
 static byte transIndex[RCV_FIRE_NUM] = {0, 1, 2, 2};
@@ -1888,7 +1889,7 @@ static u32 InitRspMan_20(u16 rw, __packed u16 *data)
 	*(data++) = min;				 			//14. Минимальное значение температуры в приёмниках (short)(0.1гр)
 	*(data++) = max;				 			//15. Максимальное значение температуры в приёмниках (short)(0.1гр)
 	*(data++) = vibration;			 			//16. Вибрация (у.е)(ushort)
-	*(data++) = trmVoltage;			 			//17. напряжение излучателя (1 Вольт)
+	*(data++) = trmVoltageLast;			 		//17. напряжение излучателя (1 Вольт)
 	*(data++) = trmTemp;			 			//18. Температура излучателя (short)(0.1гр)
 	*(data++) = trmCount;			 			//19. Счётчик запросов излучателя
 	*(data++) = GetRcvManQuality();	 			//20. Качество сигнала запроса телеметрии (%)
@@ -2735,6 +2736,8 @@ static void UpdateRcvTrm()
  
 			if (qRcv.Stoped() && qTrm.Stoped())
 			{
+				trmVoltageLast = trmVoltage;
+
 				ctm.Reset();
 				i++;
 			};
@@ -2871,6 +2874,10 @@ static void MainMode()
 
 					cmdRcvSaveParams = false;
 				};
+			}
+			else
+			{
+				trmVoltageLast = trmVoltage;	
 			};
 
 			break;
