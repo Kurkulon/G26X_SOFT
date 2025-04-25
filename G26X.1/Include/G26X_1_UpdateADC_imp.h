@@ -7,12 +7,13 @@
 
 u16 netResist = 0;
 u16 fltResist = 0;
+u16 netAdr = 0;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 u16 GetNetAdr()
 {
-	return 1 + netResist/1024;
+	return netAdr; //1 + netResist/1024;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -26,6 +27,7 @@ void UpdateADC()
 	static byte adr = 0x28;
 	static CTM32 tm;
 	static u32 filtFV = ~0;
+	static u16 count = 10000;
 
 	switch (i)
 	{
@@ -77,6 +79,8 @@ void UpdateADC()
 
 							fltResist = (filtFV * 941 + 2048) / 4096; //51869
 							netResist = (res * 941 + 128) / 256; 
+
+							if (count != 0) netAdr = 1 + netResist/1024, count--;
 						};
 					};
 				}
