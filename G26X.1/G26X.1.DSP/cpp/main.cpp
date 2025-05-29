@@ -12,10 +12,11 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 static void CheckFlash();
 
-enum { VERSION = 0x105 };
+enum { VERSION = 0x106 };
 
 static u16 numDevice = 0;
 static u16 numDevValid = 0;
+static u16 adrDevice = 0;
 //static u16 temp = 0;
 static u16 flashStatus = 0;
 
@@ -415,7 +416,7 @@ static bool RequestFunc(const ComPort::ReadBuffer *rb, ComPort::WriteBuffer *wb)
 
 		if (func < ArraySize(fl) && len == fl[func] && len < rlen && GetCRC16(p+1, len) == 0)
 		{
-			if (adr != 0 && adr != GetNetAdr()) return false;
+			if (adr != 0 && adr != adrDevice) return false;
 
 			result = listReq[func](p, len+1, wb);
 
@@ -573,7 +574,7 @@ static bool RequestBoot(ReqAT25 *r, ComPort::WriteBuffer *wb)
 	BootReqV1 &req = *((BootReqV1*)(r->GetDataPtr()));
 
 	u16 t = req.F0.rw;
-	u16 adr = GetNetAdr();
+	u16 adr = adrDevice;
 
 	bool cm = (t & bootReqMask) == bootReqWord;
 	bool ca = req.F0.adr == adr || req.F0.adr == 0;
@@ -748,7 +749,7 @@ static void UpdateSport()
 				RspRcv02 &rsp = dsc->r02;
 				RspRcv02 &unp = dscunp->r02;
 
-				rsp.hdr.rw			= (RCV_MAN_REQ_WORD|0X30) + (dsc->fireN<<4) + GetNetAdr()-1;
+				rsp.hdr.rw			= (RCV_MAN_REQ_WORD|0X30) + (dsc->fireN<<4) + adrDevice-1;
 				unp.hdr.rw			= rsp.hdr.rw;
 				unp.hdr.cnt			= rsp.hdr.cnt;
 				unp.hdr.preAmp		= rsp.hdr.preAmp;
@@ -971,6 +972,11 @@ static void UpdateSaveParams()
 				cmdSaveParams = false;
 			};
 
+			if (numDevValid == 0 || numDevice == 0)
+			{
+				adrDevice = GetNetAdr();
+			};
+
 			if (cmdSaveParams)
 			{
 				adr = 0x30000-FLASH_START_ADR;
@@ -988,12 +994,13 @@ static void UpdateSaveParams()
 			{
 				req->dataOffset = 0;
 				req->stAdr = adr;
-				req->len = 4;
+				req->len = 6;
 
 				u16 *p = (u16*)req->data;
 
 				p[0] = numDevice;
-				p[1] = GetCRC16(p, 2);
+				p[1] = adrDevice;
+				p[2] = GetCRC16(p, 4);
 
 				FlashWriteReq(req);
 
@@ -1022,7 +1029,7 @@ static void LoadParams()
 {
 	u32 adr = 0x30000;
 
-	static u16 aaa[2];
+	static u16 aaa[3];
 
 	numDevice = 0;
 	numDevValid = 0;
@@ -1036,6 +1043,7 @@ static void LoadParams()
 		if (GetCRC16(aaa, sizeof(aaa)) == 0)
 		{
 			numDevice = aaa[0];
+			adrDevice = aaa[1];
 			numDevValid = true;
 			break;
 		};
