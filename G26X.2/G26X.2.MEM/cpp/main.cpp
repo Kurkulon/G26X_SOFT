@@ -96,7 +96,7 @@ static MainVars mv;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static bool runMainMode = true;
+static bool runMainMode = false;
 static bool startFire = false;
 static u32  fireCounter = 0;
 static u32  manCounter = 0;
