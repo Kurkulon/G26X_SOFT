@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x105 };
+enum { VERSION = 0x106 };
 
 //#pragma O0
 //#pragma Otime
@@ -88,6 +88,10 @@ __packed struct MainVars // NonVolatileVars
 	u16 levelNoVibration;
 	u16 firePeriod;
 	u16 lfMnplEnabled;
+
+#ifdef RCV_AUTO_GAIN
+	u16 autoGain;
+#endif
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -158,6 +162,10 @@ static Ptr<MB> curManVec60;
 
 static RspMan71 rspMan71[RCV_FIRE_NUM];
 static byte curRcv[RCV_FIRE_NUM] = { 0 };
+
+#ifdef RCV_AUTO_GAIN
+	static AutoGain autoGain[TRANSMITER_NUM] = { 0 };
+#endif
 
 static Ptr<MB> manVec72[2];
 static Ptr<MB> curManVec72;
@@ -335,7 +343,19 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
 	req.r[2].n			= req.r[1].n			= req.r[0].n			= n;
 	req.r[2].next_n		= req.r[1].next_n		= req.r[0].next_n		= next_n;
+
+#ifdef RCV_AUTO_GAIN
+
+	if (mv.autoGain)
+	{
+		req.r[2].next_gain	= req.r[1].next_gain = req.r[0].next_gain = autoGain[transIndex[next_n]].gain;
+	}
+	else
+
+#endif	
+
 	req.r[2].next_gain	= req.r[1].next_gain	= req.r[0].next_gain	= mv.trans[transIndex[next_n]].gain;
+
 	req.r[2].st 		= req.r[1].st 			= req.r[0].st 			= trans.st;
 	req.r[2].sl 		= req.r[1].sl 			= req.r[0].sl 			= trans.sl;
 	req.r[2].sd 		= req.r[1].sd 			= req.r[0].sd 			= trans.sd;
@@ -735,7 +755,17 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	{
 		byte n = transIndex[i];
 
-		req.r[1].gain[i] = req.r[0].gain[i] = mv.trans[n].gain;
+		#ifdef RCV_AUTO_GAIN
+
+			if (mv.autoGain)
+			{
+				req.r[1].gain[i] = req.r[0].gain[i] = autoGain[n].gain;
+			}
+			else
+
+		#endif	
+				
+				req.r[1].gain[i] = req.r[0].gain[i] = mv.trans[n].gain;
 	};
 
 #else
@@ -802,6 +832,17 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 				rspMan71[fireType].power[i + 1] = rsp.power[1];
 				rspMan71[fireType].power[i + 2] = rsp.power[2];
 				rspMan71[fireType].power[i + 3] = rsp.power[3];
+
+				#ifdef RCV_AUTO_GAIN
+
+					byte n = transIndex[fireType];
+
+					if (rsp.maxAmp[0] > autoGain[n].maxAmp) autoGain[n].maxAmp = rsp.maxAmp[0];
+					if (rsp.maxAmp[1] > autoGain[n].maxAmp) autoGain[n].maxAmp = rsp.maxAmp[1];
+					if (rsp.maxAmp[2] > autoGain[n].maxAmp) autoGain[n].maxAmp = rsp.maxAmp[2];
+					if (rsp.maxAmp[3] > autoGain[n].maxAmp) autoGain[n].maxAmp = rsp.maxAmp[3];
+
+				#endif		
 			};
 
 		#else
@@ -1821,7 +1862,8 @@ static u32 InitRspMan_10(__packed u16 *data)
 	*(data++)  	= mv.disableFireNoVibration;			//31. Отключение регистрации на стоянке(0 - нет, 1 - да)
 	*(data++)  	= mv.levelNoVibration;					//32. Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
 	*(data++)  	= mv.firePeriod;						//33. Период опроса(мс)(ushort)
-	
+	*(data++)  	= mv.autoGain;							//34. Автоматическое усиление (0 - выкл, 1 - вкл)
+
 	return data - start;
 }
 
@@ -2193,33 +2235,37 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 		case 0x22:	mv.trans[2].duty			= MIN(data[2],			6000			);	break;	//	0x22 - Диполь. Скважность импульсов излучателя (0..60 шаг 0.01%)
 																									
 		case 0x30:	mv.trans[0].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x30 - Монополь1. Предусилитель(0..1)
-		case 0x31:	mv.trans[0].SetGain(		  MIN(data[2],			7				));	break;	//	0x31 - Монополь1. Предусилитель(0..1)
-		case 0x32:	mv.trans[0].st				= LIM(data[2],	2,		50				);	break;	//	0x31 - Монополь1. Шаг оцифровки (2..50)
-		case 0x33:	mv.trans[0].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x32 - Монополь1. Длина оцифровки (16..1024)
-		case 0x34:	mv.trans[0].sd				= MIN(data[2],			1024			);	break;	//	0x33 - Монополь1. Задержка оцифровки 
-		case 0x35:	mv.trans[0].packType		= MIN(data[2],			7				);	break;	//	0x34 - Монополь1. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-		case 0x36:	mv.trans[0].math			= data[2];									break;	//	0x35 - Монополь1. Математика (0 - нет, 1 - Среднее по каналам) 
+		case 0x31:	mv.trans[0].SetGain(		  MIN(data[2],			7				));	break;	//	0x31 - Монополь1. КУ[0..7]-(1,2,4,8,16,32,64,128)
+		case 0x32:	mv.trans[0].st				= LIM(data[2],	2,		50				);	break;	//	0x32 - Монополь1. Шаг оцифровки (2..50)
+		case 0x33:	mv.trans[0].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x33 - Монополь1. Длина оцифровки (16..1024)
+		case 0x34:	mv.trans[0].sd				= MIN(data[2],			1024			);	break;	//	0x34 - Монополь1. Задержка оцифровки 
+		case 0x35:	mv.trans[0].packType		= MIN(data[2],			7				);	break;	//	0x35 - Монополь1. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+		case 0x36:	mv.trans[0].math			= data[2];									break;	//	0x36 - Монополь1. Математика (0 - нет, 1 - Среднее по каналам) 
 																									
-		case 0x40:	mv.trans[1].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x30 - Монополь1. Предусилитель(0..1)
-		case 0x41:	mv.trans[1].SetGain(		  MIN(data[2],			7				));	break;	//	0x31 - Монополь1. Предусилитель(0..1)
-		case 0x42:	mv.trans[1].st				= LIM(data[2],	2,		50				);	break;	//	0x41 - Монополь2. Шаг оцифровки (2..50)
-		case 0x43:	mv.trans[1].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x42 - Монополь2. Длина оцифровки (16..1024)
-		case 0x44:	mv.trans[1].sd				= MIN(data[2],			1024			);	break;	//	0x43 - Монополь2. Задержка оцифровки 
-		case 0x45:	mv.trans[1].packType		= MIN(data[2],			7				);	break;	//	0x44 - Монополь2. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-		case 0x46:	mv.trans[1].math			= data[2];									break;	//	0x45 - Монополь2. Математика (0 - нет, 1 - Среднее по каналам) 
+		case 0x40:	mv.trans[1].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x40 - Монополь1. Предусилитель(0..1)
+		case 0x41:	mv.trans[0].SetGain(		  MIN(data[2],			7				));	break;	//	0x41 - Монополь1. КУ[0..7]-(1,2,4,8,16,32,64,128)
+		case 0x42:	mv.trans[1].st				= LIM(data[2],	2,		50				);	break;	//	0x42 - Монополь2. Шаг оцифровки (2..50)
+		case 0x43:	mv.trans[1].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x43 - Монополь2. Длина оцифровки (16..1024)
+		case 0x44:	mv.trans[1].sd				= MIN(data[2],			1024			);	break;	//	0x44 - Монополь2. Задержка оцифровки 
+		case 0x45:	mv.trans[1].packType		= MIN(data[2],			7				);	break;	//	0x45 - Монополь2. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+		case 0x46:	mv.trans[1].math			= data[2];									break;	//	0x46 - Монополь2. Математика (0 - нет, 1 - Среднее по каналам) 
 																									
-		case 0x50:	mv.trans[2].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x30 - Монополь1. Предусилитель(0..1)
-		case 0x51:	mv.trans[2].SetGain(		  MIN(data[2],			7				));	break;	//	0x31 - Монополь1. Предусилитель(0..1)
-		case 0x52:	mv.trans[2].st				= LIM(data[2],	2,		50				);	break;	//	0x51 - Диполь. Шаг оцифровки (2..50)
-		case 0x53:	mv.trans[2].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x52 - Диполь. Длина оцифровки (16..1024)
-		case 0x54:	mv.trans[2].sd				= MIN(data[2],			1024			);	break;	//	0x53 - Диполь. Задержка оцифровки 
-		case 0x55:	mv.trans[2].packType		= MIN(data[2],			7				);	break;	//	0x54 - Диполь. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
-		case 0x56:	mv.trans[2].math			= data[2];									break;	//	0x55 - Диполь. Математика (0 - нет, 2 - Разница 1-3 2-4) 
+		case 0x50:	mv.trans[2].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x50 - Диполь. Предусилитель(0..1)
+		case 0x51:	mv.trans[0].SetGain(		  MIN(data[2],			7				));	break;	//	0x51 - Диполь. КУ[0..8]-(1,2,4,8,16,32,64,128,Авто)
+		case 0x52:	mv.trans[2].st				= LIM(data[2],	2,		50				);	break;	//	0x52 - Диполь. Шаг оцифровки (2..50)
+		case 0x53:	mv.trans[2].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x53 - Диполь. Длина оцифровки (16..1024)
+		case 0x54:	mv.trans[2].sd				= MIN(data[2],			1024			);	break;	//	0x54 - Диполь. Задержка оцифровки 
+		case 0x55:	mv.trans[2].packType		= MIN(data[2],			7				);	break;	//	0x55 - Диполь. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
+		case 0x56:	mv.trans[2].math			= data[2];									break;	//	0x56 - Диполь. Математика (0 - нет, 2 - Разница 1-3 2-4) 
 																									
 		case 0x60:	mv.trmVoltage				= MIN(data[2],			950				);	break;	//	0x60 - Напряжение излучателя (0...950 вольт)
 		case 0x61:	mv.disableFireNoVibration	= data[2];									break;	//	0x61 - Отключение регистрации на стоянке(0 - нет, 1 - да)
 		case 0x62:	mv.levelNoVibration			= data[2];									break;	//	0x62 - Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
-		case 0x63:	mv.firePeriod				= MAX(data[2],			300);				break;	//	0x63 - Период опроса(мс)(ushort)
+		case 0x63:	mv.firePeriod				= MAX(data[2],			300				);	break;	//	0x63 - Период опроса(мс)(ushort)
+
+#ifdef RCV_AUTO_GAIN
+		case 0x70:	mv.autoGain					= MIN(data[2],			1				);	break;	//	0x70 - Автоматическое усиление (0 - выкл, 1 - вкл)
+#endif
 
 		default:	return false;
 	};
@@ -3031,6 +3077,26 @@ static void MainMode()
 
 		case 8:
 		{
+			#ifdef RCV_AUTO_GAIN
+
+			if (fireType != 2) // DipoleX
+			{
+				byte n = transIndex[fireType];
+
+				if (autoGain[n].maxAmp > RCV_AUTO_GAIN_HI_AMP)
+				{
+					autoGain[n].Dec();
+				}
+				else if (autoGain[fireType].maxAmp < RCV_AUTO_GAIN_LO_AMP)
+				{
+					autoGain[n].Inc();
+				};
+
+				autoGain[n].maxAmp = 0;
+			};
+
+			#endif
+
 			byte pft = fireType;
 
 			fireType = nextFireType; 
@@ -4010,6 +4076,10 @@ static void InitMainVars()
 	mv.firePeriod				= 1000;
 	mv.lfMnplEnabled			= 0;
 
+#ifdef RCV_AUTO_GAIN
+	mv.autoGain					= 1;
+#endif
+
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_CYAN "Init Main Vars Vars ... OK\n");
 }
 
@@ -4110,6 +4180,15 @@ static void LoadVars()
 
 		svCount = 2;
 	};
+
+#ifdef RCV_AUTO_GAIN
+
+	for (u16 i = 0; i < RCV_FIRE_NUM; i++)
+	{
+		autoGain[transIndex[i]].gain = mv.trans[transIndex[i]].gain;
+	};
+
+#endif
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -20,6 +20,10 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+#define RCV_AUTO_GAIN
+#define RCV_AUTO_GAIN_LO_AMP	8192
+#define RCV_AUTO_GAIN_HI_AMP	24576
+
 #define RCV_MAX_NUM_STATIONS	13
 
 #ifndef RCV_8AD
@@ -352,13 +356,62 @@ __packed struct Transmiter
 	u16 packType;
 	u16 math;
 
-	u16 GetGain() { return gain&7; }
-	void SetGain(u16 v) { gain = (gain & ~7)|(v&7); }
-	u16 GetPreAmp() { return gain>>7; }
-	void SetPreAmp(u16 v) { gain = (gain & ~(1<<7))|(v<<7); }
+	u16 GetGain()				{ return gain&7; }
+	void SetGain(u16 v)			{ gain = (gain & ~7)|(v&7); }
+	u16 GetPreAmp()				{ return gain>>7; }
+	void SetPreAmp(u16 v)		{ gain = (gain & ~(1<<7))|(v<<7); }
+
+//#ifdef RCV_AUTO_GAIN
+//	bool GetAutoGain()			{ return gain&8; }
+//	void SetAutoGain(bool v)	{ gain = (v) ? (gain|8) : (gain & ~8); }
+//#endif
+
 };
 	
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#ifdef RCV_AUTO_GAIN
+
+struct AutoGain
+{
+	u16 gain;
+	u16 maxAmp;
+
+	u16 GetGain()			{ return gain&7; }
+	void SetGain(u16 v)		{ gain = (gain & ~7)|(v&7); }
+	u16 GetPreAmp()			{ return gain>>7; }
+	void SetPreAmp(u16 v)	{ gain = (gain & ~(1<<7))|(v<<7); }
+
+	void Inc()
+	{ 
+		u16 g = GetGain();
+
+		if (GetPreAmp())
+		{
+			if (g != 7) SetGain(g+1);
+		}
+		else
+		{
+			if (g == 3) gain = 1<<7; else if (g != 7) SetGain(g+1);
+		};
+	}
+
+	void Dec()
+	{
+		u16 g = GetGain();
+
+		if (GetPreAmp())
+		{
+			if (g == 0) gain = 3; else SetGain(g-1);
+		}
+		else
+		{
+			if (g != 0) SetGain(g-1);
+		};
+	}
+};
+
+#endif
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
