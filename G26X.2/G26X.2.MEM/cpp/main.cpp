@@ -165,6 +165,8 @@ static byte curRcv[RCV_FIRE_NUM] = { 0 };
 
 #ifdef RCV_AUTO_GAIN
 	static AutoGain autoGain[TRANSMITER_NUM] = { 0 };
+	//static u16 bufMaxAmp[16] = { 0 };
+	//static u16 bufMaxAmpIndex = 0;
 #endif
 
 static Ptr<MB> manVec72[2];
@@ -835,12 +837,15 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 
 				#ifdef RCV_AUTO_GAIN
 
+				if (mv.autoGain)
+				{
 					byte n = transIndex[fireType];
 
 					if (rsp.maxAmp[0] > autoGain[n].maxAmp) autoGain[n].maxAmp = rsp.maxAmp[0];
 					if (rsp.maxAmp[1] > autoGain[n].maxAmp) autoGain[n].maxAmp = rsp.maxAmp[1];
 					if (rsp.maxAmp[2] > autoGain[n].maxAmp) autoGain[n].maxAmp = rsp.maxAmp[2];
 					if (rsp.maxAmp[3] > autoGain[n].maxAmp) autoGain[n].maxAmp = rsp.maxAmp[3];
+				};
 
 				#endif		
 			};
@@ -1862,7 +1867,9 @@ static u32 InitRspMan_10(__packed u16 *data)
 	*(data++)  	= mv.disableFireNoVibration;			//31. Отключение регистрации на стоянке(0 - нет, 1 - да)
 	*(data++)  	= mv.levelNoVibration;					//32. Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
 	*(data++)  	= mv.firePeriod;						//33. Период опроса(мс)(ushort)
+#ifdef RCV_AUTO_GAIN
 	*(data++)  	= mv.autoGain;							//34. Автоматическое усиление (0 - выкл, 1 - вкл)
+#endif
 
 	return data - start;
 }
@@ -2243,7 +2250,7 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 		case 0x36:	mv.trans[0].math			= data[2];									break;	//	0x36 - Монополь1. Математика (0 - нет, 1 - Среднее по каналам) 
 																									
 		case 0x40:	mv.trans[1].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x40 - Монополь1. Предусилитель(0..1)
-		case 0x41:	mv.trans[0].SetGain(		  MIN(data[2],			7				));	break;	//	0x41 - Монополь1. КУ[0..7]-(1,2,4,8,16,32,64,128)
+		case 0x41:	mv.trans[1].SetGain(		  MIN(data[2],			7				));	break;	//	0x41 - Монополь1. КУ[0..7]-(1,2,4,8,16,32,64,128)
 		case 0x42:	mv.trans[1].st				= LIM(data[2],	2,		50				);	break;	//	0x42 - Монополь2. Шаг оцифровки (2..50)
 		case 0x43:	mv.trans[1].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x43 - Монополь2. Длина оцифровки (16..1024)
 		case 0x44:	mv.trans[1].sd				= MIN(data[2],			1024			);	break;	//	0x44 - Монополь2. Задержка оцифровки 
@@ -2251,7 +2258,7 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 		case 0x46:	mv.trans[1].math			= data[2];									break;	//	0x46 - Монополь2. Математика (0 - нет, 1 - Среднее по каналам) 
 																									
 		case 0x50:	mv.trans[2].SetPreAmp(		  MIN(data[2],			1				));	break;	//	0x50 - Диполь. Предусилитель(0..1)
-		case 0x51:	mv.trans[0].SetGain(		  MIN(data[2],			7				));	break;	//	0x51 - Диполь. КУ[0..8]-(1,2,4,8,16,32,64,128,Авто)
+		case 0x51:	mv.trans[2].SetGain(		  MIN(data[2],			7				));	break;	//	0x51 - Диполь. КУ[0..8]-(1,2,4,8,16,32,64,128,Авто)
 		case 0x52:	mv.trans[2].st				= LIM(data[2],	2,		50				);	break;	//	0x52 - Диполь. Шаг оцифровки (2..50)
 		case 0x53:	mv.trans[2].sl				= LIM(data[2],	16,		RCV_SAMPLE_LEN	);	break;	//	0x53 - Диполь. Длина оцифровки (16..1024)
 		case 0x54:	mv.trans[2].sd				= MIN(data[2],			1024			);	break;	//	0x54 - Диполь. Задержка оцифровки 
@@ -3079,15 +3086,17 @@ static void MainMode()
 		{
 			#ifdef RCV_AUTO_GAIN
 
-			if (fireType != 2) // DipoleX
+			if (mv.autoGain && fireType != 2) // DipoleX
 			{
 				byte n = transIndex[fireType];
+
+				//if (fireType > 1) bufMaxAmp[(bufMaxAmpIndex++)&15] = autoGain[n].maxAmp;
 
 				if (autoGain[n].maxAmp > RCV_AUTO_GAIN_HI_AMP)
 				{
 					autoGain[n].Dec();
 				}
-				else if (autoGain[fireType].maxAmp < RCV_AUTO_GAIN_LO_AMP)
+				else if (autoGain[n].maxAmp < RCV_AUTO_GAIN_LO_AMP)
 				{
 					autoGain[n].Inc();
 				};
@@ -4046,7 +4055,7 @@ static void InitMainVars()
 	mv.trans[0].amp			= 3000;
 	mv.trans[0].pulseCount	= 1;
 	mv.trans[0].packType	= 7;	// PACK_DCT3
-	mv.trans[0].math		= 1;
+	mv.trans[0].math		= 0;
 
 	mv.trans[1].gain		= 128;
 	mv.trans[1].st 			= 10;	
@@ -4057,7 +4066,7 @@ static void InitMainVars()
 	mv.trans[1].amp			= 3000;
 	mv.trans[1].pulseCount	= 1;
 	mv.trans[1].packType	= 7;	// PACK_DCT3
-	mv.trans[1].math		= 1;
+	mv.trans[1].math		= 0;
 
 	mv.trans[2].gain		= 128;
 	mv.trans[2].st 			= 10;	
@@ -4068,7 +4077,7 @@ static void InitMainVars()
 	mv.trans[2].amp			= 1200;
 	mv.trans[2].pulseCount	= 2;
 	mv.trans[2].packType	= 7;	// PACK_DCT3
-	mv.trans[2].math		= 1;
+	mv.trans[2].math		= 0;
 
 	mv.trmVoltage				= 800;
 	mv.disableFireNoVibration	= 0;
@@ -4077,7 +4086,7 @@ static void InitMainVars()
 	mv.lfMnplEnabled			= 0;
 
 #ifdef RCV_AUTO_GAIN
-	mv.autoGain					= 1;
+	mv.autoGain					= 0;
 #endif
 
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_CYAN "Init Main Vars Vars ... OK\n");
