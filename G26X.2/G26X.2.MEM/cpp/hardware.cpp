@@ -26,7 +26,7 @@
 #endif
 #define	NUM_SMALL_BUF	32       
 #define	NUM_MEDIUM_BUF	16
-#define	NUM_HUGE_BUF	8
+#define	NUM_HUGE_BUF	11
 
 #include <MEM\mem_imp.h>
 
@@ -53,27 +53,6 @@ static u16 crc_ccit_result = 0;
 
 #endif 
 
-#define GEAR_RATIO 12.25
-
-//const u16 pulsesPerHeadRoundFix4 = GEAR_RATIO * 6 * 16;
-
-//const u16 testNandChipMask = 0xFFFF;
-
-static volatile u32 shaftCounter = 0;
-static volatile u32 shaftPrevTime = 0;
-static volatile u32 shaftCount = 0;
-static volatile u32 shaftTime = 0;
-u16 shaftRPS = 0;
-volatile u16 curShaftCounter = 0;
-
-
-//static void I2C_Init();
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-//static void InitVectorTable();
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
