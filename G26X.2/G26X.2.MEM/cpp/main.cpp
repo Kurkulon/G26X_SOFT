@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x106 };
+enum { VERSION = 0x107 };
 
 //#pragma O0
 //#pragma Otime
@@ -154,6 +154,8 @@ static RequestQuery qTrm(&comTrm);
 static RequestQuery qRcv(&comRcv);
 
 static Ptr<MB> manVec30[RCV_FIRE_NUM];
+static Ptr<MB> manVecMnpl[2];
+static Ptr<MB> tmpVecMnpl[2];
 static Ptr<MB> curManVec30;
 static Ptr<MB> manVec60;
 static Ptr<MB> curManVec60;
@@ -162,6 +164,8 @@ static Ptr<MB> curManVec60;
 
 static RspMan71 rspMan71[RCV_FIRE_NUM];
 static byte curRcv[RCV_FIRE_NUM] = { 0 };
+static byte curRcvMnpl[2] = { 0 };
+static byte indRcvMnpl = 0;
 
 #ifdef RCV_AUTO_GAIN
 	static AutoGain autoGain[TRANSMITER_NUM] = { 0 };
@@ -971,9 +975,32 @@ static bool CallBackRcvReq05(Ptr<REQ> &q)
 
 			if ((rsp.hdr.rw & manReqMask) == manReqWord && n < RCV_FIRE_NUM && r < RCV_MAX_NUM_STATIONS)
 			{
-				if (curRcv[n] == (r+1)) 
+				bool c = false;
+
+				Ptr<MB> *manVec = 0;
+
+				if (n == 0) // Monopole HF
 				{
-					manVec30[n] = q->rsp;
+					for (byte i = 0; i < ArraySize(curRcvMnpl); i++)
+					{
+						if (curRcvMnpl[i] == (r+1))
+						{
+							manVec = &(tmpVecMnpl[i]);
+							c = true;
+							break;
+						};
+					};
+				}
+				else if (curRcv[n] == (r+1))
+				{
+					c = true;
+
+					manVec = &(manVec30[n]);
+				};
+
+				if (c) 
+				{
+					*manVec = q->rsp;
 				};
 			};
 
@@ -1992,7 +2019,34 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 	byte nf = ((req.rw >> 4) - 3) & 3;
 	byte nr = req.rw & 15;
 
-	curRcv[nf] = nr+1;
+	Ptr<MB> *manVec = 0;
+
+	if (nf == 0)
+	{
+		bool c = false;
+
+		for (byte i = 0; i < ArraySize(curRcvMnpl); i++)
+		{
+			if (curRcvMnpl[i] == (nr+1))
+			{
+				manVec = &(manVecMnpl[i]);
+				c = manVec->Valid();
+				break;
+			};
+		};
+
+		if (!c)
+		{
+			manVec = &(manVecMnpl[indRcvMnpl]);
+			curRcvMnpl[indRcvMnpl] = (nr+1);
+			indRcvMnpl = (indRcvMnpl+1) % ArraySize(curRcvMnpl);
+		};
+	}
+	else
+	{
+		manVec = &manVec30[nf];
+		curRcv[nf] = nr+1;
+	};
 
 	struct Rsp { u16 rw; };
 	static Rsp rsp; 
@@ -2014,13 +2068,13 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 	{
 		curManVec30.Free();
 
-		if (manVec30[nf].Valid())
+		if (manVec->Valid())
 		{
-			RspRcv02& rsp = *((RspRcv02*)manVec30[nf]->GetDataPtr());
+			RspRcv02& rsp = *((RspRcv02*)(*manVec)->GetDataPtr());
 
-			if (rsp.hdr.rw == req.rw) curManVec30 = manVec30[nf];
+			if (rsp.hdr.rw == req.rw) curManVec30 = *manVec;
 			
-			manVec30[nf].Free();
+			manVec->Free();
 		};
 
 		if (curManVec30.Valid())
@@ -3004,11 +3058,34 @@ static void MainMode()
 
 					if ((r02.hdr.rw & manReqMask) == manReqWord && n < RCV_FIRE_NUM && r < RCV_MAX_NUM_STATIONS)
 					{
-						if (curRcv[n] == (r+1)) 
+						bool c = false;
+
+						Ptr<MB> *manVec = 0;
+
+						if (n == 0) // Monopole HF
+						{
+							for (byte i = 0; i < ArraySize(curRcvMnpl); i++)
+							{
+								if (curRcvMnpl[i] == (r+1))
+								{
+									manVec = &(tmpVecMnpl[i]);
+									c = true;
+									break;
+								};
+							};
+						}
+						else if (curRcv[n] == (r+1))
+						{
+							c = true;
+
+							manVec = &(manVec30[n]);
+						};
+
+						if (c) 
 						{
 							if (mv.trans[transIndex[n]].packType == 0 && mv.trans[transIndex[n]].math == 0)
 							{
-								manVec30[n] = req->rsp;
+								*manVec = req->rsp;
 							}
 							else
 							{
@@ -3105,6 +3182,15 @@ static void MainMode()
 			};
 
 			#endif
+
+			if (fireType == 0)
+			{
+				if (!(manVecMnpl[0].Valid() || manVecMnpl[1].Valid()))
+				{
+					manVecMnpl[0] = tmpVecMnpl[0]; tmpVecMnpl[0].Free();
+					manVecMnpl[1] = tmpVecMnpl[1]; tmpVecMnpl[1].Free();
+				};
+			};
 
 			byte pft = fireType;
 
