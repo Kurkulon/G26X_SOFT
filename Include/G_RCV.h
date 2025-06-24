@@ -24,6 +24,8 @@
 #define RCV_AUTO_GAIN_LO_AMP	8192
 #define RCV_AUTO_GAIN_HI_AMP	24576
 
+#define RCV_MAN_VEC_TIMOUT		10000  //ms
+
 #define RCV_MAX_NUM_STATIONS	13
 
 #ifndef RCV_8AD

@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x107 };
+enum { VERSION = 0x108 };
 
 //#pragma O0
 //#pragma Otime
@@ -159,6 +159,7 @@ static Ptr<MB> tmpVecMnpl[2];
 static Ptr<MB> curManVec30;
 static Ptr<MB> manVec60;
 static Ptr<MB> curManVec60;
+static TM32 tmVecMnpl[2];
 
 //static ListPtr<MB> readyR01;
 
@@ -166,6 +167,7 @@ static RspMan71 rspMan71[RCV_FIRE_NUM];
 static byte curRcv[RCV_FIRE_NUM] = { 0 };
 static byte curRcvMnpl[2] = { 0 };
 static byte indRcvMnpl = 0;
+static TM32 curRcvTimer[RCV_FIRE_NUM];
 
 #ifdef RCV_AUTO_GAIN
 	static AutoGain autoGain[TRANSMITER_NUM] = { 0 };
@@ -2029,8 +2031,9 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 		{
 			if (curRcvMnpl[i] == (nr+1))
 			{
+				tmVecMnpl[i].Reset();
 				manVec = &(manVecMnpl[i]);
-				c = manVec->Valid();
+				c = true; //manVec->Valid();
 				break;
 			};
 		};
@@ -2046,6 +2049,7 @@ static bool RequestMan_30(u16 *data, u16 reqlen, MTB* mtb)
 	{
 		manVec = &manVec30[nf];
 		curRcv[nf] = nr+1;
+		curRcvTimer[nf].Reset();
 	};
 
 	struct Rsp { u16 rw; };
@@ -3190,7 +3194,11 @@ static void MainMode()
 					manVecMnpl[0] = tmpVecMnpl[0]; tmpVecMnpl[0].Free();
 					manVecMnpl[1] = tmpVecMnpl[1]; tmpVecMnpl[1].Free();
 				};
-			};
+
+				if (tmVecMnpl[0].Check(RCV_MAN_VEC_TIMOUT)) curRcvMnpl[0] = 0, manVecMnpl[0].Free(), tmpVecMnpl[0].Free();
+				if (tmVecMnpl[1].Check(RCV_MAN_VEC_TIMOUT)) curRcvMnpl[1] = 0, manVecMnpl[1].Free(), tmpVecMnpl[1].Free();
+			}
+			else if (curRcvTimer[fireType].Check(RCV_MAN_VEC_TIMOUT)) curRcv[fireType] = 0, manVec30[fireType].Free();
 
 			byte pft = fireType;
 
