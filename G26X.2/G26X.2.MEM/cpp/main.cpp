@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x108 };
+enum { VERSION = 0x109 };
 
 //#pragma O0
 //#pragma Otime
@@ -2293,7 +2293,7 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 		case 0x01:	mv.trans[0].amp				= MIN(data[2],			3000			);	break;	//	0x01 - Монополь1. Амплитуда излучателя (0..3000 вольт)
 																									
 		case 0x10:	mv.trans[1].freq			= LIM(data[2],	1000,	10000			);	break;	//	0x10 - Монополь2. Частота импульсов излучателя (10000..30000 шаг 1Гц)
-		case 0x11:	mv.trans[1].amp				= MIN(data[2],			3000			);	break;	//	0x11 - Монополь2. Амплитуда излучателя (0..3000 вольт)
+		case 0x11:	mv.trans[1].amp				= MIN(data[2],			2100			);	break;	//	0x11 - Монополь2. Амплитуда излучателя (0..3000 вольт)
 																									
 		case 0x20:	mv.trans[2].pulseCount		= LIM(data[2],	1,		5				);	break;	//	0x20 - Диполь. Количество импульсов (1..5)
 		case 0x21:	mv.trans[2].freq			= LIM(data[2],	500,	10000			);	break;	//	0x21 - Диполь. Частота импульсов излучателя (1000..10000 шаг 1Гц)
@@ -2323,7 +2323,7 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 		case 0x55:	mv.trans[2].packType		= MIN(data[2],			7				);	break;	//	0x55 - Диполь. Тип упаковки (0-нет, 1 - uLaw 12 бит, 2 - uLaw 16 бит, 3 - ADPCMIMA, 4 - ДКП Низкое, 5 - ДКП Среднее, 6 - ДКП Высокое, 7 - ДКП Максимальное)
 		case 0x56:	mv.trans[2].math			= data[2];									break;	//	0x56 - Диполь. Математика (0 - нет, 2 - Разница 1-3 2-4) 
 																									
-		case 0x60:	mv.trmVoltage				= MIN(data[2],			950				);	break;	//	0x60 - Напряжение излучателя (0...950 вольт)
+		case 0x60:	mv.trmVoltage				= MIN(data[2],			600				);	break;	//	0x60 - Напряжение излучателя (0...950 вольт)
 		case 0x61:	mv.disableFireNoVibration	= data[2];									break;	//	0x61 - Отключение регистрации на стоянке(0 - нет, 1 - да)
 		case 0x62:	mv.levelNoVibration			= data[2];									break;	//	0x62 - Уровень вибрации режима отключения регистрации на стойнке(у.е)(ushort)
 		case 0x63:	mv.firePeriod				= MAX(data[2],			300				);	break;	//	0x63 - Период опроса(мс)(ushort)
@@ -4146,7 +4146,7 @@ static void InitMainVars()
 	mv.trans[0].sd 			= 200;	
 	mv.trans[0].freq		= 16000;
 	mv.trans[0].duty		= 50;
-	mv.trans[0].amp			= 3000;
+	mv.trans[0].amp			= 2100;
 	mv.trans[0].pulseCount	= 1;
 	mv.trans[0].packType	= 7;	// PACK_DCT3
 	mv.trans[0].math		= 0;
@@ -4157,7 +4157,7 @@ static void InitMainVars()
 	mv.trans[1].sd 			= 200;	
 	mv.trans[1].freq		= 1000;
 	mv.trans[1].duty		= 50;
-	mv.trans[1].amp			= 3000;
+	mv.trans[1].amp			= 2100;
 	mv.trans[1].pulseCount	= 1;
 	mv.trans[1].packType	= 7;	// PACK_DCT3
 	mv.trans[1].math		= 0;
@@ -4173,7 +4173,7 @@ static void InitMainVars()
 	mv.trans[2].packType	= 7;	// PACK_DCT3
 	mv.trans[2].math		= 0;
 
-	mv.trmVoltage				= 800;
+	mv.trmVoltage				= 600;
 	mv.disableFireNoVibration	= 0;
 	mv.levelNoVibration			= 100;
 	mv.firePeriod				= 1000;
