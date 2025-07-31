@@ -36,7 +36,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x109 };
+enum { VERSION = 0x10A };
 
 //#pragma O0
 //#pragma Otime
@@ -102,7 +102,7 @@ static MainVars mv;
 
 static bool runMainMode = false;
 static bool startFire = false;
-static u32  fireCounter = 0;
+static U32u  fireCounter;
 static u32  manCounter = 0;
 
 #ifndef RCV_8AD
@@ -202,6 +202,7 @@ static bool cmdTrmSaveParams = false;
 
 static u16 rcvStatus = 0;
 static u16 rcvErrors = 0;
+static u16 rcvStatus04 = 0;
 //static u32 crcErr02[RCV_MAX_NUM_STATIONS] = {0};
 //static u32 crcErr03 = 0;
 //static u32 crcErr04 = 0;
@@ -811,6 +812,12 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 		{
 			q->tryCount--;
 			qRcv.Add(q);
+		}
+		else
+		{
+			RspRcv04 &rsp = *((RspRcv04*)q->rb.data);
+
+			rcvStatus04 &= ~(1<<(rsp.adr-1));
 		};
 	}
 	else
@@ -820,6 +827,8 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 			RspRcv04 &rsp = *((RspRcv04*)q->rb.data);
 
 			u16 i = rsp.adr - 1;
+
+			rcvStatus04 |= 1<<i;
 
 			arrRcvTemp[i]			= rsp.temp;
 			arrRcvNumDev[i]			= rsp.numdev;
@@ -1950,27 +1959,26 @@ static u32 InitRspMan_20(u16 rw, __packed u16 *data)
 
 	__packed u16 *start = data;
 
-	*(data++) = rw; //manReqWord|0x20;														//	1. 	ответное слово
-	*(data++) = GD(&fireCounter, u16, 0);												//	2. 	счётчик. младшие 2 байта
-	*(data++) = GD(&fireCounter, u16, 1);												//	3. 	счётчик. старшие 2 байта
-
-	*(data++) = RCV_MAX_NUM_STATIONS;			//4. к-во приемников
-	*(data++) = rcvStatus;			 			//5. статус приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
-	*(data++) = rcvErrors;			 			//6. статус ошибок линии приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
-	*(data++) = Get_NetResist();	 			//7. сопротивление IdLine
-	*(data++) = okRcv02;			 			//8. Счётчик запросов приёмников
-	*(data++) = ax;								//9. AX
-	*(data++) = ay;								//10. AY
-	*(data++) = az;								//11. AZ
-	*(data++) = at;					 			//12. AT
-	*(data++) = temp;				 			//13. Температура в приборе (short)(0.1гр)
-	*(data++) = min;				 			//14. Минимальное значение температуры в приёмниках (short)(0.1гр)
-	*(data++) = max;				 			//15. Максимальное значение температуры в приёмниках (short)(0.1гр)
-	*(data++) = vibration;			 			//16. Вибрация (у.е)(ushort)
-	*(data++) = trmVoltageLast;			 		//17. напряжение излучателя (1 Вольт)
-	*(data++) = trmTemp;			 			//18. Температура излучателя (short)(0.1гр)
-	*(data++) = trmCount;			 			//19. Счётчик запросов излучателя
-	*(data++) = GetRcvManQuality();	 			//20. Качество сигнала запроса телеметрии (%)
+	*(data++) = rw; //manReqWord|0x20;			//	1. 	ответное слово
+	*(data++) = fireCounter.w[0];				//	2. 	счётчик. младшие 2 байта
+	*(data++) = fireCounter.w[1];				//	3. 	счётчик. старшие 2 байта
+	*(data++) = RCV_MAX_NUM_STATIONS;			//	4.	к-во приемников
+	*(data++) = rcvStatus|rcvStatus04; 			//	5.	статус приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
+	*(data++) = rcvErrors;			 			//	6.	статус ошибок линии приёмников (бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
+	*(data++) = Get_NetResist();	 			//	7.	сопротивление IdLine
+	*(data++) = okRcv02;			 			//	8.	Счётчик запросов приёмников
+	*(data++) = ax;								//	9.	AX
+	*(data++) = ay;								//	10.	AY
+	*(data++) = az;								//	11.	AZ
+	*(data++) = at;					 			//	12.	AT
+	*(data++) = temp;				 			//	13.	Температура в приборе (short)(0.1гр)
+	*(data++) = min;				 			//	14.	Минимальное значение температуры в приёмниках (short)(0.1гр)
+	*(data++) = max;				 			//	15.	Максимальное значение температуры в приёмниках (short)(0.1гр)
+	*(data++) = vibration;			 			//	16.	Вибрация (у.е)(ushort)
+	*(data++) = trmVoltageLast;			 		//	17.	напряжение излучателя (1 Вольт)
+	*(data++) = trmTemp;			 			//	18.	Температура излучателя (short)(0.1гр)
+	*(data++) = trmCount;			 			//	19.	Счётчик запросов излучателя
+	*(data++) = GetRcvManQuality();	 			//	20.	Качество сигнала запроса телеметрии (%)
 
 	return data - start;
 }
@@ -3206,7 +3214,7 @@ static void MainMode()
 
 			nextFireType = GetNextFireType(nextFireType); //do nextFireType = (nextFireType+1)%RCV_FIRE_NUM; while((fireMask & (1UL<<nextFireType)) == 0);
 
-			fireCounter += 1;
+			fireCounter.d += 1;
 
 			if (fireType > pft)
 			{
@@ -3670,8 +3678,8 @@ Ptr<MB> CreateTestRspRcv02()
 
 	RspRcv02 &rsp = *((RspRcv02*)(rq->GetDataPtr()));
 
-	rsp.hdr.rw			= (manReqWord|0x30)+((fireCounter&3)<<4);
-	rsp.hdr.cnt			= fireCounter++;
+	rsp.hdr.rw			= (manReqWord|0x30)+((fireCounter.d&3)<<4);
+	rsp.hdr.cnt			= fireCounter.d++;
 	rsp.hdr.preAmp		= 0;
 	rsp.hdr.gain		= 0;
 	rsp.hdr.st			= 10;
