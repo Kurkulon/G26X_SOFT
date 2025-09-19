@@ -29,7 +29,7 @@
 #define RCV_MAX_NUM_STATIONS	13
 
 #ifndef RCV_8AD
-	#define RCV_COM_BAUDRATE		12500000
+	#define RCV_COM_BAUDRATE		6250000
 	#define RCV_COM_PARITY			2
 #else
 	#define RCV_COM_BAUDRATE		6250000
@@ -62,7 +62,10 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+
 #ifndef RCV_8AD
+
+	#define REQRCV_ENUM enum { LEN = sizeof(Req)-sizeof(Req::len)-sizeof(Req::fill) }; enum { CRCLEN = sizeof(Req)-sizeof(Req::len)-sizeof(Req::fill)-sizeof(Req::crc) }
 
 	__packed struct ReqRcv01	// старт оцифровки
 	{
@@ -82,8 +85,12 @@
 			u16		math;
 
 			word 	crc;  
+
+			u16		fill;
 		}
 		r[3];
+
+		REQRCV_ENUM;
 	};
 
 	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -106,8 +113,11 @@
 			byte 	func;
 			byte 	n; 
 			word 	crc; 
+			u16		fill;
 		}
 		r[2];
+
+		REQRCV_ENUM;
 	};  
 
 #endif
@@ -156,8 +166,11 @@ __packed struct RspRcv02	// чтение вектора
 			u16		numDev;				// номер модуля приёмников
 			u16 	gain[RCV_FIRE_NUM]; 
 			word	crc; 
+			u16		fill;
 		}
 		r[2];
+
+		REQRCV_ENUM;
 	};  
 
 	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -185,8 +198,11 @@ __packed struct RspRcv02	// чтение вектора
 			byte 	func;
 			byte 	saveParams; // если не ноль, то записать параметры во flash
 			word 	crc; 
+			u16		fill;
 		}
 		r[2];
+
+		REQRCV_ENUM;
 	};  
 
 	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -216,8 +232,11 @@ __packed struct RspRcv02	// чтение вектора
 			byte 	func;
 			byte 	n; 
 			word 	crc; 
+			u16		fill;
 		}
 		r[2];
+
+		REQRCV_ENUM;
 	};  
 
 	#endif

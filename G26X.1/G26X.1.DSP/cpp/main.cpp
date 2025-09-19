@@ -12,7 +12,7 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 static void CheckFlash();
 
-enum { VERSION = 0x106 };
+enum { VERSION = 0x107 };
 
 static u16 numDevice = 0;
 static u16 numDevValid = 0;
@@ -398,7 +398,7 @@ static REQF listReq[5] = { RequestFunc01, RequestFunc02, RequestFunc03, RequestF
 static bool RequestFunc(const ComPort::ReadBuffer *rb, ComPort::WriteBuffer *wb)
 {
 	//static NewRequest nulReq;
-	static const byte fl[5] = { sizeof(ReqRcv01::r[0])-1, sizeof(ReqRcv02::r[0])-1, sizeof(ReqRcv03::r[0])-1, sizeof(ReqRcv04::r[0])-1, sizeof(ReqRcv05::r[0])-1 };
+	static const byte fl[5] = { ReqRcv01::LEN, ReqRcv02::LEN, ReqRcv03::LEN, ReqRcv04::LEN, ReqRcv05::LEN };
 
 	if (rb == 0 || rb->len < 4) return false;
 
