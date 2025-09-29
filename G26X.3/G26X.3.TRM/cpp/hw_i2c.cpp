@@ -7,7 +7,7 @@
 
 #include "hardware.h"
 #include <SEGGER_RTT\SEGGER_RTT.h>
-#include "hw_rtm.h"
+//#include "hw_rtm.h"
 
 
 #ifdef WIN32
@@ -228,4 +228,7 @@ void I2C_Destroy()
 #endif
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#include <i2c_imp.h>
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

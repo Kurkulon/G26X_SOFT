@@ -40,11 +40,16 @@ inline u16 GetNetAdr() { return TRM_BOOT_NET_ADR; }
 #ifdef BOOT_COM
 
 //#include <DMA\DMA.h>
+#include <usic_imp.h>
 #include <ComPort\ComPort_imp.h>
 
 static ComPort com(UART0_SERCOM_NUM, 0, PIO_UTXD0, PIO_URXD0, PIO_RTS0, 0, PIN_UTXD0, PIN_URXD0, PIN_RTS0, 0, PMUX_UTXD0, PMUX_URXD0, UART0_TXPO, UART0_RXPO, UART0_GEN_SRC, GEN_MCK_CLK, &UART0_DMA);
 
 #endif
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#include <time_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

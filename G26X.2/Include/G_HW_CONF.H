@@ -22,6 +22,10 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+#define TRAP_PACKET_VERSION	0x2
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 #ifdef CPU_SAME53	
 
 	// Test Pins
@@ -64,18 +68,18 @@
 
 	// ++++++++++++++	DMA	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	#define	NAND_DMA			DMA_CH0
-	//#define	DSP_SPI_DMA_RX		DMA_CH1
-	#define	UART7_DMA			DMA_CH2
-	#define	UART4_DMA			DMA_CH3
-	#define	SPI_DMA_TX			DMA_CH4
-	#define	SPI_DMA_RX			DMA_CH5
-	#define	NAND_MEMCOPY_DMA	DMA_CH6
-	#define	I2C_DMA				DMA_CH7
-	//#define	DSP_SPI_DMA_RX		DMA_CH8
+	#define	NAND_DMA_CH			0
+	//#define	DSP_SPI_DMA_RX	1
+	#define	UART7_DMA_CH		2
+	#define	UART4_DMA_CH		3
+	#define	SPI_DMA_TX_CH		4
+	#define	SPI_DMA_RX_CH		5
+	#define	NAND_MEMCOPY_DMA_CH	6
+	#define	I2C_DMA_CH			7
+	//#define	DSP_SPI_DMA_RX	8
 
-	//#define	DSP_SPI_DMA_TX		DMA_CH30
-	#define	CRC_DMA				DMA_CH31
+	//#define	DSP_SPI_DMA_TX	30
+	#define	CRC_DMA_CH			31
 
 	// ++++++++++++++	EVENT	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

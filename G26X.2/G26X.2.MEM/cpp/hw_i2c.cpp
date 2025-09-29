@@ -7,8 +7,10 @@
 
 #include "hardware.h"
 #include "SEGGER_RTT\SEGGER_RTT.h"
-#include "hw_conf.h"
-#include "hw_rtm.h"
+#include "G_HW_CONF.h"
+//#include "hw_rtm.h"
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 #ifdef WIN32
@@ -69,7 +71,7 @@ static byte fram_I2c_Mem[0x10000];
 
 #elif defined(CPU_SAME53)
 
-static S_I2C i2c(I2C_SERCOM_NUM, PIO_I2C, SCL, I2C_PMUX_SCL, PIO_I2C, SDA, I2C_PMUX_SDA, I2C_GEN_SRC, I2C_GEN_CLK, &I2C_DMA );
+static S_I2C i2c(I2C_SERCOM_NUM, PIO_I2C, SCL, I2C_PMUX_SCL, PIO_I2C, SDA, I2C_PMUX_SDA, I2C_GEN_SRC, I2C_GEN_CLK, I2C_DMA_CH );
 
 #elif defined(CPU_XMC48)
 
@@ -233,6 +235,10 @@ void I2C_Destroy()
 }
 
 #endif
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#include <i2c_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

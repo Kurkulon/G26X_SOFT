@@ -76,14 +76,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\cpp\hw_rtm.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\cpp\hw_spi.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\cpp\main.cpp"
 				>
 			</File>
@@ -115,14 +107,6 @@
 			</File>
 			<File
 				RelativePath=".\cpp\hw_com.h"
-				>
-			</File>
-			<File
-				RelativePath=".\cpp\hw_nand.h"
-				>
-			</File>
-			<File
-				RelativePath=".\cpp\hw_rtm.h"
 				>
 			</File>
 		</Filter>

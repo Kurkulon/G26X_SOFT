@@ -7,8 +7,8 @@
 
 #include "hardware.h"
 #include <SEGGER_RTT\SEGGER_RTT.h>
-#include "hw_rtm.h"
-#include "hw_nand.h"
+//#include "hw_rtm.h"
+//#include "hw_nand.h"
 #include <DMA\DMA.h>
 #include <MANCH\manch.h>
 #include <math.h>
@@ -72,8 +72,7 @@ __forceinline 	void DisableVCORE()	{ PIO_ENVCORE->SET(ENVCORE); 	}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
-
+#include <time_imp.h>
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1153,7 +1152,7 @@ void InitHardware()
 	I2C_Init();
 	Init_HV();
 
-	RTT_Init();
+	//RTT_Init();
 
 #ifndef WIN32
 

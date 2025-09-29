@@ -5,8 +5,8 @@
 //#include "core.h"
 #include <time.h>
 #include <i2c.h>
-#include "hw_nand.h"
-#include "hw_rtm.h"
+//#include "hw_nand.h"
+//#include "hw_rtm.h"
 #include "MANCH\manch.h"
 #include "G26X_3_HW_CONF.H"
 #include "G_TRM.h"

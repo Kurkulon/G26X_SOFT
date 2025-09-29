@@ -52,12 +52,6 @@
     <ClInclude Include="cpp\hw_com.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cpp\hw_conf.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="cpp\hw_nand.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="cpp\hw_rtm.h">
       <Filter>Header Files</Filter>
     </ClInclude>

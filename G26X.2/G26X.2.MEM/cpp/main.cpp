@@ -1,7 +1,8 @@
 #include "hardware.h"
+#include "G_HW_CONF.h"
 //#include "options.h"
 //#include "hw_emac.h"
-#include "EMAC\xtrap.h"
+#include "EMAC\trap.h"
 #include "FLASH\NandFlash.h"
 #include "CRC\CRC16.h"
 #include "CRC\CRC16_CCIT.h"
@@ -3039,6 +3040,7 @@ static void UpdateRcvTrm()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+static Ptr<REQ> reqMainMode;
 
 static void MainMode()
 {
@@ -3054,7 +3056,7 @@ static void MainMode()
 
 	static byte saveRcvParams = 0;
 
-	static Ptr<REQ> req;
+	Ptr<REQ> &req = reqMainMode;
 //	REQ *rm = 0;
 
 	switch (mainModeState)
@@ -3821,10 +3823,12 @@ Ptr<MB> CreateTestRspRcv02()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+static Ptr<MB> UpdateTestFlashWrite_ptr;
 
 static void UpdateTestFlashWrite()
 {
-	static Ptr<MB> ptr;
+	Ptr<MB> &ptr = UpdateTestFlashWrite_ptr;
+	
 	static u32 count = 0;
 
 	//static CTM32 rtm;
@@ -4538,24 +4542,24 @@ static void SaveVars()
 
 static TaskList taskList;
 
+static Task task_arr[] =
+{
+	Task(MainMode,				US2CTM(100)	),
+	Task(UpdateTemp,			MS2CTM(1)	),
+	Task(UpdateMan,				US2CTM(100)	),
+	Task(NandFlash_Update,		MS2CTM(1)	),
+	Task(UpdateAccel,			MS2CTM(1)	),
+	Task(UpdateI2C,				US2CTM(20)	),
+	Task(SaveVars,				MS2CTM(1)	),
+	Task(UpdateEMAC,			MS2CTM(1)	),
+	Task(UpdateRcvTrm,			US2CTM(1)	),
+	Task(UpdateSPI,				US2CTM(20)	),
+	Task(UpdateTestFlashWrite,	MS2CTM(1)	)
+};
+
 static void InitTaskList()
 {
-	static Task tsk[] =
-	{
-		Task(MainMode,				US2CTM(100)	),
-		Task(UpdateTemp,			MS2CTM(1)	),
-		Task(UpdateMan,				US2CTM(100)	),
-		Task(NandFlash_Update,		MS2CTM(1)	),
-		Task(UpdateAccel,			MS2CTM(1)	),
-		Task(UpdateI2C,				US2CTM(20)	),
-		Task(SaveVars,				MS2CTM(1)	),
-		Task(UpdateEMAC,			MS2CTM(1)	),
-		Task(UpdateRcvTrm,			US2CTM(1)	),
-		Task(UpdateSPI,				US2CTM(20)	),
-		Task(UpdateTestFlashWrite,	MS2CTM(1)	)
-	};
-
-	for (u16 i = 0; i < ArraySize(tsk); i++) taskList.Add(tsk+i);
+	for (u16 i = 0; i < ArraySize(task_arr); i++) taskList.Add(task_arr+i);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -4701,9 +4705,11 @@ static void Test_Ptr_MB()
 
 #ifdef __TEST__
 
+static ListPtr<MB> Test_ListPtr_list;
+
 static void Test_ListPtr()
 {
-	static ListPtr<MB> list;
+	ListPtr<MB> &list = Test_ListPtr_list;
 
 	for (u32 i = 0; i < 100; i++)
 	{
@@ -4726,9 +4732,11 @@ static void Test_ListPtr()
 
 #ifdef __TEST__
 
+static ListRef<MB> Test_ListRef_list;
+
 static void Test_ListRef()
 {
-	static ListRef<MB> list;
+	ListRef<MB> &list = Test_ListRef_list;
 
 	for (u32 i = 0; i < 100; i++)
 	{

@@ -1,13 +1,13 @@
-#include <types.h>
-#include <core.h>
+#include "G_HW_CONF.h"
+#include "hardware.h"
+
+//#include <types.h>
+//#include <core.h>
 #include <SEGGER_RTT\SEGGER_RTT.h>
 #include <list.h>
 #include <FLASH\NandFlash.h>
 
-#include "hardware.h"
-#include "hw_conf.h"
-#include "hw_rtm.h"
-#include "hw_nand.h"
+//#include "hw_rtm.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //#define NAND_SAMSUNG 
@@ -21,24 +21,24 @@
 #define NAND_WRITE_CRC_HW
 //#define NAND_WRITE_CRC_PIO
 
+#define NAND_ECC_LEN 64
 #define NAND_ECC_SPARE
 //#define NAND_ECC_PAGE
-//#define NAND_ECC_PAGEBUF
+#define NAND_ECC_PAGEBUF
 
 #define NAND_CHIP_BITS			2
 #define NAND_MAX_CHIP			(1<<NAND_CHIP_BITS)
 #define NAND_CHIP_MASK			(NAND_MAX_CHIP-1) 
 
 #define LIST_ITEMS_NUM			128
-#define FLASH_WRITE_BUFFER_NUM	8
-#define FLASH_READ_BUFFER_NUM	8
+//#define FLASH_WRITE_BUFFER_NUM	8
+//#define FLASH_READ_BUFFER_NUM	8 
 
 //static void	HW_NAND_Init();
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //#define NAND_VERIFY_WRITEPAGE		// Проверка записаной страницы, путём чтения страницы и сравнения с буфером
-//#define NAND_VERIFY_SPARE			// Проверка SPARE
 
 #ifndef NANDFLASH_IMP_VERSION
 static const bool verifyWritePage = false;		// Проверка записаной страницы, путём чтения страницы и сравнения с буфером

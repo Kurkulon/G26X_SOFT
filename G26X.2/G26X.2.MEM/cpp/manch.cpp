@@ -6,8 +6,9 @@
 //#include "hardware.h"
 
 //#include <SEGGER_RTT\SEGGER_RTT.h>
-#include "hw_conf.h"
-#include "hardware.h"
+#include "G_HW_CONF.h"
+#include "MANCH\manch.h"
+//#include "hardware.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

@@ -6,8 +6,8 @@
 #include "hardware.h"
 
 #include "SEGGER_RTT\SEGGER_RTT.h"
-#include "hw_conf.h"
-#include "hw_rtm.h"
+#include "G_HW_CONF.h"
+//#include "hw_rtm.h"
 #include "MANCH\manch.h"
 #include "DMA\DMA.h"
 #include "G_RCV.h"
@@ -24,9 +24,9 @@
 #else
 #define HUGE_BUF_LEN	0x4100    
 #endif
-#define	NUM_SMALL_BUF	32       
-#define	NUM_MEDIUM_BUF	16
-#define	NUM_HUGE_BUF	11
+#define	NUM_SMALL_BUF	18       
+#define	NUM_MEDIUM_BUF	10
+#define	NUM_HUGE_BUF	16
 
 #include <MEM\mem_imp.h>
 
@@ -66,6 +66,10 @@ static u16 crc_ccit_result = 0;
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #include <CRC\CRC_CCITT_DMA_IMP.h>
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#include <time_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -642,7 +646,7 @@ void InitHardware()
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_GREEN "OK\n");
 
 	Init_time(MCK);
-	RTT_Init();
+	//RTT_Init();
 	I2C_Init();
 	SPI_Init();
 
@@ -673,8 +677,6 @@ void UpdateHardware()
 #ifndef WIN32
 
 	static byte i = 0;
-
-	static Deb db(false, 20);
 
 	#define CALL(p) case (__LINE__-S): p; break;
 
