@@ -669,7 +669,7 @@ static void UpdateBlackFin()
 
 		case 2:
 
-			if (tm.Check(US2CTM(100)))
+			if (tm.Check(US2CTM(500)))
 			{
 				com.Write(&wb);
 				i++;

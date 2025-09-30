@@ -68,14 +68,13 @@
 
 	// ++++++++++++++	DMA	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	#define	NAND_DMA_CH			0
-	//#define	DSP_SPI_DMA_RX	1
-	#define	UART7_DMA_CH		2
-	#define	UART4_DMA_CH		3
-	#define	SPI_DMA_TX_CH		4
-	#define	SPI_DMA_RX_CH		5
+	#define	SPI_DMA_TX_CH		0
+	#define	SPI_DMA_RX_CH		1
+	#define	I2C_DMA_CH			2
+	#define	NAND_DMA_CH			3
+	#define	UART7_DMA_CH		4
+	#define	UART4_DMA_CH		5
 	#define	NAND_MEMCOPY_DMA_CH	6
-	#define	I2C_DMA_CH			7
 	//#define	DSP_SPI_DMA_RX	8
 
 	//#define	DSP_SPI_DMA_TX	30
@@ -303,9 +302,9 @@
 
 	#ifdef nandTCC
 	
-		#define NAND_RE_PER		(NS2CLK(100)-1)
-		#define NAND_RE_CC0		NS2CLK(55) 
-		#define NAND_RE_CC1		NS2CLK(50)
+		#define NAND_RE_PER		(NS2CLK(200)-1)
+		#define NAND_RE_CC0		NS2CLK(110) 
+		#define NAND_RE_CC1		NS2CLK(100)
 
 		#define WE_PORT_PMUX	(PORT_PMUX_F) 
 		#define RE_PORT_PMUX	(PORT_PMUX_F) 
@@ -315,7 +314,7 @@
 		#define NAND_TRIGSRC_MC0  CONCAT3(DMCH_TRIGSRC_,NAND_TCC,_MC0)
 		#define NAND_TRIGSRC_MC1  CONCAT3(DMCH_TRIGSRC_,NAND_TCC,_MC1)
 
-		#define NAND_EVENT_GEN		EVGEN_DMAC_CH_0
+		#define NAND_EVENT_GEN		CONCAT2(EVGEN_DMAC_CH_, NAND_DMA_CH)
 		#define NAND_EVSYS_USER		CONCAT3(EVSYS_USER_,NAND_TCC,_EV_1)
 
 	#else

@@ -24,7 +24,7 @@
 #define NAND_ECC_LEN 64
 #define NAND_ECC_SPARE
 //#define NAND_ECC_PAGE
-#define NAND_ECC_PAGEBUF
+//#define NAND_ECC_PAGEBUF
 
 #define NAND_CHIP_BITS			2
 #define NAND_MAX_CHIP			(1<<NAND_CHIP_BITS)
@@ -38,7 +38,7 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//#define NAND_VERIFY_WRITEPAGE		// Проверка записаной страницы, путём чтения страницы и сравнения с буфером
+#define NAND_VERIFY_WRITEPAGE		// Проверка записаной страницы, путём чтения страницы и сравнения с буфером
 
 #ifndef NANDFLASH_IMP_VERSION
 static const bool verifyWritePage = false;		// Проверка записаной страницы, путём чтения страницы и сравнения с буфером
