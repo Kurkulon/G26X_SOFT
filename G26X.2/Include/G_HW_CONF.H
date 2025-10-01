@@ -302,9 +302,13 @@
 
 	#ifdef nandTCC
 	
-		#define NAND_RE_PER		(NS2CLK(200)-1)
-		#define NAND_RE_CC0		NS2CLK(110) 
-		#define NAND_RE_CC1		NS2CLK(100)
+		#define NAND_RE_PER_SLOW	(NS2CLK(200)-1)
+		#define NAND_RE_CC0_SLOW	NS2CLK(110) 
+		#define NAND_RE_CC1_SLOW	NS2CLK(100)
+
+		#define NAND_RE_PER_FAST	(NS2CLK(100)-1)
+		#define NAND_RE_CC0_FAST	NS2CLK(55) 
+		#define NAND_RE_CC1_FAST	NS2CLK(50)
 
 		#define WE_PORT_PMUX	(PORT_PMUX_F) 
 		#define RE_PORT_PMUX	(PORT_PMUX_F) 
