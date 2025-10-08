@@ -4113,7 +4113,7 @@ static void ReadNumDevRcvTrm()
 {
 	Ptr<REQ> rq;
 
-	u16 tryCount = 6;
+	u16 tryCount = 25;
 	
 	rcvStatus = 0;
 	
