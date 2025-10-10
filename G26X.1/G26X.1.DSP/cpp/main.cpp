@@ -12,7 +12,7 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 static void CheckFlash();
 
-enum { VERSION = 0x107 };
+enum { VERSION = 0x108 };
 
 static u16 numDevice = 0;
 static u16 numDevValid = 0;
@@ -733,6 +733,33 @@ static void UpdateSport()
 
 				#endif
 
+				RspRcv02 &rsp = dsc->r02;
+
+				for (byte n = 0; n < 4; n++)
+				{
+					i32 sum = 0;
+
+					u16 *src = rsp.data + dsc->sportLen*n;
+					u16 *p = src;
+
+					for (u16 i = 0; i < dsc->sportLen; i++) sum += *src++;
+
+					sum /= dsc->sportLen;
+
+					if (sum < 31768 || sum > 33768) sum = 32768;
+
+					for (u16 i = 0; i < dsc->sportLen; i++)
+					{
+						i32 t = *p;
+
+						t -= sum; 
+						t = Min32(Max32(t, -32768), 32767);
+
+						*p++ = t;
+					};
+				};
+
+
 				sportState++;
 			};
 
@@ -766,19 +793,17 @@ static void UpdateSport()
 
 				for (byte n = 0; n < 4; n++)
 				{
-					const	u16	*src	= rsp.data + dsc->sportLen*n;
+					const	i16	*src	= (i16*)rsp.data + dsc->sportLen*n;
 							u16	*dst	= unp.data + unp.hdr.sl*n;
 
-							i32 max = 0;
-							i32 min = 65535;
+							i32 max = -32768;
+							i32 min = 32767;
 							u32 pow = 0;
 
 					for (u16 i = 0; i < unp.hdr.sl; i++)
 					{
 						i32 t = *src++;
 
-						t -= 0x8000;
-						
 						*dst++ = t;
 
 						max = Max32(t, max);
@@ -845,15 +870,15 @@ static void UpdateSport()
 				rsp.hdr.packLen3	= dsc->sportLen;
 				rsp.hdr.packLen4	= dsc->sportLen;
 
-				for (byte n = 0; n < 4; n++)
-				{
-					u16 *p = rsp.data + dsc->sportLen*n;
+				//for (byte n = 0; n < 4; n++)
+				//{
+				//	u16 *p = rsp.data + dsc->sportLen*n;
 
-					for (u16 i = 0; i < dsc->sportLen; i++)
-					{
-						*p++ -= 0x8000;
-					};
-				};
+				//	for (u16 i = 0; i < dsc->sportLen; i++)
+				//	{
+				//		*p++ -= 0x8000;
+				//	};
+				//};
 			}
 			else if (rsp.hdr.math == 1) // Среднее
 			{
@@ -861,14 +886,14 @@ static void UpdateSport()
 				rsp.hdr.packLen3	= 0;
 				rsp.hdr.packLen4	= 0;
 
-				u16 *p1 = rsp.data + dsc->sportLen*0;
-				u16 *p2 = rsp.data + dsc->sportLen*1;
-				u16 *p3 = rsp.data + dsc->sportLen*2;
-				u16 *p4 = rsp.data + dsc->sportLen*3;
+				i16 *p1 = (i16*)(rsp.data + dsc->sportLen*0);
+				i16 *p2 = (i16*)(rsp.data + dsc->sportLen*1);
+				i16 *p3 = (i16*)(rsp.data + dsc->sportLen*2);
+				i16 *p4 = (i16*)(rsp.data + dsc->sportLen*3);
 
 				for (u16 i = 0; i < dsc->sportLen; i++)
 				{
-					*p1 = (*p1+*(p2++)+*(p3++)+*(p4++))/4-0x8000; p1++;
+					*p1 = (*p1+*(p2++)+*(p3++)+*(p4++))/4; p1++;
 				};
 
 			}
@@ -878,15 +903,15 @@ static void UpdateSport()
 				rsp.hdr.packLen3	= 0;
 				rsp.hdr.packLen4	= 0;
 
-				u16 *p1 = rsp.data + dsc->sportLen*0;
-				u16 *p2 = rsp.data + dsc->sportLen*1;
-				u16 *p3 = rsp.data + dsc->sportLen*2;
-				u16 *p4 = rsp.data + dsc->sportLen*3;
+				i16 *p1 = (i16*)(rsp.data + dsc->sportLen*0);
+				i16 *p2 = (i16*)(rsp.data + dsc->sportLen*1);
+				i16 *p3 = (i16*)(rsp.data + dsc->sportLen*2);
+				i16 *p4 = (i16*)(rsp.data + dsc->sportLen*3);
 
 				for (u16 i = 0; i < dsc->sportLen; i++)
 				{
-					*p1 = subsat16(*(p3++)-0x8000, *p1-0x8000); p1++;	
-					*p2 = subsat16(*p2-0x8000, *(p4++)-0x8000); p2++;
+					*p1 = subsat16(*(p3++), *p1); p1++;	
+					*p2 = subsat16(*p2, *(p4++)); p2++;
 				};
 
 			};
