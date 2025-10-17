@@ -691,6 +691,7 @@ static void UpdateBlackFin()
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+static i32 filt[RCV_FIRE_NUM*4] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
 
 static void UpdateSport()
 {
@@ -704,6 +705,7 @@ static void UpdateSport()
 
 	static DSCRSP02 *dsc = 0;
 	static DSCRSP02 *dscunp = 0;
+
 
 	//static DSCRSP02 *prsp = 0;
 
@@ -737,22 +739,38 @@ static void UpdateSport()
 
 				for (byte n = 0; n < 4; n++)
 				{
-					i32 sum = 0;
+					i32 &ff = filt[dsc->fireN*4+n];
 
-					u16 *src = rsp.data + dsc->sportLen*n;
-					u16 *p = src;
+					i32 sum = ff/2048;
 
-					for (u16 i = 0; i < dsc->sportLen; i++) sum += *src++;
+					u16 *p = rsp.data + dsc->sportLen*n;
 
-					sum /= dsc->sportLen;
+					//*p++ = sum;
 
-					if (sum < 31768 || sum > 33768) sum = 32768;
+					if (sum < -1000 || sum > 1000) sum = 0, ff = 0;
+
+					//u16 *p = src;
+
+					//for (u16 i = 0; i < dsc->sportLen; i++) sum += *src++;
+
+					//sum /= dsc->sportLen;
+
+					i32 f = 0;
 
 					for (u16 i = 0; i < dsc->sportLen; i++)
 					{
 						i32 t = *p;
 
+						t -= 32768;
+
+						ff += t - ff/2048;
+
 						t -= sum; 
+
+						t -= (i16)(f/1024);
+
+						f += t * rsp.hdr.st; // 0.0005/us
+
 						t = Min32(Max32(t, -32768), 32767);
 
 						*p++ = t;
@@ -1158,6 +1176,8 @@ void main( void )
 	LoadParams();
 
 //	InitNetAdr();
+
+	for (u16 i = 0; i < ArraySize(filt); i++) filt[i] = 0;
 
 	while (1)
 	{

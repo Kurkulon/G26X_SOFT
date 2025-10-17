@@ -37,7 +37,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x10B };
+enum { VERSION = 0x10C };
 
 //#pragma O0
 //#pragma Otime
@@ -210,6 +210,9 @@ static u16 rcvStatus02 = 0;
 static u16 rcvStatus04 = 0;
 static u16 rcvMisFire = 0;
 static u16 rcvComStatus = 0;
+static u16 rcvMaskErrorCRC = 0;
+static u16 rcvMaskErrorRsp = 0;
+static u16 rcvMaskNoRsp = 0;
 //static u32 crcErr02[RCV_MAX_NUM_STATIONS] = {0};
 //static u32 crcErr03 = 0;
 //static u32 crcErr04 = 0;
@@ -245,6 +248,16 @@ i16 cpuTemp = 0;
 i16 temp = 0;
 
 static byte svCount = 0;
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void ClearRcvErrors()
+{
+	rcvErrors		= 0;
+	rcvMaskErrorCRC	= 0;
+	rcvMaskErrorRsp	= 0;
+	rcvMaskNoRsp	= 0;
+}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -413,17 +426,20 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 	//byte a = (req.r[0].adr-1) & 15;
 
-	u16 mask = 1 << ((req.r[0].adr-1) & 15);
+	u16 mask		= 1 << ((req.r[0].adr-1) & 15);
+	u16 maskRsp		= 1 << (rsp.hdr.rw & 15);
 
 	if (q->crcOK)
 	{
-		rcvStatus02 |= 1 << (rsp.hdr.rw & 15);
+		rcvStatus02 |= maskRsp;
 
 		u16 len = sizeof(rsp.hdr) + sizeof(rsp.crc) + ((rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4) * 2);
 
 		if (q->rb.len < sizeof(rsp.hdr) || (rsp.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
 		{
 			//SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "\nRcvReq02 RW:0x%04X rb.len = %-6u rsp.hdr Error ", rsp.hdr.rw, q->rb.len);
+
+			rcvMaskErrorRsp |= mask;
 
 			q->crcOK = false;
 			q->rsp->len = 0;
@@ -433,8 +449,8 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		{
 			okRcv02 += 1;
 
-			rcvStatus |= 1 << (rsp.hdr.rw & 15);
-			rcvComStatus |= 1 << (rsp.hdr.rw & 15);
+			rcvStatus		|= maskRsp;
+			rcvComStatus	|= maskRsp;
 			
 			q->rsp->len = q->rb.len;
 		};
@@ -444,6 +460,8 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		if (q->rb.recieved)
 		{
 			//SEGGER_RTT_printf(0, RTT_CTRL_TEXT_BRIGHT_YELLOW "\nRcvReq02 RW:0x%04X rb.len = %-6u CRC Error ", rsp.hdr.rw, q->rb.len);
+			
+			rcvMaskErrorCRC |= mask;
 
 			crcErrLen02 = q->rb.len;
 			crcErrRW02 = rsp.hdr.rw;
@@ -452,7 +470,7 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 		else
 		{
 			//SEGGER_RTT_printf(0, RTT_CTRL_TEXT_WHITE "\nRcvReq02 Adr:%u Not Recieved ", a+1);
-
+			rcvMaskNoRsp |= mask;
 			notRcv02++;
 		};
 	};
@@ -695,7 +713,21 @@ static bool CallBackRcvReq03(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
-		//crcErr03++;
+		ReqRcv03 &req = *((ReqRcv03*)q->wb.data);
+
+		u16 mask = 1 << ((req.r[0].adr-1) & 15);
+
+		if (req.r[0].adr != 0)
+		{
+			if (q->rb.recieved)
+			{
+				rcvMaskErrorCRC |= mask;
+			}
+			else
+			{
+				rcvMaskNoRsp |= mask;
+			};
+		};
 
 		if (q->tryCount > 0)
 		{
@@ -831,6 +863,22 @@ static bool CallBackRcvReq04(Ptr<REQ> &q)
 {
 	if (!q->crcOK) 
 	{
+		ReqRcv04 &req = *((ReqRcv04*)q->wb.data);
+
+		u16 mask = 1 << ((req.r[0].adr-1) & 15);
+
+		if (req.r[0].adr != 0)
+		{
+			if (q->rb.recieved)
+			{
+				rcvMaskErrorCRC |= mask;
+			}
+			else
+			{
+				rcvMaskNoRsp |= mask;
+			};
+		};
+
 		if(!q->rb.recieved) qRcv.Add(CreateRcvBootReq03(0, 0));
 
 		//crcErr04++;
@@ -995,12 +1043,16 @@ static bool CallBackRcvReq05(Ptr<REQ> &q)
 
 	byte a = (req.r[0].adr-1) & 15;
 
+	u16 mask = 1 << a;
+
 	if (q->crcOK)
 	{
 		u16 len = sizeof(rsp.hdr) + sizeof(rsp.crc) + ((rsp.hdr.packLen1+rsp.hdr.packLen2+rsp.hdr.packLen3+rsp.hdr.packLen4) * 2);
 
 		if (q->rb.len < sizeof(rsp.hdr) || (rsp.hdr.rw & manReqMask) != manReqWord || q->rb.len != len)
 		{
+			rcvMaskErrorRsp |= mask;
+
 			q->crcOK = false;
 			q->rsp->len = 0;
 		}
@@ -1048,12 +1100,16 @@ static bool CallBackRcvReq05(Ptr<REQ> &q)
 	}
 	else if (q->rb.recieved)
 	{
+		rcvMaskErrorCRC |= mask;
+
 		crcErrLen05 = q->rb.len;
 		crcErrRW05 = rsp.hdr.rw;
 		crcErr05++;
 	}
 	else
 	{
+		rcvMaskNoRsp |= mask;
+
 		notRcv05++;
 	};
 
@@ -2010,6 +2066,9 @@ static u32 InitRspMan_20(u16 rw, __packed u16 *data)
 	*(data++) = trmCount;			 			//	19.	Счётчик запросов излучателя
 	*(data++) = GetRcvManQuality();	 			//	20.	Качество сигнала запроса телеметрии (%)
 	*(data++) = rcvMisFire;			 			//	21. Счётчик пропусков оцифровки
+	//*(data++) = rcvMaskErrorCRC;				//	22. статус ошибок CRC приёмников			(бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
+	//*(data++) = rcvMaskErrorRsp;				//	23. статус неправильный ответ приёмников	(бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
+	//*(data++) = rcvMaskNoRsp;					//	24. статус нет ответа приёмников			(бит 0 - П1, бит 1 - П2, ... , бит 12 - П13)
 
 	return data - start;
 }
@@ -2035,7 +2094,7 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 
 	len = InitRspMan_20(data[0], manTrmData);
 
-	rcvErrors = 0;
+	ClearRcvErrors();
 
 	mtb->data1 = manTrmData;
 	mtb->len1 = len;
