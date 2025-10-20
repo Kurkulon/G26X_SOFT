@@ -696,7 +696,7 @@ static i32 filt[RCV_FIRE_NUM*4] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
 static void UpdateSport()
 {
 	static byte sportState = 0;
-	//static byte n = 0;
+	static byte count = 20;
 	//static byte chnl = 0;
 	//static u16 len = 0;
 	//static byte st = 0;
@@ -745,17 +745,24 @@ static void UpdateSport()
 
 					u16 *p = rsp.data + dsc->sportLen*n;
 
-					//*p++ = sum;
+					if (count != 0)
+					{
+						sum = 0;
+
+						u16 *src = p;
+	
+						for (u16 i = 0; i < dsc->sportLen; i++) { i32 t = *src++; t -= 32768; sum += t; };
+
+						sum /= dsc->sportLen;
+
+						ff = sum*2048;
+
+						count--;
+					};
 
 					if (sum < -1000 || sum > 1000) sum = 0, ff = 0;
 
-					//u16 *p = src;
-
-					//for (u16 i = 0; i < dsc->sportLen; i++) sum += *src++;
-
-					//sum /= dsc->sportLen;
-
-					i32 f = 0;
+					i32 f = 0, f2 = 0;
 
 					for (u16 i = 0; i < dsc->sportLen; i++)
 					{
@@ -767,9 +774,15 @@ static void UpdateSport()
 
 						t -= sum; 
 
-						t -= (i16)(f/1024);
+						t -= f/512;
 
-						f += t * rsp.hdr.st; // 0.0005/us
+						i32 t2 = f2/512;
+
+						f += (t+t2) * rsp.hdr.st; // 0.0005/us
+
+						t -= t2;
+
+						f2 += t * rsp.hdr.st; // 0.0005/us
 
 						t = Min32(Max32(t, -32768), 32767);
 
