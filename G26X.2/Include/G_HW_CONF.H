@@ -445,6 +445,100 @@
 	#define Pin_MainLoop_Tgl()	HW::PIOA->BTGL(25)
 	
 
+#elif defined(CPU_BF607) //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+//  1 - PC10 - UpdateMode 
+//  2 - PC09 - SPORT0_ISR
+//  3 - PC08 - SPORT1_ISR
+//  5 - PC07 - SPORT1_ISR
+//  6 - PC06 - ProcessSPORT
+//  7 - PC05 - 
+//  8 - PC04 - PreProcessSPORT
+// 44 - PB05 - Main Loop
+// 45 - PB04 - 
+// 58 - PA13 - ProcessSPORT
+
+#define Pin_UpdateMode_Set()		HW::PIOC->BSET(10)
+#define Pin_UpdateMode_Clr()		HW::PIOC->BCLR(10)
+
+#define Pin_SPORT0_ISR_Set()		HW::PIOC->BSET(9)
+#define Pin_SPORT0_ISR_Clr()		HW::PIOC->BCLR(9)
+
+#define Pin_SPORT1_ISR_Set()		HW::PIOC->BSET(8)
+#define Pin_SPORT1_ISR_Clr()		HW::PIOC->BCLR(8)
+
+#define Pin_ProcessSPORT_Set()		HW::PIOA->BSET(13)
+#define Pin_ProcessSPORT_Clr()		HW::PIOA->BCLR(13)
+
+#define Pin_PreProcessSPORT_Set()	HW::PIOC->BSET(4)
+#define Pin_PreProcessSPORT_Clr()	HW::PIOC->BCLR(4)
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+// ++++++++++++++	CLOCK	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#define PIO_RTCINT		HW::PIOC
+#define PIN_RTCINT		25 
+#define CLOCK_EXTINT	(PIN_RTCINT&15)
+#define CLOCK_IRQ		(EIC_0_IRQ+(PIN_RTCINT&15))
+#define RTCINT			(1UL<<PIN_RTCINT) 
+
+// ++++++++++++++	EMAC	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#define EMAC_PHYA		0
+#define HWEMAC			HW::EMAC0
+
+#define PIO_RESET_PHY	HW::PIOC
+#define PIN_RESET_PHY	15
+
+#define PIO_GMD			HW::PIOA
+#define PIN_GMDC		20
+#define PIN_GMDIO		21
+
+#define GMDC			(1UL<<PIN_GMDC) 
+#define GMDIO			(1UL<<PIN_GMDIO) 
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#define INIT_PORTA_MUX			0x0000						
+#define INIT_PORTB_MUX			0x0000						
+#define INIT_PORTC_MUX			0x0000						
+
+#define INIT_PORTA_FER 			0x0000						
+#define INIT_PORTB_FER 			0x0000						
+#define INIT_PORTC_FER 			0x0000						
+
+#define INIT_PORTA_DIR 			(PA13)
+#define INIT_PORTB_DIR 			(PB4|PB5)
+#define INIT_PORTC_DIR 			(MASK_RTS|PC4|PC5|PC6|PC7|PC8|PC9|PC10)
+
+#define INIT_PORTA_INEN 		0x0000		
+#define INIT_PORTB_INEN 		0x0000		
+#define INIT_PORTC_INEN 		0x0000		
+
+#define INIT_PORTA_DATA 		0
+#define INIT_PORTB_DATA 		0
+#define INIT_PORTC_DATA 		0
+
+
+#ifndef __DEBUG
+#define INIT_WDOG_CNT			MS2SCLK0(100)
+#define INIT_WDOG_CTL			WDOG_WDEN
+#else
+#define INIT_WDOG_CNT			MS2SCLK0(100)
+#define INIT_WDOG_CTL			WDOG_WDDIS
+#endif
+
+#define PIO_MAINLOOP			HW::PIOB
+#define PIN_MAINLOOP			5
+
+#define PIO_VERIFY_PAGE_ERROR	HW::PIOC
+#define PIN_VERIFY_PAGE_ERROR	4
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 #elif defined(WIN32) //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	#define BAUD2CLK(x)				(x)

@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="BF607_Debug|Win32">
+      <Configuration>BF607_Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="BF607_Release|Win32">
+      <Configuration>BF607_Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="SAME53_Debug|Win32">
       <Configuration>SAME53_Debug</Configuration>
       <Platform>Win32</Platform>
@@ -27,7 +35,15 @@
     <ConfigurationType>Makefile</ConfigurationType>
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BF607_Release|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SAME53_Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BF607_Debug|Win32'" Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
@@ -40,7 +56,13 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='SAME53_Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='BF607_Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='SAME53_Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='BF607_Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -65,6 +87,24 @@
     <SourcePath />
     <ExcludePath />
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BF607_Debug|Win32'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
+    <NMakeBuildCommandLine>wmake -h version=Debug targetcpu=BF607</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>wmake -h -a version=Debug targetcpu=BF607</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>%40del /Q $(OutDir)*.*</NMakeCleanCommandLine>
+    <NMakeOutput>$(OutDir)G26X.2.MEM.dxe</NMakeOutput>
+    <NMakePreprocessorDefinitions>_DEBUG;CPU_BF607;_ADI_COMPILER;</NMakePreprocessorDefinitions>
+    <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS\cpp;$(ADI_CCES)\Blackfin\include;$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;</NMakeIncludeSearchPath>
+    <ExecutablePath />
+    <IncludePath />
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SAME53_Release|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
@@ -74,6 +114,24 @@
     <NMakeOutput>$(OutDir)G26X.2.MEM.axf</NMakeOutput>
     <NMakePreprocessorDefinitions>__softfp=;CPU_SAME53;__CC_ARM;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS\cpp;$(ARMCC50INC);$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;</NMakeIncludeSearchPath>
+    <ExecutablePath />
+    <IncludePath />
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BF607_Release|Win32'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
+    <NMakeBuildCommandLine>wmake -h version=Release targetcpu=BF607</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>wmake -h -a version=Release targetcpu=BF607</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>%40del /Q $(OutDir)*.*</NMakeCleanCommandLine>
+    <NMakeOutput>$(OutDir)G26X.2.MEM.dxe</NMakeOutput>
+    <NMakePreprocessorDefinitions>CPU_BF607;_ADI_COMPILER;</NMakePreprocessorDefinitions>
+    <NMakeIncludeSearchPath>$(ProjectDir)..\..\..\G_LIBS\cpp;$(ADI_CCES)\Blackfin\include;$(ProjectDir)..\..\Include;$(ProjectDir)..\Include;</NMakeIncludeSearchPath>
     <ExecutablePath />
     <IncludePath />
     <ExternalIncludePath />
