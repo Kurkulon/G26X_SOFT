@@ -539,7 +539,7 @@ i32	Get_FRAM_I2C_SessionsAdr() { return FRAM_I2C_SESSIONS_ADR; }
 
 static void Init_ADC()
 {
-#ifndef WIN32
+#ifdef CPU_SAME53
 
 	HW::GCLK->PCHCTRL[GCLK_ADC0] = GEN_MCK|GCLK_CHEN; 
 	HW::GCLK->PCHCTRL[GCLK_ADC1] = GEN_MCK|GCLK_CHEN; 
@@ -577,7 +577,7 @@ static void Init_ADC()
 
 u16 Get_NetResist()
 {
-#ifndef WIN32
+#ifdef CPU_SAME53
 
 	HW::ADC0->SWTRIG = ADC_START;
 
@@ -595,7 +595,7 @@ u16 Get_NetResist()
 
 u16 Get_AVMAN()
 {
-#ifndef WIN32
+#ifdef CPU_SAME53
 	HW::ADC1->SWTRIG = ADC_START;
 	return (HW::ADC1->RESULT * 1617) >> 16;
 #else
@@ -659,7 +659,9 @@ void InitHardware()
 
 	Init_ADC();
 
-	Init_CRC_CCITT_DMA();
+	#ifndef CPU_BF607
+		Init_CRC_CCITT_DMA();
+	#endif
 
 	WDT_Init();
 

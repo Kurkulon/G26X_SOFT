@@ -5,7 +5,7 @@
 
 #include "types.h"
 
-#if defined(__CC_ARM) || defined(_MSC_VER)
+#if defined(__CC_ARM) || defined(_MSC_VER) || defined(CPU_BF607)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

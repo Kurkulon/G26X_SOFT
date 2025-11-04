@@ -2920,11 +2920,15 @@ static void StartTrmFire()
 	PIO_RTS4->BSET(PIN_RTS4);
 	PIO_RTS7->BSET(PIN_RTS7);
 
+#ifdef CPU_SAME53
 	HW::USART4->CTRLB |= USART_TXEN;
 	HW::USART7->CTRLB |= USART_TXEN;
 
 	HW::USART4->DATA = 0;
 	HW::USART7->DATA = 0;
+#elif defined(CPU_BF607)
+
+#endif
 
 	__enable_irq();
 
@@ -2942,8 +2946,12 @@ static void StopTrmFire()
 	PIO_RTS4->BCLR(PIN_RTS4);
 	PIO_RTS7->BCLR(PIN_RTS7);
 
+#ifdef CPU_SAME53
 	HW::USART4->CTRLB &= ~USART_TXEN;
 	HW::USART7->CTRLB &= ~USART_TXEN;
+#elif defined(CPU_BF607)
+
+#endif
 
 	__enable_irq();
 
@@ -3826,7 +3834,7 @@ static void UpdateTemp()
 
 			break;
 
-#elif defined(WIN32)
+#elif defined(CPU_BF607) || defined(WIN32)
 
 				i = 0;
 			};

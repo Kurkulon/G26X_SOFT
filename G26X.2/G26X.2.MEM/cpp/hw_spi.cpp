@@ -10,6 +10,8 @@
 static u32 SPI_CS_MASK[] = { CS0, CS1 };
 #elif defined(CPU_XMC48)
 static byte SPI_CS_PIN[] = { PIN_CS0, PIN_CS1 };
+#elif defined(CPU_BF607)
+static SPI_DSC_CS spi_dsc_cs[] = { { PIO_CS0, CS0, SPI_CS0_BAUD, SPI_CS0_MODE }, { PIO_CS1, CS1, SPI_CS1_BAUD, SPI_CS1_MODE } };
 #endif
 
 #ifdef WIN32
@@ -66,8 +68,11 @@ static S_SPIM	spi(SPI_SERCOM_NUM, PIO_SPCK, PIO_MOSI, PIO_MISO, PIO_CS, SPCK, MO
 
 static S_SPIM	spi(SPI_USIC_NUM, PIO_SPCK, PIO_MOSI, PIO_MISO, PIO_CS, PIN_SPCK, PIN_MOSI, PIN_MISO, MUX_SPCK, MUX_MOSI, SPI_CS_PIN, ArraySize(SPI_CS_PIN), &SPI_DMA, SPI_DRL, SPI_DX0CR, SPI_DX1CR, SYSCLK);
 
-#endif 
+#elif defined(CPU_BF607)
 
+static S_SPIM	spi(1, spi_dsc_cs, ArraySize(spi_dsc_cs), SCLK, SPCK|MOSI|MISO);
+
+#endif 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

@@ -8,7 +8,7 @@
 #include "spi.h"
 //#include "hw_rtm.h"
 #include "MANCH\manch.h"
-#include "spis.h"
+//#include "spis.h"
 #include "clock.h"
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

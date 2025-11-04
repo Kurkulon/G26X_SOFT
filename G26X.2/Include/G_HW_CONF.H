@@ -6,13 +6,6 @@
 #include <types.h>
 #include <core.h>
 
-#define MCK_MHz 200
-#define MCK (MCK_MHz*1000000)
-#define NS2CLK(x) (((x)*MCK_MHz+500)/1000)
-#define US2CLK(x) ((x)*MCK_MHz)
-#define MS2CLK(x) ((x)*MCK_MHz*1000)
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #define FRAM_SPI_MAINVARS_ADR 0
 #define FRAM_SPI_SESSIONS_ADR 0x200
@@ -27,6 +20,16 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifdef CPU_SAME53	
+	
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define MCK_MHz 200
+	#define MCK (MCK_MHz*1000000)
+	#define NS2CLK(x) (((x)*MCK_MHz+500)/1000)
+	#define US2CLK(x) ((x)*MCK_MHz)
+	#define MS2CLK(x) ((x)*MCK_MHz*1000)
+
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	// Test Pins
 	// 37	- PB15	- SPI_Handler
@@ -447,96 +450,374 @@
 
 #elif defined(CPU_BF607) //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//  1 - PC10 - UpdateMode 
-//  2 - PC09 - SPORT0_ISR
-//  3 - PC08 - SPORT1_ISR
-//  5 - PC07 - SPORT1_ISR
-//  6 - PC06 - ProcessSPORT
-//  7 - PC05 - 
-//  8 - PC04 - PreProcessSPORT
-// 44 - PB05 - Main Loop
-// 45 - PB04 - 
-// 58 - PA13 - ProcessSPORT
+	#define CLKIN_MHz			25
 
-#define Pin_UpdateMode_Set()		HW::PIOC->BSET(10)
-#define Pin_UpdateMode_Clr()		HW::PIOC->BCLR(10)
+	#define CLKIN_DIV			1	// 1, 2
 
-#define Pin_SPORT0_ISR_Set()		HW::PIOC->BSET(9)
-#define Pin_SPORT0_ISR_Clr()		HW::PIOC->BCLR(9)
+	#define PLL_MUL				16	// 1...128
+	#define CCLK_DIV			1   // 1...32
+	#define SCLK_DIV			2	// 1...32
+	#define SCLK0_DIV			1	// 1...8
+	#define SCLK1_DIV			1	// 1...8
+	#define DCLK_DIV			32	// 1...32	DRAM clock
+	#define OCLK_DIV			1	// 1...128  Output clock
 
-#define Pin_SPORT1_ISR_Set()		HW::PIOC->BSET(8)
-#define Pin_SPORT1_ISR_Clr()		HW::PIOC->BCLR(8)
+	#define VCO_CLK_MHz 		(CLKIN_MHz*PLL_MUL/CLKIN_DIV)
+	#define CCLK_MHz			(VCO_CLK_MHz/CCLK_DIV)
+	#define SCLK_MHz			(VCO_CLK_MHz/SCLK_DIV)
+	#define SCLK0_MHz			(SCLK_MHz/SCLK0_DIV)
+	#define SCLK1_MHz			(SCLK_MHz/SCLK1_DIV)
 
-#define Pin_ProcessSPORT_Set()		HW::PIOA->BSET(13)
-#define Pin_ProcessSPORT_Clr()		HW::PIOA->BCLR(13)
+	#if (VCO_CLK_MHz < 250) || (VCO_CLK_MHz > 1000)
+	#error VCO_CLK_MHz must be 250...1000
+	#endif
 
-#define Pin_PreProcessSPORT_Set()	HW::PIOC->BSET(4)
-#define Pin_PreProcessSPORT_Clr()	HW::PIOC->BCLR(4)
+	#if (CCLK_MHz > 500)
+	#error CCLK_MHz must be <= 500
+	#endif
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	#if (SCLK_MHz > 250)
+	#error SCLK_MHz must be <= 250
+	#endif
 
-// ++++++++++++++	CLOCK	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	//#define VRCTL_VALUE         0x0000
 
-#define PIO_RTCINT		HW::PIOC
-#define PIN_RTCINT		25 
-#define CLOCK_EXTINT	(PIN_RTCINT&15)
-#define CLOCK_IRQ		(EIC_0_IRQ+(PIN_RTCINT&15))
-#define RTCINT			(1UL<<PIN_RTCINT) 
+	#if CLKIN_DIV == 2
+	#define CGUCTL_VALUE        (CGU_CTL_MSEL(PLL_MUL)|CGU_CTL_DF)
+	#else
+	#define CGUCTL_VALUE        (CGU_CTL_MSEL(PLL_MUL))
+	#endif
 
-// ++++++++++++++	EMAC	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	#define CCLK (CCLK_MHz*1000000)
+	#define SCLK (SCLK_MHz*1000000)
+	#define SCLK0 (SCLK0_MHz*1000000)
+	#define SCLK1 (SCLK1_MHz*1000000)
 
-#define EMAC_PHYA		0
-#define HWEMAC			HW::EMAC0
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define PIO_RESET_PHY	HW::PIOC
-#define PIN_RESET_PHY	15
+	#define MS2SCLK(x) ((u64)((x)*SCLK_MHz*1000))
+	#define US2SCLK(x) ((u64)((x)*SCLK_MHz))
+	#define NS2SCLK(x) ((u64)(((x)*SCLK_MHz+500)/1000))
 
-#define PIO_GMD			HW::PIOA
-#define PIN_GMDC		20
-#define PIN_GMDIO		21
+	#define MS2SCLK0(x) ((u64)((x)*SCLK0_MHz*1000))
+	#define US2SCLK0(x) ((u64)((x)*SCLK0_MHz))
+	#define NS2SCLK0(x) ((u64)(((x)*SCLK0_MHz+500)/1000))
 
-#define GMDC			(1UL<<PIN_GMDC) 
-#define GMDIO			(1UL<<PIN_GMDIO) 
+	#define MS2SCLK1(x) ((u64)((x)*SCLK1_MHz*1000))
+	#define US2SCLK1(x) ((u64)((x)*SCLK1_MHz))
+	#define NS2SCLK1(x) ((u64)(((x)*SCLK1_MHz+500)/1000))
 
+	#define MS2CCLK(x) ((u64)((x)*CCLK_MHz*1000))
+	#define US2CCLK(x) ((u64)((x)*CCLK_MHz))
+	#define NS2CCLK(x) ((u64)(((x)*CCLK_MHz+500)/1000))
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	#define MS2CLK(x) MS2SCLK(x)
+	#define US2CLK(x) US2SCLK(x)
+	#define NS2CLK(x) NS2SCLK(x)
 
-#define INIT_PORTA_MUX			0x0000						
-#define INIT_PORTB_MUX			0x0000						
-#define INIT_PORTC_MUX			0x0000						
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#define INIT_PORTA_FER 			0x0000						
-#define INIT_PORTB_FER 			0x0000						
-#define INIT_PORTC_FER 			0x0000						
-
-#define INIT_PORTA_DIR 			(PA13)
-#define INIT_PORTB_DIR 			(PB4|PB5)
-#define INIT_PORTC_DIR 			(MASK_RTS|PC4|PC5|PC6|PC7|PC8|PC9|PC10)
-
-#define INIT_PORTA_INEN 		0x0000		
-#define INIT_PORTB_INEN 		0x0000		
-#define INIT_PORTC_INEN 		0x0000		
-
-#define INIT_PORTA_DATA 		0
-#define INIT_PORTB_DATA 		0
-#define INIT_PORTC_DATA 		0
+	#define IVG_EMULATION		0
+	#define IVG_RESET			1
+	#define IVG_NMI				2
+	#define IVG_EXEPTIONS		3
+	#define IVG_HW_ERROR		5
+	#define IVG_CORETIMER		6
 
 
-#ifndef __DEBUG
-#define INIT_WDOG_CNT			MS2SCLK0(100)
-#define INIT_WDOG_CTL			WDOG_WDEN
-#else
-#define INIT_WDOG_CNT			MS2SCLK0(100)
-#define INIT_WDOG_CTL			WDOG_WDDIS
-#endif
+	//  1 - PC10 - UpdateMode 
+	//  2 - PC09 - SPORT0_ISR
+	//  3 - PC08 - SPORT1_ISR
+	//  5 - PC07 - SPORT1_ISR
+	//  6 - PC06 - ProcessSPORT
+	//  7 - PC05 - 
+	//  8 - PC04 - PreProcessSPORT
+	// 44 - PB05 - Main Loop
+	// 45 - PB04 - 
+	// 58 - PA13 - ProcessSPORT
 
-#define PIO_MAINLOOP			HW::PIOB
-#define PIN_MAINLOOP			5
+	#define Pin_UpdateMode_Set()		HW::PIOC->BSET(10)
+	#define Pin_UpdateMode_Clr()		HW::PIOC->BCLR(10)
 
-#define PIO_VERIFY_PAGE_ERROR	HW::PIOC
-#define PIN_VERIFY_PAGE_ERROR	4
+	#define Pin_SPORT0_ISR_Set()		HW::PIOC->BSET(9)
+	#define Pin_SPORT0_ISR_Clr()		HW::PIOC->BCLR(9)
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	#define Pin_SPORT1_ISR_Set()		HW::PIOC->BSET(8)
+	#define Pin_SPORT1_ISR_Clr()		HW::PIOC->BCLR(8)
+
+	#define Pin_ProcessSPORT_Set()		HW::PIOA->BSET(13)
+	#define Pin_ProcessSPORT_Clr()		HW::PIOA->BCLR(13)
+
+	#define Pin_PreProcessSPORT_Set()	HW::PIOC->BSET(4)
+	#define Pin_PreProcessSPORT_Clr()	HW::PIOC->BCLR(4)
+
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	// ++++++++++++++	DMA	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define	SPI_DMA_TX_CH		0
+	#define	SPI_DMA_RX_CH		1
+	#define	I2C_DMA_CH			2
+	#define	NAND_DMA_CH			3
+	#define	UART7_DMA_CH		4
+	#define	UART4_DMA_CH		5
+	#define	NAND_MEMCOPY_DMA_CH	6
+	//#define	DSP_SPI_DMA_RX	8
+
+	//#define	DSP_SPI_DMA_TX	30
+	#define	CRC_DMA_CH			31
+
+	// ++++++++++++++	I2C	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define I2C_GEN_SRC			GEN_MCK
+	#define I2C_GEN_CLK			GEN_MCK_CLK
+	#define I2C_BAUDRATE		400000 
+
+	// ++++++++++++++	SPI	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	//#define SPI					HW::SPI0
+	#define PIO_SPCK			HW::PIOD
+	#define PIO_MOSI			HW::PIOD
+	#define PIO_MISO			HW::PIOD
+	#define PIO_CS0				HW::PIOC
+	#define PIO_CS1				HW::PIOC
+
+	#define PIN_SPCK			5
+	#define PIN_MOSI			13 
+	#define PIN_MISO			14 
+	#define PIN_CS0				5 
+	#define PIN_CS1				1
+
+	#define SPCK				(1<<PIN_SPCK) 
+	#define MOSI				(1<<PIN_MOSI) 
+	#define MISO				(1<<PIN_MISO) 
+	#define CS0					(1<<PIN_CS0) 
+	#define CS1					(1<<PIN_CS1) 
+
+	#define SPI_GEN_SRC			GEN_MCK
+	#define SPI_GEN_CLK			GEN_MCK_CLK
+	#define SPI_BAUDRATE		8000000
+	#define SPI_CS0_BAUD		8000000
+	#define SPI_CS1_BAUD		8000000
+
+	#define SPI_CS0_MODE		0
+	#define SPI_CS1_MODE		0
+
+	// ++++++++++++++	MANCH	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	
+	#define MAN_TRANSMIT_V1
+
+	#define PIO_MANCH		HW::PIOG
+	#define PIN_L1			12 
+	#define PIN_L2			 
+	#define PIN_H1			 
+	#define PIN_H2			
+	#define MANCH_PMUX		PORT_PMUX_F
+	#define L1_WO_NUM		3
+	#define L2_WO_NUM		4
+
+	#define L1				(1UL<<PIN_L1)
+	#define L2				0
+	#define H1				0
+	#define H2				0
+
+	#define PIO_RXD			HW::PIOG
+	#define PIN_RXD			10
+	#define RXD				(1UL<<PIN_RXD)
+
+	#define Pin_ManRcvIRQ_Set()	HW::PIOA->BSET(24)
+	#define Pin_ManRcvIRQ_Clr()	HW::PIOA->BCLR(24)
+
+	#define Pin_ManTrmIRQ_Set()	HW::PIOB->BSET(21)		
+	#define Pin_ManTrmIRQ_Clr()	HW::PIOB->BCLR(21)		
+
+	#define Pin_ManRcvSync_Set()	HW::PIOB->BSET(18)		
+	#define Pin_ManRcvSync_Clr()	HW::PIOB->BCLR(18)		
+
+	// ++++++++++++++	NAND Flash	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define PIO_WP			HW::PIOB 
+	#define PIO_FLREADY		HW::PIOB
+	#define PIO_FCS			HW::PIOA
+
+	#define PIN_WP			1 
+	#define PIN_FLREADY		2 
+	#define PIN_FCS0		0 
+	#define PIN_FCS1		1 
+	#define PIN_FCS2		2 
+	#define PIN_FCS3		3 
+
+	#define WP				(1<<PIN_WP) 
+	#define FLREADY			(1UL<<PIN_FLREADY) 
+	#define FCS0			(1<<PIN_FCS0) 
+	#define FCS1			(1<<PIN_FCS1) 
+	#define FCS2			(1<<PIN_FCS2) 
+	#define FCS3			(1<<PIN_FCS3) 
+
+	#define PIN_WE_CFG		PINGFG_DRVSTR 
+	#define PIN_RE_CFG		PINGFG_DRVSTR 
+	#define PIN_ALE_CFG		PINGFG_DRVSTR 
+	#define PIN_CLE_CFG		PINGFG_DRVSTR 
+
+	#define NAND_DELAY_WP()		{ delay(4);				}
+	#define NAND_DELAY_WH()		{ delay(4);				}
+	#define NAND_DELAY_RP()		{ delay(4);				}
+	#define NAND_DELAY_REH()	{ delay(4);				}
+	#define NAND_DELAY_WHR()	{ delay(10);			}
+	#define NAND_DELAY_ADL()	{ delay(20);			}
+	#define NAND_DELAY_PR()		{ delay(4);				}
+	#define NAND_DELAY_FEAT()	{ delay(NS2CLK(1000));	}
+
+	#define NAND_WE_PER		NS2CLK(200)-1	
+	#define NAND_WE_CC0		NS2CLK(100) 
+	#define NAND_WE_CC1		NS2CLK(100)
+
+	#define nandTCC			HW::NAND_TCC
+	//#define nandTC			HW::NAND_TC
+
+	#ifdef nandTCC
+	
+		#define NAND_RE_PER_SLOW	(NS2CLK(200)-1)
+		#define NAND_RE_CC0_SLOW	NS2CLK(110) 
+		#define NAND_RE_CC1_SLOW	NS2CLK(100)
+
+		#define NAND_RE_PER_FAST	(NS2CLK(100)-1)
+		#define NAND_RE_CC0_FAST	NS2CLK(55) 
+		#define NAND_RE_CC1_FAST	NS2CLK(50)
+
+		#define WE_PORT_PMUX	(PORT_PMUX_F) 
+		#define RE_PORT_PMUX	(PORT_PMUX_F) 
+
+		//inline void NAND_ClockEnable()  { HW::GCLK->PCHCTRL[CONCAT2(GCLK_,NAND_TCC)] = GCLK_GEN(CONCAT2(GEN_,NAND_TCC))|GCLK_CHEN; HW::MCLK->ClockEnable(CONCAT2(PID_,NAND_TCC)); }
+
+		#define NAND_TRIGSRC_MC0  CONCAT3(DMCH_TRIGSRC_,NAND_TCC,_MC0)
+		#define NAND_TRIGSRC_MC1  CONCAT3(DMCH_TRIGSRC_,NAND_TCC,_MC1)
+
+		#define NAND_EVENT_GEN		CONCAT2(EVGEN_DMAC_CH_, NAND_DMA_CH)
+		#define NAND_EVSYS_USER		CONCAT3(EVSYS_USER_,NAND_TCC,_EV_1)
+
+	#else
+
+		#define NAND_RE_PER		250	
+		//#define NAND_RE_CC0		NS2CLK(35) 
+		#define NAND_RE_CC1		NS2CLK(25)
+
+		#define WE_PORT_PMUX	(PORT_PMUX_E) 
+		#define RE_PORT_PMUX	(PORT_PMUX_E) 
+
+		inline void NAND_ClockEnable()  { HW::GCLK->PCHCTRL[CONCAT2(GCLK_,NAND_TC)] = GCLK_GEN(CONCAT2(GEN_,NAND_TC))|GCLK_CHEN; HW::MCLK->ClockEnable(CONCAT2(PID_,NAND_TC)); }
+
+		#define NAND_TRIGSRC_MC0	CONCAT3(DMCH_TRIGSRC_,NAND_TC,_MC0)
+		#define NAND_TRIGSRC_MC1	CONCAT3(DMCH_TRIGSRC_,NAND_TC,_MC1)
+
+		#define NAND_EVENT_GEN		EVGEN_DMAC_CH_0
+		#define NAND_EVSYS_USER		CONCAT3(EVSYS_USER_,NAND_TC,_EVU)
+
+	#endif
+
+	// ++++++++++++++	UART TRM	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define PIO_UTXD4			HW::PIOD 
+	#define PIO_URXD4			HW::PIOD 
+	#define PIO_RTS4			HW::PIOD 
+	//#define PMUX_UTXD4			PORT_PMUX_C
+	//#define PMUX_URXD4			PORT_PMUX_C 
+	//#define UART4_TXPO			USART_TXPO_0 
+	//#define UART4_RXPO			USART_RXPO_1 
+	#define PIN_UTXD4			7 
+	#define PIN_URXD4			8 
+	#define PIN_RTS4			15
+	#define UTXD4				(1<<PIN_UTXD4) 
+	#define URXD4				(1<<PIN_URXD4) 
+	#define RTS4				(1<<PIN_RTS4) 
+	#define UART4_GEN_SRC		GEN_MCK
+	#define UART4_GEN_CLK		GEN_MCK_CLK
+
+	// ++++++++++++++	UART RCV	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define PIO_UTXD7			HW::PIOG
+	#define PIO_URXD7			HW::PIOG 
+	#define PIO_RTS7			HW::PIOB
+	//#define PMUX_UTXD7			PORT_PMUX_D 
+	//#define PMUX_URXD7			PORT_PMUX_D 
+	//#define UART7_TXPO			USART_TXPO_0 
+	//#define UART7_RXPO			USART_RXPO_1 
+	#define PIN_UTXD7			15 
+	#define PIN_URXD7			14
+	#define PIN_RTS7			12
+	#define UTXD7				(1<<PIN_UTXD7) 
+	#define URXD7				(1<<PIN_URXD7) 
+	#define RTS7				(1<<PIN_RTS7) 
+	#define UART7_GEN_SRC		GEN_MCK
+	#define UART7_GEN_CLK		GEN_MCK_CLK
+
+
+	// ++++++++++++++	CLOCK	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define PIO_RTCINT		HW::PIOC
+	#define PIN_RTCINT		25 
+	#define CLOCK_EXTINT	(PIN_RTCINT&15)
+	#define CLOCK_IRQ		(EIC_0_IRQ+(PIN_RTCINT&15))
+	#define RTCINT			(1UL<<PIN_RTCINT) 
+
+	// ++++++++++++++	EMAC	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define EMAC_PHYA		0
+	#define HWEMAC			HW::EMAC0
+
+	#define PIO_RESET_PHY	HW::PIOC
+	#define PIN_RESET_PHY	15
+
+	#define PIO_GMD			HW::PIOA
+	#define PIN_GMDC		20
+	#define PIN_GMDIO		21
+
+	#define GMDC			(1UL<<PIN_GMDC) 
+	#define GMDIO			(1UL<<PIN_GMDIO) 
+
+
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define INIT_PORTA_MUX			0x0000						
+	#define INIT_PORTB_MUX			0x0000						
+	#define INIT_PORTC_MUX			0x0000						
+
+	#define INIT_PORTA_FER 			0x0000						
+	#define INIT_PORTB_FER 			0x0000						
+	#define INIT_PORTC_FER 			0x0000						
+
+	#define INIT_PORTA_DIR 			(PA13)
+	#define INIT_PORTB_DIR 			(PB4|PB5)
+	#define INIT_PORTC_DIR 			(MASK_RTS|PC4|PC5|PC6|PC7|PC8|PC9|PC10)
+
+	#define INIT_PORTA_INEN 		0x0000		
+	#define INIT_PORTB_INEN 		0x0000		
+	#define INIT_PORTC_INEN 		0x0000		
+
+	#define INIT_PORTA_DATA 		0
+	#define INIT_PORTB_DATA 		0
+	#define INIT_PORTC_DATA 		0
+
+
+	#ifndef __DEBUG
+	#define INIT_WDOG_CNT			MS2SCLK0(100)
+	#define INIT_WDOG_CTL			WDOG_WDEN
+	#else
+	#define INIT_WDOG_CNT			MS2SCLK0(100)
+	#define INIT_WDOG_CTL			WDOG_WDDIS
+	#endif
+
+	#define PIO_MAINLOOP			HW::PIOB
+	#define PIN_MAINLOOP			5
+
+	#define PIO_VERIFY_PAGE_ERROR	HW::PIOC
+	#define PIN_VERIFY_PAGE_ERROR	4
+
+	#define Pin_MainLoop_Set()	PIO_MAINLOOP->BSET(PIN_MAINLOOP)
+	#define Pin_MainLoop_Clr()	PIO_MAINLOOP->BCLR(PIN_MAINLOOP)
+	#define Pin_MainLoop_Tgl()	PIO_MAINLOOP->BTGL(PIN_MAINLOOP)
+
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 #elif defined(WIN32) //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
