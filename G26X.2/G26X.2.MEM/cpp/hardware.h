@@ -2,7 +2,7 @@
 #define HARDWARE_H__23_12_2013__11_37
 
 #include "types.h"
-//#include "core.h"
+#include "G_HW_CONF.h"
 #include "time.h"
 #include "i2c.h"
 #include "spi.h"

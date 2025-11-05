@@ -4947,7 +4947,7 @@ int main()
 
 	TM32 tm;
 
-	InitHardware();
+	InitHardware(); 
 
 	//__breakpoint(0);
 

@@ -1,9 +1,9 @@
+#include "G_HW_CONF.h"
 #include "core.h"
 #include "time.h"
 #include "spi.h"
 //#include "spis.h"
 #include "SEGGER_RTT\SEGGER_RTT.h"
-#include "G_HW_CONF.h"
 
 
 #ifdef CPU_SAME53

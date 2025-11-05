@@ -1,12 +1,11 @@
+#include "G_HW_CONF.h"
+#include "hardware.h"
 #include "types.h"
 #include "core.h"
 #include "time.h"
 #include "CRC\CRC16_8005.h"
 
-#include "hardware.h"
-
 #include "SEGGER_RTT\SEGGER_RTT.h"
-#include "G_HW_CONF.h"
 //#include "hw_rtm.h"
 #include "MANCH\manch.h"
 #include "DMA\DMA.h"
@@ -56,8 +55,11 @@ static u16 crc_ccit_result = 0;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
+#ifdef __CC_ARM
 #include <ARM\system_imp.h>
+#elif defined(__ADSPBLACKFIN__)
+#include <ADSP\system_imp.h>
+#endif
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -645,7 +647,7 @@ void InitHardware()
 
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_GREEN "OK\n");
 
-	Init_time(MCK);
+	Init_time(/*MCK*/);
 	//RTT_Init();
 	I2C_Init();
 	SPI_Init();
@@ -656,7 +658,7 @@ void InitHardware()
 
 	InitManRecieve();
 	InitManTransmit();
-
+	
 	Init_ADC();
 
 	#ifndef CPU_BF607

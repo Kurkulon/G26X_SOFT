@@ -16,6 +16,7 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #define TRAP_PACKET_VERSION	0x7
+#define REAL_TIME_CLOCK_ENABLE
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -517,12 +518,6 @@
 
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	#define IVG_EMULATION		0
-	#define IVG_RESET			1
-	#define IVG_NMI				2
-	#define IVG_EXEPTIONS		3
-	#define IVG_HW_ERROR		5
-	#define IVG_CORETIMER		6
 
 
 	//  1 - PC10 - UpdateMode 
@@ -566,6 +561,17 @@
 
 	//#define	DSP_SPI_DMA_TX	30
 	#define	CRC_DMA_CH			31
+
+	// ++++++++++++++	TIMER	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	#define MANT_TMR		0
+	#define MANR_TMR		1
+	//#define 				2
+	//#define 				3
+	//#define 				4
+	//#define 				5
+	//#define 				6
+	//#define 				7
 
 	// ++++++++++++++	I2C	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -612,9 +618,6 @@
 	#define PIN_L2			 
 	#define PIN_H1			 
 	#define PIN_H2			
-	#define MANCH_PMUX		PORT_PMUX_F
-	#define L1_WO_NUM		3
-	#define L2_WO_NUM		4
 
 	#define L1				(1UL<<PIN_L1)
 	#define L2				0
@@ -622,17 +625,18 @@
 	#define H2				0
 
 	#define PIO_RXD			HW::PIOG
+	#define PINT_RXD		HW::PINT5
 	#define PIN_RXD			10
 	#define RXD				(1UL<<PIN_RXD)
 
-	#define Pin_ManRcvIRQ_Set()	HW::PIOA->BSET(24)
-	#define Pin_ManRcvIRQ_Clr()	HW::PIOA->BCLR(24)
+	#define Pin_ManRcvIRQ_Set()	//HW::PIOA->BSET(24)
+	#define Pin_ManRcvIRQ_Clr()	//HW::PIOA->BCLR(24)
 
-	#define Pin_ManTrmIRQ_Set()	HW::PIOB->BSET(21)		
-	#define Pin_ManTrmIRQ_Clr()	HW::PIOB->BCLR(21)		
+	#define Pin_ManTrmIRQ_Set()	//HW::PIOB->BSET(21)		
+	#define Pin_ManTrmIRQ_Clr()	//HW::PIOB->BCLR(21)		
 
-	#define Pin_ManRcvSync_Set()	HW::PIOB->BSET(18)		
-	#define Pin_ManRcvSync_Clr()	HW::PIOB->BCLR(18)		
+	#define Pin_ManRcvSync_Set()	//HW::PIOB->BSET(18)		
+	#define Pin_ManRcvSync_Clr()	//HW::PIOB->BCLR(18)		
 
 	// ++++++++++++++	NAND Flash	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -765,8 +769,9 @@
 	#define EMAC_PHYA		0
 	#define HWEMAC			HW::EMAC0
 
-	#define PIO_RESET_PHY	HW::PIOC
-	#define PIN_RESET_PHY	15
+	#define PIO_RESET_PHY	HW::PIOF
+	#define PIN_RESET_PHY	0
+	#define RESET_PHY		(1<<PIN_RESET_PHY) 
 
 	#define PIO_GMD			HW::PIOA
 	#define PIN_GMDC		20
@@ -778,26 +783,49 @@
 
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	#define INIT_PORTA_MUX			0x0000						
-	#define INIT_PORTB_MUX			0x0000						
-	#define INIT_PORTC_MUX			0x0000						
+	#define INIT_PORTA_MUX				0x0000						
+	#define INIT_PORTB_MUX				0x0000						
+	#define INIT_PORTC_MUX				0x0000						
+	#define INIT_PORTD_MUX				0x0000						
+	#define INIT_PORTE_MUX				0x0000						
+	#define INIT_PORTF_MUX				0x0000						
+	#define INIT_PORTG_MUX				0x0000						
 
-	#define INIT_PORTA_FER 			0x0000						
-	#define INIT_PORTB_FER 			0x0000						
-	#define INIT_PORTC_FER 			0x0000						
+	#define INIT_PORTA_FER 				0x0000						
+	#define INIT_PORTB_FER 				0x0000						
+	#define INIT_PORTC_FER 				0x0000						
+	#define INIT_PORTD_FER 				0x0000						
+	#define INIT_PORTE_FER 				0x0000						
+	#define INIT_PORTF_FER 				0x0000						
+	#define INIT_PORTG_FER 				0x0000						
 
-	#define INIT_PORTA_DIR 			(PA13)
-	#define INIT_PORTB_DIR 			(PB4|PB5)
-	#define INIT_PORTC_DIR 			(MASK_RTS|PC4|PC5|PC6|PC7|PC8|PC9|PC10)
+	#define INIT_PORTA_DIR 				(FCS0|FCS1|FCS2|FCS3|PA4|PA6|PA8|PA10|PA12|PA14)
+	#define INIT_PORTB_DIR 				(RTS7|PB7|PB10)
+	#define INIT_PORTC_DIR 				(CS0|CS1|PC0|PC2|PC4|PC6|PC8|PC10|PC12|PC14)
+	#define INIT_PORTD_DIR 				(RTS4)
+	#define INIT_PORTE_DIR 				(PE0|PE1|PE4)
+	#define INIT_PORTF_DIR 				(RESET_PHY|PF1|PF2|PF3|PF4|PF5|PF7|PF9|PF11|PF13|PF15)
+	#define INIT_PORTG_DIR 				0
 
-	#define INIT_PORTA_INEN 		0x0000		
-	#define INIT_PORTB_INEN 		0x0000		
-	#define INIT_PORTC_INEN 		0x0000		
+	#define INIT_PORTA_INEN 			0x0000		
+	#define INIT_PORTB_INEN 			0x0000		
+	#define INIT_PORTC_INEN 			0x0000		
+	#define INIT_PORTD_INEN 			0x0000		
+	#define INIT_PORTE_INEN 			0x0000		
+	#define INIT_PORTF_INEN 			0x0000		
+	#define INIT_PORTG_INEN 			0x0000		
 
-	#define INIT_PORTA_DATA 		0
-	#define INIT_PORTB_DATA 		0
-	#define INIT_PORTC_DATA 		0
+	#define INIT_PORTA_DATA 			(FCS0|FCS1|FCS2|FCS3)
+	#define INIT_PORTB_DATA 			0
+	#define INIT_PORTC_DATA 			(CS0|CS1)
+	#define INIT_PORTD_DATA 			(RTS4)
+	#define INIT_PORTE_DATA 			0
+	#define INIT_PORTF_DATA 			0
+	#define INIT_PORTG_DATA 			0
 
+	#define INIT_PADS_EMAC_PTP_CLKSEL	0
+	#define INIT_PADS_PORTS_HYST		0
+	#define INIT_PADS_TWI_VSEL			0
 
 	#ifndef __DEBUG
 	#define INIT_WDOG_CNT			MS2SCLK0(100)
