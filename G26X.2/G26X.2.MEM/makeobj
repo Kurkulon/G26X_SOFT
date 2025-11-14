@@ -52,7 +52,7 @@ cpu_scatter = $(libdir)\Scatter\SAME53.sct
 
 buildtool = ADSP
 adsp_cpu_opt = -proc ADSP-BF607 -si-revision 0.2 
-adsp_cache_opt = USE_CACHE_A_B
+adsp_cache_opt = USE_CACHE_C_A_B
 adsp_memmap_opt = USE_L1_CODE_DA_DB
 adsp_comp_opt = -D$(adsp_cache_opt) -D$(adsp_memmap_opt)
 adsp_loader_opt = -bcode 1
@@ -158,7 +158,7 @@ win32_link_options = -NOLOGO -SUBSYSTEM:CONSOLE -DEBUG -MACHINE:X86 kernel32.lib
 
 ##################################################################################################
 
-adsp_compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-overlap -no-multiline -save-temps -path-output $(objdir) &
+adsp_compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-overlap -no-std-templates -no-multiline -save-temps -path-output $(objdir) &
 	-double-size-32 -decls-strong -ipa -warn-protos $(adsp_cpu_opt) $(adsp_comp_opt) -DCPU_$(targetcpu) -Wterse -I$(libdir)\cpp,$(ghdir)
 
 ##################################################################################################

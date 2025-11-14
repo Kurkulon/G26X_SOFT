@@ -767,7 +767,7 @@
 	// ++++++++++++++	EMAC	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	#define EMAC_PHYA		0
-	#define HWEMAC			HW::EMAC0
+	#define HWEMAC_NUM		1
 
 	#define PIO_RESET_PHY	HW::PIOF
 	#define PIN_RESET_PHY	0

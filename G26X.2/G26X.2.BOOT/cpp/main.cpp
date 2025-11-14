@@ -18,9 +18,9 @@
 //#define BOOT_START_SECTOR				8
 
 //#define BOOT_START_BREAKPOINT
-//#define BOOT_EXIT_BREAKPOINT
+#define BOOT_EXIT_BREAKPOINT
 
-#define BOOT_EMAC_TIMEOUT	15000
+#define BOOT_EMAC_TIMEOUT	150000
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -45,14 +45,31 @@ static ComPort com(0, 0, PIO_UTXD0, PIO_URXD0, PIO_RTS0, 0, PIN_UTXD0, PIN_URXD0
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #include <time_imp.h>
+#include <DMA\DMA_imp.h>
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#ifdef CPU_SAME53
 
 #include <FLASH\FlashInt_imp.h>
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 static FlashInt bootFlash;
+
+#elif defined(CPU_BF607)
+
+#include "SPIM_imp.h"
+
+#define BAUD_RATE 10000000
+
+static SPI_DSC_CS spi_dsc_cs[1] = { { HW::PIOD, PD11, BAUD2SPI(BAUD_RATE), 0 } };
+
+static S_SPIM	spi(0, spi_dsc_cs, ArraySize(spi_dsc_cs), SCLK, PD0|PD1|PD2|PD3|PD4);
+
+#define FLASHSPI_IMP_V2
+
+#include <FLASH\FlashSPI_imp_v2.h>
+static FlashSPI bootFlash(spi);
+
+#endif
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
