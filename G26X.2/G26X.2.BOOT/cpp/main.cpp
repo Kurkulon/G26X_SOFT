@@ -22,6 +22,11 @@
 
 #define BOOT_EMAC_TIMEOUT	150000
 
+#define ADSP_CHECKFLASH
+#define AT25_SPI_BAUD_RATE 	10000000
+#define BAUD_RATE_DIVISOR 	(SCLK/AT25_SPI_BAUD_RATE)
+//#define FLASH_QPI_MODE 
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifdef BOOT_EMAC

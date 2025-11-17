@@ -213,7 +213,7 @@ $(objdir)\$(target_name).axf : $(cpu_obj) $(modules_obj)
 !else ifeq buildtool ADSP
 
 $(objdir)\$(target_name).ldr : $(target_name).dxe $(initcode_name)
-	"$(bindir)\elfloader" $(adsp_cpu_opt) $(adsp_loader_opt) -v -init $(initcode_name) -f binary -b SPI -o "$^@" -dmawidth 8 -width 8 $(objdir)\$(target_name).dxe
+	@"$(bindir)\elfloader" $(adsp_cpu_opt) $(adsp_loader_opt) -v -init $(initcode_name) -f binary -b SPI -o "$^@" -dmawidth 8 -width 8 $(objdir)\$(target_name).dxe
 
 $(target_name).dxe : $(adsp_startup_obj) $(modules_obj) $(libname)
     @echo Linking...
