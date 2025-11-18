@@ -22,10 +22,9 @@
 
 #define BOOT_EMAC_TIMEOUT	150000
 
-#define ADSP_CHECKFLASH
-#define AT25_SPI_BAUD_RATE 	10000000
-#define BAUD_RATE_DIVISOR 	(SCLK/AT25_SPI_BAUD_RATE)
-//#define FLASH_QPI_MODE 
+#define	NUM_SMALL_BUF	64       
+#define	NUM_MEDIUM_BUF	32
+#define	NUM_HUGE_BUF	16
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -63,13 +62,16 @@ static FlashInt bootFlash;
 
 #include "SPIM_imp.h"
 
-#define BAUD_RATE 10000000
+#define FLASHSPI_IMP_V2
+//#define ADSP_CHECKFLASH
+#define AT25_SPI_BAUD_RATE 	25000000
+#define BAUD_RATE_DIVISOR 	(SCLK/AT25_SPI_BAUD_RATE-1)
+//#define FLASH_QPI_MODE 
 
-static SPI_DSC_CS spi_dsc_cs[1] = { { HW::PIOD, PD11, BAUD2SPI(BAUD_RATE), 0 } };
+static SPI_DSC_CS spi_dsc_cs[1] = { { HW::PIOD, PD11, BAUD2SPI(AT25_SPI_BAUD_RATE), 0 } };
 
 static S_SPIM	spi(0, spi_dsc_cs, ArraySize(spi_dsc_cs), SCLK, PD0|PD1|PD2|PD3|PD4);
 
-#define FLASHSPI_IMP_V2
 
 #include <FLASH\FlashSPI_imp_v2.h>
 static FlashSPI bootFlash(spi);

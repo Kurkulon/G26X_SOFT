@@ -451,6 +451,8 @@
 
 #elif defined(CPU_BF607) //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+	#define FLASHSPI_EXTWDT_TIMEOUT	(MS2CTM(100))
+
 	#define CLKIN_MHz			25
 
 	#define CLKIN_DIV			1	// 1, 2
@@ -835,8 +837,11 @@
 	#define INIT_WDOG_CTL			WDOG_WDDIS
 	#endif
 
-	#define PIO_MAINLOOP			HW::PIOB
-	#define PIN_MAINLOOP			5
+	#define PIO_MAINLOOP			HW::PIOA
+	#define PIN_MAINLOOP			4
+
+	#define PIO_CORE1MAINLOOP		HW::PIOB
+	#define PIN_CORE1MAINLOOP		10
 
 	#define PIO_VERIFY_PAGE_ERROR	HW::PIOC
 	#define PIN_VERIFY_PAGE_ERROR	4
