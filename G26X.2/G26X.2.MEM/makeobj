@@ -51,12 +51,13 @@ cpu_scatter = $(libdir)\Scatter\SAME53.sct
 !else ifeq targetcpu BF607
 
 buildtool = ADSP
+adsp_core_opt = DISABLE_CORE1
 adsp_cpu_opt = -proc ADSP-BF607 -si-revision 0.2 
 adsp_cache_opt = USE_CACHE_C_A_B
 adsp_memmap_opt = USE_L1_CODE_DA_DB
-adsp_comp_opt = -D$(adsp_cache_opt) -D$(adsp_memmap_opt)
-adsp_loader_opt = -bcode 1
-adsp_link_opt = -T $(libdir)\LDF\BF607.ldf -flags-link -e,-MDADI_CCES,-MD__cplusplus,-MDNO_UTILITY_ROM,-MDUSING_ICACHE_DISABLE_INIT_CODE,-MD$(adsp_cache_opt),-MD$(adsp_memmap_opt)
+adsp_comp_opt = -D$(adsp_cache_opt) -D$(adsp_memmap_opt) -D$(adsp_core_opt)
+adsp_loader_opt = -bcode 13
+adsp_link_opt = -T $(libdir)\LDF\BF607.ldf -flags-link -e,-MDADI_CCES,-MD__cplusplus,-MDNO_UTILITY_ROM,-MDUSING_ICACHE_DISABLE_INIT_CODE,-MD$(adsp_cache_opt),-MD$(adsp_memmap_opt),-MD$(adsp_core_opt)
 adsp_startup_obj = $(objdir)\startup_BF607.o
 initcode_name = $(libdir)\build\$(targetcpu)_$(version)\initcode_osc25.dxe
 
@@ -163,7 +164,7 @@ adsp_compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-
 
 ##################################################################################################
 
-adsp_asm_options = $(adsp_cpu_opt) -g -Wno-info -DADI_CCES
+adsp_asm_options = $(adsp_cpu_opt) $(adsp_comp_opt) -g -Wno-info -DADI_CCES
 
 ##################################################################################################
 
@@ -223,7 +224,7 @@ $(objdir)\$(target_name).axf : $(cppdir)\G26X.1.DSP.LDR.H $(cppdir)\G26X.3.TRM.B
 !else ifeq buildtool ADSP
 
 $(objdir)\$(target_name).ldr : $(target_name).dxe $(initcode_name)
-	"$(bindir)\elfloader" $(adsp_cpu_opt) $(adsp_loader_opt) -v -init $(initcode_name) -f binary -b SPI -o "$^@" -dmawidth 8 -width 8 $(objdir)\$(target_name).dxe
+	@"$(bindir)\elfloader" $(adsp_cpu_opt) $(adsp_loader_opt) -v -init $(initcode_name) -f binary -b SPI -o "$^@" -dmawidth 8 -width 8 $(objdir)\$(target_name).dxe
 
 $(target_name).dxe : $(adsp_startup_obj) $(modules_obj) $(libname)
     @echo Linking...

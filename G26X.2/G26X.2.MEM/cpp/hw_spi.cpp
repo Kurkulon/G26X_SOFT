@@ -11,7 +11,7 @@ static u32 SPI_CS_MASK[] = { CS0, CS1 };
 #elif defined(CPU_XMC48)
 static byte SPI_CS_PIN[] = { PIN_CS0, PIN_CS1 };
 #elif defined(CPU_BF607)
-static SPI_DSC_CS spi_dsc_cs[] = { { PIO_CS0, CS0, SPI_CS0_BAUD, SPI_CS0_MODE }, { PIO_CS1, CS1, SPI_CS1_BAUD, SPI_CS1_MODE } };
+static SPI_DSC_CS spi_dsc_cs[] = { { PIO_CS0, CS0, BAUD2SPI(SPI_CS0_BAUD), SPI_CS0_MODE }, { PIO_CS1, CS1, BAUD2SPI(SPI_CS1_BAUD), SPI_CS1_MODE } };
 #endif
 
 #ifdef WIN32

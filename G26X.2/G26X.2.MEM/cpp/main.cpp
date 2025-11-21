@@ -4394,6 +4394,7 @@ static void InitMainVars()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+static byte buf_LoadVars[sizeof(mv)*2+8];
 
 static void LoadVars()
 {
@@ -4403,7 +4404,7 @@ static void LoadVars()
 	static DSCSPI spi;
 	static u16 romAdr = 0;
 	
-	byte buf[sizeof(mv)*2+4];
+	byte * const buf = buf_LoadVars; //	byte buf[sizeof(mv)*2+4];
 
 	MainVars mv1, mv2;
 
@@ -4508,7 +4509,8 @@ static void SaveVars()
 	static DSCI2C dsc;
 	static DSCSPI spi,spi2;
 	static u16 romAdr = 0;
-	static byte buf[sizeof(mv) * 2 + 8];
+	
+	byte * const buf = buf_LoadVars; //static byte buf[sizeof(mv) * 2 + 8];
 
 	static byte i = 0;
 	static TM32 tm;

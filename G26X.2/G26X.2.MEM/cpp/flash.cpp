@@ -84,15 +84,15 @@ static const bool forceEraseWrite = true;
 
 #elif defined(CPU_BF607)
 
-	volatile byte * const FLC = (byte*)0x60000008;	
-	volatile byte * const FLA = (byte*)0x60000010;	
-	volatile byte * const FLD = (byte*)0x60000000;	
+	volatile byte * const FLC = (byte*)0xB0000002;	
+	volatile byte * const FLA = (byte*)0xB0000004;	
+	volatile byte * const FLD = (byte*)0xB0000000;	
 
 	#define NAND_DIR_IN() {}
 	#define NAND_DIR_OUT() {}
 
-	#define NAND_WAITRDC	NS2EBUCLK(60)	
-	#define NAND_WAITWRC	NS2EBUCLK(45)	
+	//#define NAND_WAITRDC	NS2EBUCLK(60)	
+	//#define NAND_WAITWRC	NS2EBUCLK(45)	
 
 #elif defined(WIN32)
 
