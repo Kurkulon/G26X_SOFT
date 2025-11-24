@@ -84,9 +84,13 @@ static const bool forceEraseWrite = true;
 
 #elif defined(CPU_BF607)
 
-	volatile byte * const FLC = (byte*)0xB0000002;	
-	volatile byte * const FLA = (byte*)0xB0000004;	
-	volatile byte * const FLD = (byte*)0xB0000000;	
+	static byte _flc = 0xFF;
+	static byte _fla = 0xFF;
+	static byte _fld = 0xFF;
+
+	volatile byte * const FLC = &_flc;	//(byte*)0xB0000002;	
+	volatile byte * const FLA = &_fla;	//(byte*)0xB0000004;	
+	volatile byte * const FLD = &_fld;	//(byte*)0xB0000000;	
 
 	#define NAND_DIR_IN() {}
 	#define NAND_DIR_OUT() {}

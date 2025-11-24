@@ -1470,7 +1470,6 @@ static Ptr<REQ> CreateRcvBootReq01(u16 adr, u32 len, u16 tryCount)
 	};
 
 	BootReqV1::SF1 &req = *((BootReqV1::SF1*)rq->reqData);
-	BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)(rq->rsp->GetDataPtr()));
 	
 	REQ &q = *rq;
 
@@ -1484,8 +1483,17 @@ static Ptr<REQ> CreateRcvBootReq01(u16 adr, u32 len, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 	
-	q.rb.data = (adr == 0) ? 0 : &rsp;
-	q.rb.maxLen = sizeof(rsp);
+	if(rq->rsp.Valid())
+	{
+		BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)(rq->rsp->GetDataPtr()));
+		q.rb.data	= &rsp;
+		q.rb.maxLen = sizeof(rsp);
+	}
+	else
+	{
+		q.rb.data	= 0;
+		q.rb.maxLen	= 0;
+	};
 
 	req.adr	= adr;
 	req.rw	= RCV_BOOT_REQ_WORD|1;
@@ -1636,7 +1644,6 @@ static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount)
 	};
 
 	BootReqV1::SF3 &req = *((BootReqV1::SF3*)rq->reqData);
-	BootRspV1::SF3 &rsp = *((BootRspV1::SF3*)(rq->rsp->GetDataPtr()));
 	
 	REQ &q = *rq;
 
@@ -1651,8 +1658,17 @@ static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 	
-	q.rb.data = (adr == 0) ? 0 : &rsp;
-	q.rb.maxLen = sizeof(rsp);
+	if(rq->rsp.Valid())
+	{
+		BootRspV1::SF3 &rsp = *((BootRspV1::SF3*)(rq->rsp->GetDataPtr()));
+		q.rb.data	= &rsp;
+		q.rb.maxLen = sizeof(rsp);
+	}
+	else
+	{
+		q.rb.data	= 0;
+		q.rb.maxLen	= 0;
+	};
 
 	req.adr	= adr;
 	req.rw	= RCV_BOOT_REQ_WORD|3;
@@ -1733,7 +1749,6 @@ static Ptr<REQ> CreateTrmBootReq01(u16 adr, u32 len, u16 tryCount)
 	};
 
 	BootReqV1::SF1 &req = *((BootReqV1::SF1*)rq->reqData);
-	BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)(rq->rsp->GetDataPtr()));
 	
 	REQ &q = *rq;
 
@@ -1748,8 +1763,17 @@ static Ptr<REQ> CreateTrmBootReq01(u16 adr, u32 len, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 	
-	q.rb.data = (adr == 0) ? 0 : &rsp;
-	q.rb.maxLen = sizeof(rsp);
+	if(rq->rsp.Valid())
+	{
+		BootRspV1::SF1 &rsp = *((BootRspV1::SF1*)(rq->rsp->GetDataPtr()));
+		q.rb.data	= &rsp;
+		q.rb.maxLen = sizeof(rsp);
+	}
+	else
+	{
+		q.rb.data	= 0;
+		q.rb.maxLen	= 0;
+	};
 
 	req.adr	= adr;
 	req.rw	= TRM_BOOT_REQ_WORD|1;
@@ -1840,7 +1864,6 @@ static Ptr<REQ> CreateTrmBootReq03(u16 adr, u16 tryCount)
 	};
 
 	BootReqV1::SF3 &req = *((BootReqV1::SF3*)rq->reqData);
-	BootRspV1::SF3 &rsp = *((BootRspV1::SF3*)(rq->rsp->GetDataPtr()));
 	
 	REQ &q = *rq;
 
@@ -1855,8 +1878,17 @@ static Ptr<REQ> CreateTrmBootReq03(u16 adr, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 	
-	q.rb.data = (adr == 0) ? 0 : &rsp;
-	q.rb.maxLen = sizeof(rsp);
+	if(rq->rsp.Valid())
+	{
+		BootRspV1::SF3 &rsp = *((BootRspV1::SF3*)(rq->rsp->GetDataPtr()));
+		q.rb.data	= &rsp;
+		q.rb.maxLen = sizeof(rsp);
+	}
+	else
+	{
+		q.rb.data	= 0;
+		q.rb.maxLen	= 0;
+	};
 
 	req.adr	= adr;
 	req.rw	= TRM_BOOT_REQ_WORD|3;
@@ -1880,7 +1912,6 @@ static Ptr<REQ> CreateTrmBootReq04(u16 adr, u32 timeOut, u16 tryCount)
 	};
 
 	BootReqV1::SF4 &req = *((BootReqV1::SF4*)rq->reqData);
-	BootRspV1::SF4 &rsp = *((BootRspV1::SF4*)(rq->rsp->GetDataPtr()));
 	
 	REQ &q = *rq;
 
@@ -1895,8 +1926,17 @@ static Ptr<REQ> CreateTrmBootReq04(u16 adr, u32 timeOut, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 	
-	q.rb.data = (adr == 0) ? 0 : &rsp;
-	q.rb.maxLen = sizeof(rsp);
+	if(rq->rsp.Valid())
+	{
+		BootRspV1::SF4 &rsp = *((BootRspV1::SF4*)(rq->rsp->GetDataPtr()));
+		q.rb.data	= &rsp;
+		q.rb.maxLen = sizeof(rsp);
+	}
+	else
+	{
+		q.rb.data	= 0;
+		q.rb.maxLen	= 0;
+	};
 
 	req.adr			= adr;
 	req.rw			= TRM_BOOT_REQ_WORD|4;

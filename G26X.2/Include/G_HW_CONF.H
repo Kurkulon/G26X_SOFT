@@ -458,7 +458,7 @@
 	#define CLKIN_DIV			1	// 1, 2
 
 	#define PLL_MUL				16	// 1...128
-	#define CCLK_DIV			1   // 1...32
+	#define CCLK_DIV			2   // 1...32
 	#define SCLK_DIV			2	// 1...32
 	#define SCLK0_DIV			1	// 1...8
 	#define SCLK1_DIV			1	// 1...8
@@ -555,10 +555,10 @@
 	#define	SPI_DMA_TX_CH		0
 	#define	SPI_DMA_RX_CH		1
 	#define	I2C_DMA_CH			2
-	#define	NAND_DMA_CH			3
 	#define	UART7_DMA_CH		4
 	#define	UART4_DMA_CH		5
-	#define	NAND_MEMCOPY_DMA_CH	6
+	#define	NAND_DMA_CH			21
+	#define	NAND_MEMCOPY_DMA_CH	23
 	//#define	DSP_SPI_DMA_RX	8
 
 	//#define	DSP_SPI_DMA_TX	30
@@ -678,48 +678,48 @@
 	#define NAND_WE_CC0		NS2CLK(100) 
 	#define NAND_WE_CC1		NS2CLK(100)
 
-	#define nandTCC			HW::NAND_TCC
-	//#define nandTC			HW::NAND_TC
+	//#define nandTCC			HW::NAND_TCC
+	////#define nandTC			HW::NAND_TC
 
-	#ifdef nandTCC
-	
-		#define NAND_RE_PER_SLOW	(NS2CLK(200)-1)
-		#define NAND_RE_CC0_SLOW	NS2CLK(110) 
-		#define NAND_RE_CC1_SLOW	NS2CLK(100)
+	//#ifdef nandTCC
+	//
+	//	#define NAND_RE_PER_SLOW	(NS2CLK(200)-1)
+	//	#define NAND_RE_CC0_SLOW	NS2CLK(110) 
+	//	#define NAND_RE_CC1_SLOW	NS2CLK(100)
 
-		#define NAND_RE_PER_FAST	(NS2CLK(100)-1)
-		#define NAND_RE_CC0_FAST	NS2CLK(55) 
-		#define NAND_RE_CC1_FAST	NS2CLK(50)
+	//	#define NAND_RE_PER_FAST	(NS2CLK(100)-1)
+	//	#define NAND_RE_CC0_FAST	NS2CLK(55) 
+	//	#define NAND_RE_CC1_FAST	NS2CLK(50)
 
-		#define WE_PORT_PMUX	(PORT_PMUX_F) 
-		#define RE_PORT_PMUX	(PORT_PMUX_F) 
+	//	#define WE_PORT_PMUX	(PORT_PMUX_F) 
+	//	#define RE_PORT_PMUX	(PORT_PMUX_F) 
 
-		//inline void NAND_ClockEnable()  { HW::GCLK->PCHCTRL[CONCAT2(GCLK_,NAND_TCC)] = GCLK_GEN(CONCAT2(GEN_,NAND_TCC))|GCLK_CHEN; HW::MCLK->ClockEnable(CONCAT2(PID_,NAND_TCC)); }
+	//	//inline void NAND_ClockEnable()  { HW::GCLK->PCHCTRL[CONCAT2(GCLK_,NAND_TCC)] = GCLK_GEN(CONCAT2(GEN_,NAND_TCC))|GCLK_CHEN; HW::MCLK->ClockEnable(CONCAT2(PID_,NAND_TCC)); }
 
-		#define NAND_TRIGSRC_MC0  CONCAT3(DMCH_TRIGSRC_,NAND_TCC,_MC0)
-		#define NAND_TRIGSRC_MC1  CONCAT3(DMCH_TRIGSRC_,NAND_TCC,_MC1)
+	//	#define NAND_TRIGSRC_MC0  CONCAT3(DMCH_TRIGSRC_,NAND_TCC,_MC0)
+	//	#define NAND_TRIGSRC_MC1  CONCAT3(DMCH_TRIGSRC_,NAND_TCC,_MC1)
 
-		#define NAND_EVENT_GEN		CONCAT2(EVGEN_DMAC_CH_, NAND_DMA_CH)
-		#define NAND_EVSYS_USER		CONCAT3(EVSYS_USER_,NAND_TCC,_EV_1)
+	//	#define NAND_EVENT_GEN		CONCAT2(EVGEN_DMAC_CH_, NAND_DMA_CH)
+	//	#define NAND_EVSYS_USER		CONCAT3(EVSYS_USER_,NAND_TCC,_EV_1)
 
-	#else
+	//#else
 
-		#define NAND_RE_PER		250	
-		//#define NAND_RE_CC0		NS2CLK(35) 
-		#define NAND_RE_CC1		NS2CLK(25)
+	//	#define NAND_RE_PER		250	
+	//	//#define NAND_RE_CC0		NS2CLK(35) 
+	//	#define NAND_RE_CC1		NS2CLK(25)
 
-		#define WE_PORT_PMUX	(PORT_PMUX_E) 
-		#define RE_PORT_PMUX	(PORT_PMUX_E) 
+	//	#define WE_PORT_PMUX	(PORT_PMUX_E) 
+	//	#define RE_PORT_PMUX	(PORT_PMUX_E) 
 
-		inline void NAND_ClockEnable()  { HW::GCLK->PCHCTRL[CONCAT2(GCLK_,NAND_TC)] = GCLK_GEN(CONCAT2(GEN_,NAND_TC))|GCLK_CHEN; HW::MCLK->ClockEnable(CONCAT2(PID_,NAND_TC)); }
+	//	inline void NAND_ClockEnable()  { HW::GCLK->PCHCTRL[CONCAT2(GCLK_,NAND_TC)] = GCLK_GEN(CONCAT2(GEN_,NAND_TC))|GCLK_CHEN; HW::MCLK->ClockEnable(CONCAT2(PID_,NAND_TC)); }
 
-		#define NAND_TRIGSRC_MC0	CONCAT3(DMCH_TRIGSRC_,NAND_TC,_MC0)
-		#define NAND_TRIGSRC_MC1	CONCAT3(DMCH_TRIGSRC_,NAND_TC,_MC1)
+	//	#define NAND_TRIGSRC_MC0	CONCAT3(DMCH_TRIGSRC_,NAND_TC,_MC0)
+	//	#define NAND_TRIGSRC_MC1	CONCAT3(DMCH_TRIGSRC_,NAND_TC,_MC1)
 
-		#define NAND_EVENT_GEN		EVGEN_DMAC_CH_0
-		#define NAND_EVSYS_USER		CONCAT3(EVSYS_USER_,NAND_TC,_EVU)
+	//	#define NAND_EVENT_GEN		EVGEN_DMAC_CH_0
+	//	#define NAND_EVSYS_USER		CONCAT3(EVSYS_USER_,NAND_TC,_EVU)
 
-	#endif
+	//#endif
 
 	// ++++++++++++++	UART TRM	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -760,8 +760,8 @@
 
 	// ++++++++++++++	CLOCK	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	#define PIO_RTCINT		HW::PIOC
-	#define PIN_RTCINT		25 
+	#define PIO_RTCINT		HW::PIOB
+	#define PIN_RTCINT		0 
 	#define CLOCK_EXTINT	(PIN_RTCINT&15)
 	#define CLOCK_IRQ		(EIC_0_IRQ+(PIN_RTCINT&15))
 	#define RTCINT			(1UL<<PIN_RTCINT) 
