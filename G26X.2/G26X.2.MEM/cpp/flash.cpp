@@ -3,9 +3,9 @@
 
 //#include <types.h>
 //#include <core.h>
-#include <SEGGER_RTT\SEGGER_RTT.h>
-#include <list.h>
-#include <FLASH\NandFlash.h>
+#include "SEGGER_RTT\SEGGER_RTT.h"
+#include "list.h"
+#include "FLASH\NandFlash.h"
 
 //#include "hw_rtm.h"
 
@@ -107,7 +107,7 @@ static const bool forceEraseWrite = true;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <FLASH\hw_nand_imp.h>
+#include "FLASH\hw_nand_imp.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

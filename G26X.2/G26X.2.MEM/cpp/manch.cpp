@@ -1,5 +1,5 @@
-#include <types.h>
-#include <core.h>
+#include "types.h"
+#include "core.h"
 //#include "COM_DEF.h"
 //#include "CRC16_8005.h"
 
@@ -12,6 +12,6 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <MANCH\manch_imp.h>
+#include "MANCH\manch_imp.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

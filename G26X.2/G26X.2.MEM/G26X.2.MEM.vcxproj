@@ -167,7 +167,6 @@
     <ClCompile Include="cpp\hardware.cpp" />
     <ClCompile Include="cpp\hw_com.cpp" />
     <ClCompile Include="cpp\hw_i2c.cpp" />
-    <ClCompile Include="cpp\hw_rtm.cpp" />
     <ClCompile Include="cpp\hw_spi.cpp" />
     <ClCompile Include="cpp\main.cpp" />
     <ClCompile Include="cpp\manch.cpp" />
@@ -179,7 +178,6 @@
     <ClInclude Include="..\Include\G_HW_CONF.H" />
     <ClInclude Include="cpp\hardware.h" />
     <ClInclude Include="cpp\hw_com.h" />
-    <ClInclude Include="cpp\hw_rtm.h" />
     <ClInclude Include="cpp\main.h" />
     <ClInclude Include="cpp\req.h" />
     <ClInclude Include="cpp\rtc.h" />

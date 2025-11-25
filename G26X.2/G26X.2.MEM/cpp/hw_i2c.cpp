@@ -77,9 +77,9 @@ static S_I2C i2c(I2C_SERCOM_NUM, PIO_I2C, SCL, I2C_PMUX_SCL, PIO_I2C, SDA, I2C_P
 
 static S_I2C i2c(I2C_USIC_NUM, PIO_SCL, PIN_SCL, MUX_SCL, PIO_SDA, PIN_SDA, MUX_SDA, &I2C_DMA, I2C_DX0CR, I2C_DX1CR, SYSCLK);
 
-#elif defined(CPU_BF607)
+#elif defined(__ADSPBF60x__)
 
-//static S_I2C i2c(I2C_USIC_NUM, PIO_SCL, PIN_SCL, MUX_SCL, PIO_SDA, PIN_SDA, MUX_SDA, &I2C_DMA, I2C_DX0CR, I2C_DX1CR, SYSCLK);
+static S_I2C i2c(0);
 
 #endif 
 
@@ -98,7 +98,7 @@ static S_I2C i2c(I2C_USIC_NUM, PIO_SCL, PIN_SCL, MUX_SCL, PIO_SDA, PIN_SDA, MUX_
 
 bool I2C_Update()
 {
-#ifdef __CC_ARM
+#if defined(__CC_ARM) || defined(__ADSPBF60x__)
 	return i2c.Update();
 #else
 	return true;
@@ -106,8 +106,6 @@ bool I2C_Update()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-#ifndef CPU_BF607
 
 bool I2C_AddRequest(DSCI2C *d)
 {
@@ -181,11 +179,8 @@ bool I2C_AddRequest(DSCI2C *d)
 
 #endif
 }
-#endif
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-#ifndef CPU_BF607
 
 void I2C_Init()
 {
@@ -217,7 +212,6 @@ void I2C_Init()
 
 //	SEGGER_RTT_WriteString(0, "OK\n");
 }
-#endif
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -248,7 +242,7 @@ void I2C_Destroy()
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#include <i2c_imp.h>
+#include "i2c_imp.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

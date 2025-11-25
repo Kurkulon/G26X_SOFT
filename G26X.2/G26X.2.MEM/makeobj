@@ -45,7 +45,7 @@ buildtool = ARMCC
 cpu_compiler_options = --cpu=CORTEX-M4.fp.sp --thumb
 cpu_asm_options = --cpu CORTEX-M4.fp.sp --apcs /interwork --pd "__PROGNAME__ SETS \"KAPCAP G26X.2.1(13AD90_UPR)-1.1\""
 cpu_link_options = --cpu CORTEX-M4.fp.sp
-cpu_obj = $(objdir)\startup_CM4.o
+cpu_obj = $(objdir)\startup_CM4.doj
 cpu_scatter = $(libdir)\Scatter\SAME53.sct
 
 !else ifeq targetcpu BF607
@@ -58,7 +58,7 @@ adsp_memmap_opt = USE_L1_CODE_DA_DB
 adsp_comp_opt = -D$(adsp_cache_opt) -D$(adsp_memmap_opt) -D$(adsp_core_opt)
 adsp_loader_opt = -bcode 13
 adsp_link_opt = -T $(libdir)\LDF\BF607.ldf -flags-link -e,-MDADI_CCES,-MD__cplusplus,-MDNO_UTILITY_ROM,-MDUSING_ICACHE_DISABLE_INIT_CODE,-MD$(adsp_cache_opt),-MD$(adsp_memmap_opt),-MD$(adsp_core_opt)
-adsp_startup_obj = $(objdir)\startup_BF607.o
+adsp_startup_obj = $(objdir)\startup_BF607.doj
 initcode_name = $(libdir)\build\$(targetcpu)_$(version)\initcode_osc25.dxe
 
 !else
@@ -80,12 +80,12 @@ libname = $(libdir)\$(targetcpu)_$(libsuffix).a
 
 .ERASE
 .EXTENSIONS:
-.EXTENSIONS: .dxe .o .cpp .h .s .d
+.EXTENSIONS: .dxe .doj .cpp .h .s .d
 
 ##################################################################################################
 
 .cpp:	$(cppdir)
-.o:		$(objdir)
+.doj:	$(objdir)
 .dxe:	$(objdir)
 .h:		$(hdir)
 .d:		$(objdir)
@@ -126,7 +126,7 @@ bindir = $(%ADI_CCES)
 debug_compiler_options = -O0 -D_DEBUG
 debug_linker_options = 
 !else
-debug_compiler_options = -Oa -ipa
+debug_compiler_options = -ipa -Oa -Ov100
 debug_linker_options = 
 !endif
 
@@ -160,7 +160,7 @@ win32_link_options = -NOLOGO -SUBSYSTEM:CONSOLE -DEBUG -MACHINE:X86 kernel32.lib
 ##################################################################################################
 
 adsp_compiler_options = $(debug_compiler_options) -c -c++11 -g++ -g -structs-do-not-overlap -no-std-templates -no-multiline -save-temps -path-output $(objdir) &
-	-double-size-32 -decls-strong -ipa -warn-protos $(adsp_cpu_opt) $(adsp_comp_opt) -DCPU_$(targetcpu) -Wterse -I$(libdir)\cpp,$(ghdir)
+	-double-size-32 -decls-strong -warn-protos $(adsp_cpu_opt) $(adsp_comp_opt) -DCPU_$(targetcpu) -Wterse -I$(libdir)\cpp,$(ghdir)
 
 ##################################################################################################
 
@@ -210,7 +210,7 @@ adsp_link_options = $(adsp_cpu_opt) $(adsp_link_opt) -no-mem -add-debug-libpaths
 
 $(objdir)\$(target_name).axf : $(cppdir)\G26X.1.DSP.LDR.H $(cppdir)\G26X.3.TRM.BIN.H $(cpu_obj) $(modules_obj) $(libname)			# $(cppdir)\G26K2_V2_LPC824.BIN.H
 	@echo Linking ...
-	@$(bindir)\armlink	$(arm_link_options) &
+	$(bindir)\armlink	$(arm_link_options) &
 	--feedback "$^*.fed" &
 	--scatter $(cpu_scatter) &
 	--list "$^&.map" &
@@ -237,7 +237,7 @@ $(target_name).dxe : $(adsp_startup_obj) $(modules_obj) $(libname)
 
 $(objdir)\$(target_name).exe : makefile $(libname) $(modules_obj)	
 	@echo Linking ...
-	@call link $(win32_link_options) -OUT:$^@ $(objdir)\*.o $(libname)
+	@call link $(win32_link_options) -OUT:$^@ $(objdir)\*.doj $(libname)
 
 !endif
 	
@@ -263,23 +263,23 @@ $(cppdir)\G26X.3.TRM.BIN.H : ..\..\G26X.3\G26X.3.TRM\OBJ\G26X.3.TRM.bin
 
 !ifeq buildtool ARMCC
 
-.cpp.o:
+.cpp.doj:
 	@echo Compiling $[. ...
 	@$(bindir)\armcc $(arm_compiler_options) --depend="$(objdir)\$^&.d" -o "$(objdir)\$^." $[@
 
-.s.o:
+.s.doj:
 	@echo Assembling $[. ...
 	@$(bindir)\armasm $(arm_asm_options) --list $(objdir)\$^&.lst  -o $(objdir)\$^. $[@	
 
-##################################################################################################
+################################################################################################## -absolute-path-dependencies
 
 !else ifeq buildtool ADSP
  
-.cpp.o:
+.cpp.doj:
 	@echo Compiling $[. ...
-	@$(libdir)\ccbl.bat $(adsp_compiler_options) -save-temps -path-output $^: -i -absolute-path-dependencies -MD -Mo="$^*.d" -o "$^@" $[@
+	@$(libdir)\ccbl.bat $(adsp_compiler_options) -o "$^@" -MD -Mo="$(objdir)\$^&.d"  $[@
 
-.s.o:
+.s.doj:
 	@echo Assembling $[. ...
 	@$(libdir)\easmbl.bat $(adsp_asm_options) -l $^*.lst  -o $^@ $[@	
 
@@ -287,7 +287,7 @@ $(cppdir)\G26X.3.TRM.BIN.H : ..\..\G26X.3\G26X.3.TRM\OBJ\G26X.3.TRM.bin
 
 !else
 
-.cpp.o:	.AUTODEPEND
+.cpp.doj:	.AUTODEPEND
 	@cl $(win32_compiler_options) -Fo"$(objdir)\$^." $[@
 
 ##################################################################################################

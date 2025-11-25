@@ -29,9 +29,6 @@
     <ClCompile Include="cpp\hw_i2c.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cpp\hw_rtm.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="cpp\hw_spi.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -50,9 +47,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cpp\hw_com.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="cpp\hw_rtm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cpp\main.h">

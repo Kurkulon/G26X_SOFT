@@ -29,7 +29,7 @@ curdir = $+ $(%cdrive):$(%cwd) $-
 
 ##################################################################################################
 
-make : .SYMBOLIC $(modules_obj:.o=.d)
+make : .SYMBOLIC $(modules_obj:.doj=.d)
 	@echo Generate dependences list ...
 	@copy /Y /B $(objdir)\*.d $(objdir)\mkoutdep >nul
 	@rem type $(objdir)\*.d > $(objdir)\mkoutdep
@@ -37,5 +37,6 @@ make : .SYMBOLIC $(modules_obj:.o=.d)
 ##################################################################################################
 
 .cpp.d :
-	@if NOT EXIST $^@ @echo $(objdir)\$[&.o : $(cppdir)\$[. >$(objdir)\$^.
+	@if NOT EXIST $^@ @echo $[&.doj : $[. >$(objdir)\$^.
+	@rem if NOT EXIST $^@ @echo $(objdir)\$[&.doj : $(cppdir)\$[. >$(objdir)\$^.
 	@touch -q $(objdir)\$^.
