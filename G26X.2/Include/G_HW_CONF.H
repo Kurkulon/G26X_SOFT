@@ -458,7 +458,7 @@
 	#define CLKIN_DIV			1	// 1, 2
 
 	#define PLL_MUL				16	// 1...128
-	#define CCLK_DIV			2   // 1...32
+	#define CCLK_DIV			1   // 1...32
 	#define SCLK_DIV			2	// 1...32
 	#define SCLK0_DIV			1	// 1...8
 	#define SCLK1_DIV			1	// 1...8

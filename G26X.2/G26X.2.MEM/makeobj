@@ -45,7 +45,7 @@ buildtool = ARMCC
 cpu_compiler_options = --cpu=CORTEX-M4.fp.sp --thumb
 cpu_asm_options = --cpu CORTEX-M4.fp.sp --apcs /interwork --pd "__PROGNAME__ SETS \"KAPCAP G26X.2.1(13AD90_UPR)-1.1\""
 cpu_link_options = --cpu CORTEX-M4.fp.sp
-cpu_obj = $(objdir)\startup_CM4.doj
+cpu_obj = startup_CM4.doj
 cpu_scatter = $(libdir)\Scatter\SAME53.sct
 
 !else ifeq targetcpu BF607
@@ -53,7 +53,7 @@ cpu_scatter = $(libdir)\Scatter\SAME53.sct
 buildtool = ADSP
 adsp_core_opt = DISABLE_CORE1
 adsp_cpu_opt = -proc ADSP-BF607 -si-revision 0.2 
-adsp_cache_opt = USE_CACHE_A_B
+adsp_cache_opt = USE_CACHE_C_A_B
 adsp_memmap_opt = USE_L1_CODE_DA_DB
 adsp_comp_opt = -D$(adsp_cache_opt) -D$(adsp_memmap_opt) -D$(adsp_core_opt)
 adsp_loader_opt = -bcode 13
@@ -210,11 +210,13 @@ adsp_link_options = $(adsp_cpu_opt) $(adsp_link_opt) -no-mem -add-debug-libpaths
 
 $(objdir)\$(target_name).axf : $(cppdir)\G26X.1.DSP.LDR.H $(cppdir)\G26X.3.TRM.BIN.H $(cpu_obj) $(modules_obj) $(libname)			# $(cppdir)\G26K2_V2_LPC824.BIN.H
 	@echo Linking ...
-	$(bindir)\armlink	$(arm_link_options) &
-	--feedback "$^*.fed" &
+    @cd $(objdir)
+	@$(bindir)\armlink	$(arm_link_options) &
+	--feedback "$^&.fed" &
 	--scatter $(cpu_scatter) &
 	--list "$^&.map" &
-	-o "$^@" $(cpu_obj) $(modules_obj) $(libname)
+	-o "$^." $(cpu_obj) $(modules_obj) $(libname)
+    @cd ..
 	@rem $(bindir)\fromelf --i32 --output .\OBJ\$^&.hex $^@ 
 	@$(bindir)\fromelf --bin --output .\OBJ\$^&.bin $^@ 
 	@$(bindir)\fromelf --text -z $^@ 

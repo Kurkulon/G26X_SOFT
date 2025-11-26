@@ -4658,7 +4658,7 @@ static Task task_arr[] =
 	Task(UpdateMan,				US2CTM(100)	),
 	Task(NandFlash_Update,		MS2CTM(1)	),
 	Task(UpdateAccel,			MS2CTM(1)	),
-	Task(UpdateI2C,				US2CTM(20)	),
+	Task(UpdateI2C,				US2CTM(1)	),
 	Task(SaveVars,				MS2CTM(1)	),
 	Task(UpdateEMAC,			MS2CTM(1)	),
 	Task(UpdateRcvTrm,			US2CTM(1)	),
