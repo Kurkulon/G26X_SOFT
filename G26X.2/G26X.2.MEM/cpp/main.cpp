@@ -37,7 +37,7 @@
 #define __TEST__
 #endif
 
-enum { VERSION = 0x10C };
+enum { VERSION = 0x10D };
 
 //#pragma O0
 //#pragma Otime
@@ -3295,7 +3295,7 @@ static void MainMode()
 
 						if (c) 
 						{
-							if (mv.trans[transIndex[n]].packType == 0 && mv.trans[transIndex[n]].math == 0)
+							if (mv.trans[transIndex[n]].packType == RCV_MAIN_PACK && mv.trans[transIndex[n]].math == 0)
 							{
 								*manVec = req->rsp;
 							}
@@ -4444,7 +4444,7 @@ static void LoadVars()
 	static DSCSPI spi;
 	static u16 romAdr = 0;
 	
-	byte * const buf = buf_LoadVars; //	byte buf[sizeof(mv)*2+4];
+	byte (&buf)[sizeof(buf_LoadVars)] = buf_LoadVars; //	byte buf[sizeof(mv)*2+4];
 
 	MainVars mv1, mv2;
 
@@ -4550,7 +4550,8 @@ static void SaveVars()
 	static DSCSPI spi,spi2;
 	static u16 romAdr = 0;
 	
-	byte * const buf = buf_LoadVars; //static byte buf[sizeof(mv) * 2 + 8];
+	//byte * const buf = buf_LoadVars; //static byte buf[sizeof(mv) * 2 + 8];
+	byte (&buf)[sizeof(buf_LoadVars)] = buf_LoadVars;
 
 	static byte i = 0;
 	static TM32 tm;

@@ -72,6 +72,18 @@ void FreeDscSPORT(DSCRSP02* dsc)
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+void FlushDscSPORT()
+{
+	HW::SPORT0->RCR1 = 0;
+	HW::SPORT1->RCR1 = 0;
+	dmaRxSp0.Disable();
+	dmaRxSp1.Disable();
+
+	if (curDscSPORT != 0) freeSPORT.Add(curDscSPORT), curDscSPORT = 0;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 #pragma optimize_for_speed
 
 EX_INTERRUPT_HANDLER(SPORT0_ISR)

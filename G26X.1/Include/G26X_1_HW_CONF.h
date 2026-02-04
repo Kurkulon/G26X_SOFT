@@ -9,6 +9,9 @@
 
 #define FLASHSPI_EXTWDT_TIMEOUT	(MS2CTM(100))
 
+#define REAL_TIME_CLOCK_DISABLE
+#define SYSTEM_TICK_TIMER_DISABLE
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifndef BOOTLOADER

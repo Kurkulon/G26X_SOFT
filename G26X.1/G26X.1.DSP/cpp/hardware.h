@@ -71,6 +71,7 @@ extern u16 GetNetAdr();
 extern DSCRSP02* GetDscSPORT();
 extern void FreeDscSPORT(DSCRSP02* dsc);
 extern DSCRSP02* AllocDscSPORT();
+extern void FlushDscSPORT();
 
 extern u16 GetTemp();
 extern void SetGain(u16 v, bool preAmp);

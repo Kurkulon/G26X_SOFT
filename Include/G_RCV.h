@@ -4,6 +4,7 @@
 #pragma once 
 
 #include "types.h"
+#include "WAVEPACK\wavepack.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -51,9 +52,13 @@
 
 //#define RCV_TEST_WAVEPACK 16
 
+//#define RCV_TEST_PACK_MATH
+
 #define RCV_WAVEPACK
 
 #define RCV_SAMPLE_LEN 1024
+
+#define RCV_MAIN_PACK	PACK_DCT0
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
