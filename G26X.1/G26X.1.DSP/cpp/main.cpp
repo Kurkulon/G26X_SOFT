@@ -70,6 +70,7 @@ static bool flashChecked = false;
 static bool flashCRCOK = false;
 static bool cmdSaveParams = false;
 static bool cmdReboot = false;
+static bool cmdResetMCU = false;
 
 //static u16 packType = 0;
 
@@ -83,6 +84,14 @@ static byte sportState_UpdateSport = 0;
 static DSCRSP02 *dsc_UpdateSport = 0;
 static DSCRSP02 *dscunp_UpdateSport = 0;
 
+#ifdef RCV_TEST_NOALLOC
+static TM32 tmNoAlloc;
+#endif
+
+static TM32 tmNoRcv;
+static TM32 tmNoRsp02;
+
+//static u16	resetCount = 0;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -197,7 +206,7 @@ static void Reboot()
 	{
 		CheckFlash();
 
-		if (flashOK && flashCRCOK) bfrom_SysControl(SYSCTRL_SOFTRESET, NULL, NULL);
+		if (flashOK && flashCRCOK) HW::SystemReset();
 	};
 }
 
@@ -258,7 +267,7 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	{
 		countNoAlloc++;
 
-		if (countNoAlloc >= 10) bfrom_SysControl(SYSCTRL_SOFTRESET, NULL, NULL);
+		if (countNoAlloc >= 5) /*resetCount |= 1, */ HW::SystemReset(); //bfrom_SysControl(SYSCTRL_SOFTRESET, NULL, NULL);
 	};
 
 	fireN = n;
@@ -266,9 +275,9 @@ static bool RequestFunc01(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 	if (req.adr == 0) return  false;
 
-	rsp.adr = req.adr;
-	rsp.func = req.func;
-	rsp.crc = GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
+	rsp.adr		= req.adr;
+	rsp.func	= req.funcp;
+	rsp.crc		= GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
 
 	wb->data = &rsp;
 	wb->len = sizeof(rsp);
@@ -298,6 +307,8 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 	if (wrDscRSP02 != 0)
 	{
+		tmNoRsp02.Reset();
+
 		RspRcv02 &rsp = wrDscRSP02->r02;
 
 		wb->data = &rsp;
@@ -305,6 +316,8 @@ static bool RequestFunc02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	}
 	else
 	{
+		if (tmNoRsp02.Check(5000)) /*resetCount |= 2,*/ HW::SystemReset();
+
 		buf[0] = (RCV_MAN_REQ_WORD|0X30) + (n<<4) + req.adr-1;
 		buf[1] = GetCRC16_CCIT_refl(buf, 2);
 
@@ -329,7 +342,7 @@ static bool RequestFunc03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	if (req.adr == 0) return  false;
 
 	rsp.adr			= req.adr;
-	rsp.func		= req.func;
+	rsp.func		= req.funcp;
 	rsp.temp		= GetTemp();		// температура
 	rsp.numdev		= numDevice;		// номер модуля приёмников
 	rsp.verdev		= VERSION; 			// версия ПО модуля приёмников
@@ -356,12 +369,12 @@ static bool RequestFunc04(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	if (req.adr == 0) return  false;
 
 	rsp.adr			= req.adr;
-	rsp.func		= req.func;
-	rsp.temp		= GetTemp();		// температура
-	rsp.numdev		= numDevice;		// номер модуля приёмников
-	rsp.verdev		= VERSION; 			// версия ПО модуля приёмников
-	rsp.numDevValid	= numDevValid;		// если не ноль, numDev считан из flash правильно или установлен запросом
-	rsp.flashStatus	= flashStatus; 		// бит 0 - запись в процессе, бит 1 - запись ОК, бит 2 - ошибка записи
+	rsp.func		= req.funcp;
+	rsp.temp		= GetTemp();	//resetCount;	// температура
+	rsp.numdev		= numDevice;					// номер модуля приёмников
+	rsp.verdev		= VERSION; 						// версия ПО модуля приёмников
+	rsp.numDevValid	= numDevValid;					// если не ноль, numDev считан из flash правильно или установлен запросом
+	rsp.flashStatus	= flashStatus; 					// бит 0 - запись в процессе, бит 1 - запись ОК, бит 2 - ошибка записи
 
 	rsp.maxAmp[0] = maxAmp[0];
 	rsp.maxAmp[1] = maxAmp[1];
@@ -421,20 +434,44 @@ static bool RequestFunc05(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+static bool RequestFunc06(byte *data, u16 len, ComPort::WriteBuffer *wb)
+{
+	ReqRcv06::Req	&req = *((ReqRcv06::Req*)data);
+	RspRcv06		&rsp = *((RspRcv06*)rspBuf);
+
+	if (req.reserved == 0xA5) cmdResetMCU = true;
+
+	if (req.adr == 0) return  false;
+
+	rsp.adr			= req.adr;
+	rsp.func		= req.funcp;
+
+	rsp.crc = GetCRC16(&rsp, sizeof(rsp)-sizeof(rsp.crc));
+
+	wb->data = &rsp;
+	wb->len = sizeof(rsp);
+
+	//resetCount |= 16;
+
+	return true;
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 typedef bool (*REQF)(byte *req, u16 len, ComPort::WriteBuffer *wb);
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-static REQF listReq[5] = { RequestFunc01, RequestFunc02, RequestFunc03, RequestFunc04, RequestFunc05 };
+static REQF listReq[6] = { RequestFunc01, RequestFunc02, RequestFunc03, RequestFunc04, RequestFunc05, RequestFunc06 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static bool RequestFunc(const ComPort::ReadBuffer *rb, ComPort::WriteBuffer *wb)
 {
 	//static NewRequest nulReq;
-	static const byte fl[5] = { ReqRcv01::LEN, ReqRcv02::LEN, ReqRcv03::LEN, ReqRcv04::LEN, ReqRcv05::LEN };
+	static const byte fl[] = { ReqRcv01::LEN, ReqRcv02::LEN, ReqRcv03::LEN, ReqRcv04::LEN, ReqRcv05::LEN, ReqRcv06::LEN };
 
-	if (rb == 0 || rb->len < 4) return false;
+	if (rb == 0 || rb->len < 6) return false;
 
 	bool result = false;
 
@@ -442,17 +479,19 @@ static bool RequestFunc(const ComPort::ReadBuffer *rb, ComPort::WriteBuffer *wb)
 
 	byte *p = (byte*)rb->data; 
 
-	while(rlen > 3)
+	while(rlen > 5)
 	{
-		byte len = p[0];
-		byte adr = p[1];
-		byte func = p[2]-1;
+		byte &lenp	= p[0];
+		byte &adr	= p[1];
+		byte funcp	= p[2]-1;
+		byte lenn	= ~p[3];
+		byte funcn	= ~(p[4])-1;
 
-		if (func < ArraySize(fl) && len == fl[func] && len < rlen && GetCRC16(p+1, len) == 0)
+		if (lenp == lenn && funcp == funcn && funcp < ArraySize(fl) && lenp == fl[funcp] && lenp < rlen && GetCRC16(p+1, lenp) == 0)
 		{
 			if (adr != 0 && adr != adrDevice) return false;
 
-			result = listReq[func](p, len+1, wb);
+			result = listReq[funcp](p, lenp+1, wb);
 
 			break;
 		}
@@ -638,6 +677,10 @@ static void UpdateBlackFin()
 	{
 		case 0:
 
+			if (cmdReboot) Reboot(), cmdReboot = false;
+
+			if (cmdResetMCU) cmdResetMCU = false, /*resetCount |= 4, */ HW::SystemReset();
+
 			req = AllocReqAT25();
 
 			if (req != 0)
@@ -663,6 +706,7 @@ static void UpdateBlackFin()
 					if (GetCRC16(rb.data, rb.len) == 0 && RequestBoot(req, &wb))
 					{
 						tm.Reset();
+						tmNoRcv.Reset();
 						i++;
 					}
 					else 
@@ -670,6 +714,7 @@ static void UpdateBlackFin()
 						if (RequestFunc(&rb, &wb))
 						{
 							tm.Reset();
+							tmNoRcv.Reset();
 							i++;
 						}
 						else
@@ -703,13 +748,28 @@ static void UpdateBlackFin()
 
 			if (!com.Update())
 			{
-				if (cmdReboot) Reboot(), cmdReboot = false;
-
 				i = 0;
 			};
 
 			break;
 	};
+
+	if (tmNoRcv.Check(10000)) /*resetCount |= 8, */ HW::SystemReset();
+
+#ifdef RCV_TEST_NOALLOC
+
+	if (adrDevice&1)
+	{
+		if (tmNoAlloc.Timeout(30000))
+		{
+			AllocDscSPORT();
+
+			//HW::SystemReset();
+		};
+	};
+
+#endif
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1266,6 +1326,13 @@ void main( void )
 //	InitNetAdr();
 
 	for (u16 i = 0; i < ArraySize(filt); i++) filt[i] = 0;
+
+#ifdef RCV_TEST_NOALLOC
+	tmNoAlloc.Reset();
+#endif
+
+	tmNoRcv.Reset();
+	tmNoRsp02.Reset();
 
 	while (1)
 	{

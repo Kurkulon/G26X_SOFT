@@ -53,6 +53,7 @@ enum { VERSION = 0x10D };
 //#define US2DSP(v) ((((v)*1000)+10)/20)
 
 static Ptr<REQ> CreateRcvBootReq03(u16 adr, u16 tryCount);
+static Ptr<REQ> CreateRcvReq06(byte adr, u16 tryCount);
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -134,6 +135,8 @@ static u16  arrRcvTemp[RCV_MAX_NUM_STATIONS] = {0};
 static u16  arrRcvVerDev[RCV_MAX_NUM_STATIONS] = {0};
 static byte arrRcvNumDevValid[RCV_MAX_NUM_STATIONS] = {0};
 static byte arrRcvFlashStatus[RCV_MAX_NUM_STATIONS] = {0};
+
+static byte arrRcvErrCount[RCV_MAX_NUM_STATIONS] = {0};
 
 u32 req30_count1 = 0;
 u32 req30_count2 = 0;
@@ -367,9 +370,11 @@ static Ptr<REQ> CreateRcvReqFire(byte n, byte next_n, u16 fc)
 
 	Transmiter	&trans = mv.trans[transIndex[n]];
 
-	req.r[2].len		= req.r[1].len			= req.r[0].len			= req.LEN; //sizeof(req.r[0]) - req.OVERLEN;
+	req.r[2].lenp		= req.r[1].lenp			= req.r[0].lenp			= req.LEN; 
 	req.r[2].adr		= req.r[1].adr			= req.r[0].adr			= 0;
-	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
+	req.r[2].funcp		= req.r[1].funcp		= req.r[0].funcp		= req.FUNC;
+	req.r[2].lenn		= req.r[1].lenn			= req.r[0].lenn			= ~req.LEN;
+	req.r[2].funcn		= req.r[1].funcn		= req.r[0].funcn		= ~req.r[0].funcp;
 	req.r[2].n			= req.r[1].n			= req.r[0].n			= n;
 	req.r[2].next_n		= req.r[1].next_n		= req.r[0].next_n		= next_n;
 
@@ -426,8 +431,12 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 	//byte a = (req.r[0].adr-1) & 15;
 
-	u16 mask		= 1 << ((req.r[0].adr-1) & 15);
-	u16 maskRsp		= 1 << (rsp.hdr.rw & 15);
+	byte	index		= req.r[0].adr-1;
+	u16		mask		= 1 << (index & 15);
+	u16		maskRsp		= 1 << (rsp.hdr.rw & 15);
+
+
+	
 
 	if (q->crcOK)
 	{
@@ -508,7 +517,18 @@ static bool CallBackRcvReq02(Ptr<REQ> &q)
 
 			rcv02rejVec += 1;
 			//rejRcv02[a] += 1;
+
+			if (index < ArraySize(arrRcvErrCount))
+			{
+				arrRcvErrCount[index] += 1;
+
+				if (arrRcvErrCount[index] > 100) arrRcvErrCount[index] = 0, qRcv.Add(CreateRcvReq06(req.r[0].adr, 3)); 
+			};
 		};
+	}
+	else
+	{
+		if (index < ArraySize(arrRcvErrCount)) arrRcvErrCount[index] = 0;
 	};
 
 	return true;
@@ -671,9 +691,11 @@ static Ptr<REQ> CreateRcvReq02(byte adr, byte n, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	req.r[1].len	= req.r[0].len	= req.LEN;
-	req.r[1].adr	= req.r[0].adr	= adr+1;
-	req.r[1].func	= req.r[0].func	= 2;
+	req.r[1].lenp		= req.r[0].lenp			= req.LEN; 
+	req.r[1].adr		= req.r[0].adr			= adr+1;
+	req.r[1].funcp		= req.r[0].funcp		= req.FUNC;
+	req.r[1].lenn		= req.r[0].lenn			= ~req.LEN;
+	req.r[1].funcn		= req.r[0].funcn		= ~req.r[0].funcp;
 
 #ifndef RCV_8AD
 
@@ -808,9 +830,11 @@ static Ptr<REQ> CreateRcvReq03(byte adr, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	req.r[1].len			= req.r[0].len			= req.LEN;
-	req.r[1].adr			= req.r[0].adr			= adr;
-	req.r[1].func			= req.r[0].func			= 3;
+	req.r[1].lenp		= req.r[0].lenp		= req.LEN; 
+	req.r[1].adr		= req.r[0].adr		= adr;
+	req.r[1].funcp		= req.r[0].funcp	= req.FUNC;
+	req.r[1].lenn		= req.r[0].lenn		= ~req.LEN;
+	req.r[1].funcn		= req.r[0].funcn	= ~req.r[0].funcp;
 
 #ifndef RCV_8AD
 
@@ -1007,9 +1031,11 @@ static Ptr<REQ> CreateRcvReq04(byte adr, byte saveParams, u16 tryCount)
 	q.rb.data = (adr != 0) ? &rsp : 0;
 	q.rb.maxLen = rq->rsp->GetDataMaxLen();
 
-	req.r[1].len		= req.r[0].len			= req.LEN;
+	req.r[1].lenp		= req.r[0].lenp			= req.LEN; 
 	req.r[1].adr		= req.r[0].adr			= adr;
-	req.r[1].func		= req.r[0].func			= 4;
+	req.r[1].funcp		= req.r[0].funcp		= req.FUNC;
+	req.r[1].lenn		= req.r[0].lenn			= ~req.LEN;
+	req.r[1].funcn		= req.r[0].funcn		= ~req.r[0].funcp;
 
 #ifndef RCV_8AD
 
@@ -1174,14 +1200,96 @@ static Ptr<REQ> CreateRcvReq05(byte adr, byte n, u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	req.r[1].len	= req.r[0].len	= req.LEN;
-	req.r[1].adr	= req.r[0].adr	= adr+1;
-	req.r[1].func	= req.r[0].func	= 5;
-	req.r[1].n		= req.r[0].n	= n;
-	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, req.CRCLEN);
-	req.r[1].fill	= req.r[0].fill	= 0xFFFF;
+	req.r[1].lenp	= req.r[0].lenp		= req.LEN; 
+	req.r[1].adr	= req.r[0].adr		= adr+1;
+	req.r[1].funcp	= req.r[0].funcp	= req.FUNC;
+	req.r[1].lenn	= req.r[0].lenn		= ~req.LEN;
+	req.r[1].funcn	= req.r[0].funcn	= ~req.r[0].funcp;
+	req.r[1].n		= req.r[0].n		= n;
+	req.r[1].crc	= req.r[0].crc		= GetCRC16(&req.r[0].adr, req.CRCLEN);
+	req.r[1].fill	= req.r[0].fill		= 0xFFFF;
 
 	return rq;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static bool CallBackRcvReq06(Ptr<REQ> &q)
+{
+	if (!q->crcOK) 
+	{
+		ReqRcv06 &req = *((ReqRcv06*)q->wb.data);
+
+		u16 mask = 1 << ((req.r[0].adr-1) & 15);
+
+		if (req.r[0].adr != 0)
+		{
+			if (q->rb.recieved)
+			{
+				rcvMaskErrorCRC |= mask;
+			}
+			else
+			{
+				rcvMaskNoRsp |= mask;
+			};
+		};
+
+		if (q->tryCount > 0)
+		{
+			q->tryCount--;
+			qRcv.Add(q);
+		};
+	};
+
+	return true;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static Ptr<REQ> CreateRcvReq06(byte adr, u16 tryCount)
+{
+	Ptr<REQ> rq(AllocREQ());
+
+	if (!rq.Valid()) return rq;
+
+	typedef RspRcv06 RspT;
+	typedef ReqRcv06 ReqT;
+
+	rq->rsp = NandFlash_AllocWB(sizeof(RspT)+2);
+
+	if (!rq->rsp.Valid()) { rq.Free(); return rq; };
+
+	ReqT &req = *((ReqT*)rq->reqData);
+	RspT &rsp = *((RspT*)(rq->rsp->GetDataPtr()));
+
+	REQ &q = *rq;
+
+	q.CallBack = CallBackRcvReq06;
+	q.preTimeOut = US2COM(500);
+	q.postTimeOut = US2COM(100);
+	q.tryCount = tryCount;
+	q.checkCRC = true;
+	q.updateCRC = false;
+	q.crcType = REQ::CRC16;
+
+	q.wb.data = &req;
+	q.wb.len = sizeof(req);
+
+	q.rb.data = (adr != 0) ? &rsp : 0;
+	q.rb.maxLen = rq->rsp->GetDataMaxLen();
+
+	req.r[1].lenp		= req.r[0].lenp			= req.LEN; 
+	req.r[1].adr		= req.r[0].adr			= adr;
+	req.r[1].funcp		= req.r[0].funcp		= req.FUNC;
+	req.r[1].lenn		= req.r[0].lenn			= ~req.LEN;
+	req.r[1].funcn		= req.r[0].funcn		= ~req.r[0].funcp;
+	req.r[1].reserved	= req.r[0].reserved		= 0xA5;
+
+	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].adr, req.CRCLEN);
+
+	req.r[1].fill	= req.r[0].fill	= 0xFFFF;
+
+	return &q;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

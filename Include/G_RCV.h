@@ -54,6 +54,8 @@
 
 //#define RCV_TEST_PACK_MATH
 
+//#define RCV_TEST_NOALLOC
+
 #define RCV_WAVEPACK
 
 #define RCV_SAMPLE_LEN 1024
@@ -70,15 +72,19 @@
 
 #ifndef RCV_8AD
 
-	#define REQRCV_ENUM enum { LEN = sizeof(Req)-sizeof(Req::len)-sizeof(Req::fill) }; enum { CRCLEN = sizeof(Req)-sizeof(Req::len)-sizeof(Req::fill)-sizeof(Req::crc) }
+	#define REQRCV_ENUM enum { LEN = sizeof(Req)-sizeof(Req::lenp)-sizeof(Req::fill) }; enum { CRCLEN = sizeof(Req)-sizeof(Req::lenp)-sizeof(Req::fill)-sizeof(Req::crc) }
 
 	__packed struct ReqRcv01	// старт оцифровки
 	{
+		enum { FUNC = 1 };
+
 		__packed struct Req
 		{
-			byte 	len;
+			byte 	lenp;
 			byte 	adr;
-			byte 	func;
+			byte 	funcp;
+			byte	lenn;
+			byte	funcn;
 			byte 	n; 
 			byte 	next_n; 
 			byte	next_gain;
@@ -111,11 +117,15 @@
 
 	__packed struct ReqRcv02	// чтение вектора
 	{
+		enum { FUNC = 2 };
+
 		__packed struct Req
 		{
-			byte 	len;
+			byte 	lenp;
 			byte 	adr;
-			byte 	func;
+			byte 	funcp;
+			byte	lenn;
+			byte	funcn;
 			byte 	n; 
 			word 	crc; 
 			u16		fill;
@@ -162,11 +172,15 @@ __packed struct RspRcv02	// чтение вектора
 
 	__packed struct  ReqRcv03	// установка периода дискретизации вектора и коэффициента усиления
 	{ 
+		enum { FUNC = 3 };
+
 		__packed struct Req
 		{
-			byte 	len;
+			byte 	lenp;
 			byte 	adr;
-			byte 	func;
+			byte 	funcp;
+			byte	lenn;
+			byte	funcn;
 			byte	numDevValid;		// если не ноль, numDev пральный и его нада записать в RAM
 			u16		numDev;				// номер модуля приёмников
 			u16 	gain[RCV_FIRE_NUM]; 
@@ -196,11 +210,15 @@ __packed struct RspRcv02	// чтение вектора
 
 	__packed struct  ReqRcv04	// установка коэффициента усиления
 	{ 
+		enum { FUNC = 4 };
+
 		__packed struct Req
 		{
-			byte 	len;
+			byte 	lenp;
 			byte 	adr;
-			byte 	func;
+			byte 	funcp;
+			byte	lenn;
+			byte	funcn;
 			byte 	saveParams; // если не ноль, то записать параметры во flash
 			word 	crc; 
 			u16		fill;
@@ -230,11 +248,15 @@ __packed struct RspRcv02	// чтение вектора
 
 	__packed struct ReqRcv05	// чтение упаковнного вектора или с математикой для передачи по кабелю
 	{
+		enum { FUNC = 5 };
+
 		__packed struct Req
 		{
-			byte 	len;
+			byte 	lenp;
 			byte 	adr;
-			byte 	func;
+			byte 	funcp;
+			byte	lenn;
+			byte	funcn;
 			byte 	n; 
 			word 	crc; 
 			u16		fill;
@@ -243,6 +265,40 @@ __packed struct RspRcv02	// чтение вектора
 
 		REQRCV_ENUM;
 	};  
+
+	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	__packed struct  ReqRcv06	// Перезагрузка MCU
+	{ 
+		enum { FUNC = 6 };
+
+		__packed struct Req
+		{
+			byte 	lenp;
+			byte 	adr;
+			byte 	funcp;
+			byte	lenn;
+			byte	funcn;
+			byte 	reserved; 
+			word 	crc; 
+			u16		fill;
+		}
+		r[2];
+
+		REQRCV_ENUM;
+	};  
+
+	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	__packed struct  RspRcv06	// Перезагрузка MCU
+	{ 
+		byte	adr;
+		byte	func;
+		word	crc; 
+	};  
+
+	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 	#endif
 

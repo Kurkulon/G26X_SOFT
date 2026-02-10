@@ -374,22 +374,22 @@ static void UpdateTemp()
 
 void UpdateHardware()
 {
-		static byte i = 0;
+	static byte i = 0;
 
-		#define CALL(p) case (__LINE__-S): p; break;
+	#define CALL(p) case (__LINE__-S): p; break;
 
-		enum C { S = (__LINE__+3) };
-		switch(i++)
-		{
-			CALL( UpdateADC()	);
-			CALL( UpdateTemp()	);
-		};
+	enum C { S = (__LINE__+3) };
+	switch(i++)
+	{
+		CALL( UpdateADC()	);
+		CALL( UpdateTemp()	);
+	};
 
-		i = (i > (__LINE__-S-3)) ? 0 : i;
+	i = (i > (__LINE__-S-3)) ? 0 : i;
 
-		#undef CALL
+	#undef CALL
 
-	*pWDOG_STAT = 0; //Reset WDT
+	HW::ResetWDT(); //*pWDOG_STAT = 0; //Reset WDT
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
