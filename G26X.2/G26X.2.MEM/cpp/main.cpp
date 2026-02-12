@@ -1316,14 +1316,16 @@ static Ptr<REQ> CreateTrmReqFire(byte n)
 
 	byte t = transIndex[n];
 
-	req.r[2].len		= req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
-	req.r[2].func		= req.r[1].func			= req.r[0].func			= 1;
+	req.r[2].lenp		= req.r[1].lenp			= req.r[0].lenp			= req.LEN;
+	req.r[2].funcp		= req.r[1].funcp		= req.r[0].funcp		= req.FUNC;
+	req.r[2].lenn		= req.r[1].lenn			= req.r[0].lenn			= ~req.LEN;
+	req.r[2].funcn		= req.r[1].funcn		= req.r[0].funcn		= ~req.FUNC;
 	req.r[2].n			= req.r[1].n			= req.r[0].n			= n;
 	req.r[2].fireCount	= req.r[1].fireCount	= req.r[0].fireCount	= mv.trans[t].pulseCount;
 	req.r[2].fireFreq	= req.r[1].fireFreq		= req.r[0].fireFreq		= mv.trans[t].freq;
 	req.r[2].fireDuty	= req.r[1].fireDuty		= req.r[0].fireDuty		= mv.trans[t].duty;
 	req.r[2].fireAmp	= req.r[1].fireAmp		= req.r[0].fireAmp		= mv.trans[t].amp;
-	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].func, sizeof(req.r[0])-3);
+	req.r[2].crc		= req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].funcp, req.CRCLEN);
 
 	return &q;
 }
@@ -1395,13 +1397,15 @@ static Ptr<REQ> CreateTrmReq02(u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	req.r[1].len			= req.r[0].len			= sizeof(req.r[0]) - 1;
-	req.r[1].func			= req.r[0].func			= 2;
+	req.r[1].lenp			= req.r[0].lenp			= req.LEN;
+	req.r[1].funcp			= req.r[0].funcp		= req.FUNC;
+	req.r[1].lenn			= req.r[0].lenn			= ~req.LEN;
+	req.r[1].funcn			= req.r[0].funcn		= ~req.FUNC;
 	req.r[1].numDevValid	= req.r[0].numDevValid	= numDevTrmValid;
 	req.r[1].saveParams		= req.r[0].saveParams	= cmdTrmSaveParams;
 	req.r[1].reqHV			= req.r[0].reqHV		= mv.trmVoltage;
 	req.r[1].numDev			= req.r[0].numDev		= numDevTrm;
-	req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].func, sizeof(req.r[0])-3);
+	req.r[1].crc			= req.r[0].crc			= GetCRC16(&req.r[0].funcp, req.CRCLEN);
 
 	return rq;
 }
@@ -1476,9 +1480,11 @@ static Ptr<REQ> CreateTrmReq03(u16 tryCount)
 	q.wb.data = &req;
 	q.wb.len = sizeof(req);
 
-	req.r[1].len	= req.r[0].len	= sizeof(req.r[0]) - 1;
-	req.r[1].func	= req.r[0].func	= 3;
-	req.r[1].crc	= req.r[0].crc	= GetCRC16(&req.r[0].func, sizeof(req.r[0])-3);
+	req.r[1].lenp	= req.r[0].lenp		= req.LEN;
+	req.r[1].funcp	= req.r[0].funcp	= req.FUNC;
+	req.r[1].lenn	= req.r[0].lenn		= ~req.LEN;
+	req.r[1].funcn	= req.r[0].funcn	= ~req.FUNC;
+	req.r[1].crc	= req.r[0].crc		= GetCRC16(&req.r[0].funcp, req.CRCLEN);
 
 	return rq;
 }

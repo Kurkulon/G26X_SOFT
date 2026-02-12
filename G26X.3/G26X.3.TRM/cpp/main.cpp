@@ -14,7 +14,7 @@
 //#include "G_TRM.H"
 
 
-enum { VERSION = 0x103 };
+enum { VERSION = 0x104 };
 
 //#pragma O3
 //#pragma Otime
@@ -427,7 +427,7 @@ static bool Request02(byte *data, u16 len, ComPort::WriteBuffer *wb)
 	
 	if (req.saveParams) SaveMainParams();
 
-	rsp.func		= req.func;
+	rsp.func		= req.funcp;
 	rsp.numDevValid = numDevValid;
 	rsp.numdev		= mv.numDevice;
 	rsp.verdev		= VERSION;
@@ -465,7 +465,8 @@ static bool Request03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 
 		rsp.rw = TRM_RSP03_RW;
 
-		i16 max = 0;
+		i16 max = 0x8000;
+		i16 min = 0x7FFF;
 
 		for (u16 i = 0; i < rsp.sl; i++)
 		{
@@ -473,14 +474,14 @@ static bool Request03(byte *data, u16 len, ComPort::WriteBuffer *wb)
 			t *= 2;
 			rsp.data[i] = t;
 
-			if (t < 0) t = -t;
+			if (t < min) min = t;
 			if (t > max) max = t;
 		};
 
 		wb->data = &rsp;
 		wb->len = sizeof(rsp) - sizeof(rsp.data) - sizeof(rsp.crc) + rsp.sl*2;
 
-		rsp.amp = max;
+		rsp.amp = ABS(((i32)max - (i32)min) / 2);
 		rsp.data[rsp.sl] = GetCRC16(wb->data, wb->len);
 
 		wb->len += 2;
@@ -499,9 +500,9 @@ static bool UpdateRequest(ComPort::WriteBuffer *wb, ComPort::ReadBuffer *rb)
 {
 	//static Req nulReq;
 
-	static const byte fl[3] = { sizeof(ReqTrm01::r[0])-1, sizeof(ReqTrm02::r[0])-1, sizeof(ReqTrm03::r[0])-1 };
+	static const byte fl[] = { ReqTrm01::LEN, ReqTrm02::LEN, ReqTrm03::LEN };
 
-	if (rb == 0 || rb->len < 4) return false;
+	if (rb == 0 || rb->len < 6) return false;
 
 	bool result = false;
 
@@ -509,16 +510,18 @@ static bool UpdateRequest(ComPort::WriteBuffer *wb, ComPort::ReadBuffer *rb)
 
 	byte *p = (byte*)rb->data;
 
-	while(rlen > 3)
+	while(rlen > 5)
 	{
-		byte len = p[0];
-		byte func = p[1]-1;
+		byte lenp	= p[0];
+		byte funcp	= p[1]-1;
+		byte lenn	= ~p[2];
+		byte funcn	= ~p[3]-1;
 
-		if (func < 4 && len == fl[func] && len < rlen && GetCRC16(p+1, len) == 0)
+		if (lenp == lenn && funcp == funcn && lenp < rlen && funcp < ArraySize(fl) && lenp == fl[funcp] && GetCRC16(p+1, lenp) == 0)
 		{
 			//Req *req = (Req*)p;
 
-			result = listReq[func](p, len+1, wb);
+			result = listReq[funcp](p, lenp+1, wb);
 
 			break;
 		}

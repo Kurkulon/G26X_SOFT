@@ -1,3 +1,4 @@
+#include "hardware.h"
 #include "types.h"
 #include "core.h"
 #include "time.h"
@@ -5,14 +6,12 @@
 #include "list.h"
 #include "PointerCRC.h"
 
-#include "hardware.h"
 #include <SEGGER_RTT\SEGGER_RTT.h>
 //#include "hw_rtm.h"
 //#include "hw_nand.h"
 #include <DMA\DMA.h>
 #include <MANCH\manch.h>
 #include <math.h>
-#include "G26X_3_HW_CONF.H"
 
 //#define TRM_SYNC_IRQ
 
@@ -44,6 +43,9 @@ static List<Rsp72>	readyRsp72;
 
 static Rsp72 *hwRsp72 = 0;
 
+static DMA_CH ADC_DMA(ADC_DMA_CH);
+static DMA_CH PWM_DMA(PWM_DMA_CH);
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Rsp72* GetReadyRsp72() { return readyRsp72.Get(); }
@@ -73,6 +75,12 @@ __forceinline 	void DisableVCORE()	{ PIO_ENVCORE->SET(ENVCORE); 	}
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #include <time_imp.h>
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+//#include "CRC\CRC_CCITT_DMA_IMP.h"
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1148,7 +1156,7 @@ void InitHardware()
 
 #endif
 
-	Init_time(MCK);
+	Init_time();
 	I2C_Init();
 	Init_HV();
 

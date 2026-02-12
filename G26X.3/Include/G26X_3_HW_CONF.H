@@ -24,6 +24,11 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+#define REAL_TIME_CLOCK_DISABLE
+#define SYSTEM_TICK_TIMER_ENABLE
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 #ifdef CPU_SAME53	
 
 	// Test Pins
@@ -86,18 +91,18 @@
 
 	// ++++++++++++++	DMA	0...31	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	#define	PWM_DMA					DMA_CH0
-	//#define	PWMHA_DMA				DMA_CH1
-	//#define	PWMLB_DMA				DMA_CH2
-	//#define	PWMHB_DMA				DMA_CH3
-	#define	DACTC_DMA				DMA_CH4
-	#define	UART0_DMA				DMA_CH5
-	//#define	NAND_MEMCOPY_DMA	DMA_CH6
-	#define	I2C_DMACH				DMA_CH7
-	//#define	DSP_DMATX			DMA_CH8
-	//#define	DSP_DMARX			DMA_CH9
-	#define	ADC_DMA					DMA_CH30
-	#define	CRC_DMA					DMA_CH31
+	#define	PWM_DMA_CH				0
+	//#define	PWMHA_DMA			1
+	//#define	PWMLB_DMA			2
+	//#define	PWMHB_DMA			3
+	#define	DACTC_DMA_CH			4
+	#define	UART0_DMA_CH			5
+	//#define	NAND_MEMCOPY_DMA	6
+	#define	I2C_DMA_CH				7
+	//#define	DSP_DMATX			8
+	//#define	DSP_DMARX			9
+	#define	ADC_DMA_CH				30
+	#define	CRC_DMA_CH				31
 
 	// ++++++++++++++	EVENT 0...31	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

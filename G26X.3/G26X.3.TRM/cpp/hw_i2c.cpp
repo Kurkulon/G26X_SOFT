@@ -1,3 +1,4 @@
+#include "hardware.h"
 #include <types.h>
 #include <core.h>
 #include <time.h>
@@ -5,7 +6,6 @@
 #include <list.h>
 #include <PointerCRC.h>
 
-#include "hardware.h"
 #include <SEGGER_RTT\SEGGER_RTT.h>
 //#include "hw_rtm.h"
 
@@ -68,7 +68,7 @@ static volatile bool busyWriteThread = false;
 
 #elif defined(CPU_SAME53)
 
-static S_I2C i2c(I2C_SERCOM_NUM, PIO_I2C, SCL, I2C_PMUX_SCL, PIO_I2C, SDA, I2C_PMUX_SDA, I2C_GEN_SRC, I2C_GEN_CLK, &I2C_DMACH );
+static S_I2C i2c(I2C_SERCOM_NUM, PIO_I2C, SCL, I2C_PMUX_SCL, PIO_I2C, SDA, I2C_PMUX_SDA, I2C_GEN_SRC, I2C_GEN_CLK, I2C_DMA_CH );
 
 #elif defined(CPU_XMC48)
 

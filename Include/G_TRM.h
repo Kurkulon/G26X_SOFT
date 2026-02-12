@@ -28,37 +28,55 @@
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+#define REQTRM_ENUM enum { LEN = sizeof(Req)-sizeof(Req::lenp)-sizeof(Req::fill) }; enum { CRCLEN = sizeof(Req)-sizeof(Req::lenp)-sizeof(Req::fill)-sizeof(Req::crc) }
+
 __packed struct ReqTrm01	
 {
+	enum { FUNC = 1 };
+
 	__packed struct Req
 	{
-		byte 	len;
-		byte 	func;
+		byte 	lenp;
+		byte 	funcp;
+		byte 	lenn;
+		byte 	funcn;
 		byte 	n;
 		byte	fireCount;
 		u16		fireFreq;
 		u16		fireDuty;
 		u16		fireAmp;
 		word 	crc;
+		
+		u16		fill;
 	}
 	r[3];
+
+	REQTRM_ENUM;
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 __packed struct ReqTrm02	
 {
+	enum { FUNC = 2 };
+
 	__packed struct Req
 	{
-		byte 	len;
-		byte 	func;
+		byte 	lenp;
+		byte 	funcp;
+		byte 	lenn;
+		byte 	funcn;
 		byte	numDevValid;		// если не ноль, numDev пральный и его нада записать в RAM
 		byte 	saveParams;			// если не ноль, то записать параметры во flash
 		u16		reqHV;
 		u16		numDev;				// номер модуля приёмников
 		u16 	crc;  
+
+		u16		fill;
 	}
 	r[2];
+
+	REQTRM_ENUM;
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -78,13 +96,21 @@ __packed struct RspTrm02
 
 __packed struct ReqTrm03	// Запрос осциллограмм излучателя
 {
+	enum { FUNC = 3 };
+
 	__packed struct Req
 	{
-		byte 	len;
-		byte	func; 
+		byte 	lenp;
+		byte 	funcp;
+		byte 	lenn;
+		byte 	funcn;
 		word 	crc;  
+
+		u16		fill;
 	}
 	r[2];
+
+	REQTRM_ENUM;
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
