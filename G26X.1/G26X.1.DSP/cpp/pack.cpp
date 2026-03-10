@@ -6,17 +6,17 @@
 
 #define FDCT_LOG2N		8
 #define FDCT_TRIG		u16
-#define FDCT_TRIGBITS	(17-FDCT_LOG2N)
+#define FDCT_TRIGBITS	(16-FDCT_LOG2N)
 
 #else
 
 #define FDCT_LOG2N		6
 #define FDCT_TRIG		u16
-#define FDCT_TRIGBITS	(17-FDCT_LOG2N)
+#define FDCT_TRIGBITS	(16-FDCT_LOG2N)
 
 #endif
 
-#define FDCT_BAND_DIV 2
+#define FDCT_BAND_DIV 1.5
 
 //#include "WAVEPACK\fdct_imp.h"
 #include "WAVEPACK\wavepack_imp.h"
