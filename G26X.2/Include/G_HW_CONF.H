@@ -27,13 +27,13 @@
 #define MEDIUM_BUF_LEN	1536
 
 #ifndef WIN32
-#define HUGE_BUF_LEN	8768 //(sizeof(RspRcv02)+32) //2034
+#define HUGE_BUF_LEN	8768  //12224  //(sizeof(RspRcv02)+32) //2034
 #else
 #define HUGE_BUF_LEN	0x4100    
 #endif
 #define	NUM_SMALL_BUF	18       
 #define	NUM_MEDIUM_BUF	10
-#define	NUM_HUGE_BUF	16
+#define	NUM_HUGE_BUF	10
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

@@ -58,7 +58,7 @@
 
 #define RCV_WAVEPACK
 
-#define RCV_SAMPLE_LEN 1024
+#define RCV_SAMPLE_LEN 1024 //1456
 
 #define RCV_MAIN_PACK	PACK_DCT0
 
