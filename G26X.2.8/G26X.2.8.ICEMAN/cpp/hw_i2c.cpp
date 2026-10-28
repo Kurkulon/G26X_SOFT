@@ -1,13 +1,10 @@
-#include <types.h>
-#include <core.h>
-#include <time.h>
-#include <CRC\CRC16_8005.h>
-#include <list.h>
-#include <PointerCRC.h>
-
 #include "hardware.h"
-#include <SEGGER_RTT\SEGGER_RTT.h>
-#include "hw_rtm.h"
+//#include "CRC\CRC16_8005.h"
+//#include "list.h"
+//#include "PointerCRC.h"
+
+//#include "SEGGER_RTT\SEGGER_RTT.h"
+//#include "hw_rtm.h"
 
 
 #ifdef WIN32
@@ -68,7 +65,7 @@ static volatile bool busyWriteThread = false;
 
 #elif defined(CPU_SAME53)
 
-static S_I2C i2c(I2C_SERCOM_NUM, PIO_I2C, SCL, I2C_PMUX_SCL, PIO_I2C, SDA, I2C_PMUX_SDA, I2C_GEN_SRC, I2C_GEN_CLK, &I2C_DMACH );
+static S_I2C i2c(I2C_SERCOM_NUM, PIO_I2C, SCL, I2C_PMUX_SCL, PIO_I2C, SDA, I2C_PMUX_SDA, I2C_GEN_SRC, I2C_GEN_CLK, I2C_DMACH );
 
 #elif defined(CPU_XMC48)
 
@@ -226,6 +223,12 @@ void I2C_Destroy()
 }
 
 #endif
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#include "i2c_imp.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

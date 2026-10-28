@@ -1,11 +1,8 @@
-#include "types.h"
-#include "core.h"
-#include "time.h"
+#include "hardware.h"
 #include "CRC\CRC16_8005.h"
 #include "list.h"
 #include "PointerCRC.h"
 
-#include "hardware.h"
 #include <SEGGER_RTT\SEGGER_RTT.h>
 #include "hw_rtm.h"
 //#include "hw_nand.h"
@@ -60,6 +57,15 @@ bool dachvInverted = false;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+//#include "Clock_imp.h"
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+//#include "CRC\CRC_CCITT_DMA_IMP.h"
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#include "time_imp.h"
 
 
 
@@ -163,7 +169,7 @@ void InitHardware()
 
 	HW::GCLK->GENCTRL[GEN_25M]	= GCLK_DIV(1)	|GCLK_SRC_XOSC1		|GCLK_GENEN;
 
-//	HW::GCLK->GENCTRL[GEN_500K] = GCLK_DIV(50)	|GCLK_SRC_XOSC1		|GCLK_GENEN;
+	HW::GCLK->GENCTRL[GEN_5M]	= GCLK_DIV(5)	|GCLK_SRC_XOSC1		|GCLK_GENEN;
 
 	//PIO_32kHz->SetWRCONFIG(1UL<<PIN_32kHz, PORT_PMUX_M|PORT_WRPINCFG|PORT_PMUXEN|PORT_WRPMUX|PORT_PULLEN);
 
@@ -182,10 +188,10 @@ void InitHardware()
 
 #endif
 
-	Init_time(MCK);
+	Init_time(/*MCK*/);
 	I2C_Init();
 
-	RTT_Init();
+	//RTT_Init();
 
 #ifndef WIN32
 

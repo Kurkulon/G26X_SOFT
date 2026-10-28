@@ -140,8 +140,8 @@ static u32 InitRspMan_10(__packed u16 *data)
 	__packed u16 *start = data;
 
 	*(data++)	= (manReqWord & manReqMask) | 0x10;		//	1. ответное слово
-	*(data++)	= mv.fireVoltage;						//	2. Напряжение излучателя (0...300 В)
-	*(data++)	= mv.fireType;							//	3. Формирование излучения (тип, 0,1,2.. )
+	*(data++)	= 0;//mv.fireVoltage;						//	2. Напряжение излучателя (0...300 В)
+	*(data++)	= 0;//mv.fireType;							//	3. Формирование излучения (тип, 0,1,2.. )
 
 	return data - start;
 }
@@ -168,43 +168,10 @@ static bool RequestMan_20(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len == 0 || len > 2 || mtb == 0) return false;
 
-	curRsp72 = GetReadyRsp20();
-	
-	if (curRsp72 == 0)
-	{
-		manTrmData[0] = data[0];		//	1. Ответное слово	
+	manTrmData[0] = data[0];		//	1. Ответное слово	
 
-		mtb->data1 = manTrmData;
-		mtb->len1 = 1;
-	}
-	else
-	{
-		Rsp20 &rsp = *curRsp72;
-
-		rsp.hdr.rw = data[0];							//	1. Ответное слово	
-		rsp.hdr.amp = 0;								//	4. Аплитуда излучателя измеренная (В)
-		rsp.hdr.temp = temp;							//	5. Температура излучателя измеренная (0.1гр) (short)
-
-		mtb->data1 = &rsp.hdr.rw;
-
-		data = rsp.data;
-
-		i16 amp = 0;
-
-		for (u16 i = 0; i < rsp.osc.sl; i++, data++)
-		{
-			i16 t = data[0]-0x7FF;
-			t = t * 5 / 4;
-			data[0] = t;
-
-			if (t > amp) amp = t;
-		};
-
-		rsp.hdr.amp = amp;
-
-		mtb->len1 = sizeof(rsp.hdr)/2 + ((rsp.hdr.rw&1) ? (sizeof(rsp.osc)/2 + curRsp72->osc.sl) : 0);
-	};
-
+	mtb->data1 = manTrmData;
+	mtb->len1 = 1;
 	mtb->data2 = 0;
 	mtb->len2 = 0;
 
@@ -248,15 +215,15 @@ static bool RequestMan_90(u16 *data, u16 len, MTB* mtb)
 {
 	if (data == 0 || len < 3 || len > 4 || mtb == 0) return false;
 
-	switch(data[1])
-	{
-		case 0x00:	mv.fireVoltage		= MIN(data[2], 300);	break;	//	0x00. Напряжение излучателя (0...300 вольт)
-		case 0x01:	mv.fireType			= MIN(data[2], 1);		break;	//	0x01. Формирование излучения (тип, 0,1,2.. )
+	//switch(data[1])
+	//{
+	//	case 0x00:	mv.fireVoltage		= MIN(data[2], 300);	break;	//	0x00. Напряжение излучателя (0...300 вольт)
+	//	case 0x01:	mv.fireType			= MIN(data[2], 1);		break;	//	0x01. Формирование излучения (тип, 0,1,2.. )
 
-		default:
+	//	default:
 
-			return false;
-	};
+	//		return false;
+	//};
 
 	manTrmData[0] = (manReqWord & manReqMask) | 0x90;
 
@@ -323,7 +290,7 @@ static void UpdateMan()
 
 	static byte i = 0;
 
-	static RTM tm;
+	static CTM32 tm;
 
 //	u16 c;
 
@@ -367,7 +334,7 @@ static void UpdateMan()
 
 		case 2:
 
-			if (tm.Check(US2RT(200)))
+			if (tm.Check(US2CTM(200)))
 			{
 				SendManData(&mtb);
 
@@ -380,7 +347,7 @@ static void UpdateMan()
 
 			if (mtb.ready)
 			{
-				if (curRsp72 != 0) FreeRsp20(curRsp72), curRsp72 = 0;
+				//if (curRsp72 != 0) FreeRsp20(curRsp72), curRsp72 = 0;
 
 				i = 0;
 			};
@@ -652,7 +619,7 @@ int main()
 
 	InitHardware();
 
-	LoadVars();
+	//LoadVars();
 
 	InitTaskList();
 
@@ -667,6 +634,8 @@ int main()
 
 	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_WHITE "Main Loop start ...\n");
 
+	MTB mtb;
+
 	while (1)
 	{
 		Pin_MainLoop_Set();
@@ -677,9 +646,17 @@ int main()
 
 		fc++;
 
-		if (tm.Check(250))
+		if (tm.Check(1000))
 		{
 			fps = fc; fc = 0; 
+
+			mtb.baud = 0;
+			mtb.data1 = manTrmData;
+			mtb.len1 = 2;
+			mtb.data2 = 0;
+			mtb.len2 = 0;
+
+			SendManData(&mtb);
 
 			//PrepareFire((n++)&3, 3000, 1000, 2, 5000); CM4::NVIC->STIR = EIC_0_IRQ+PWM_EXTINT;
 			//PrepareFire((n++)&3, 3000, 1000, 2, 5000); HW::EVSYS->SWEVT = 1;

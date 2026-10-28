@@ -1,4 +1,4 @@
-#ifndef HW_RTM_H__20_04_2022__16_00
+#ifdef HW_RTM_H__20_04_2022__16_00
 #define HW_RTM_H__20_04_2022__16_00
 
 #ifdef WIN32

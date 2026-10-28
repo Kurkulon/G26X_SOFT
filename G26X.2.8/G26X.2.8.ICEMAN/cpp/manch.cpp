@@ -1,46 +1,39 @@
-#include <types.h>
-#include <core.h>
+#include "hardware.h"
 //#include "COM_DEF.h"
 //#include "CRC16_8005.h"
 
 //#include "hardware.h"
 
-#include <SEGGER_RTT\SEGGER_RTT.h>
-#include "hardware.h"
+//#include <SEGGER_RTT\SEGGER_RTT.h>
 
-#ifdef CPU_SAME53	
-#define MAN_TRANSMIT_V2
-#elif defined(CPU_XMC48)
-#define MAN_TRANSMIT_V2
-#endif
 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#ifdef MAN_SERCOM_NUM
-
-	#ifdef CPU_SAME53	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-		#ifdef MAN_SERCOM_NUM
-
-			#define MANT_GEN					GEN_1M
-			#define MANT_GEN_CLK				GEN_1M_CLK 
-			#define GCLK_MANT					CONCAT3(GCLK_SERCOM,MAN_SERCOM_NUM,_CORE)
-			#define PID_MANT					CONCAT2(PID_SERCOM,MAN_SERCOM_NUM)
-
-			#define MANTSPI						CONCAT2(HW::SPI,MAN_SERCOM_NUM)
-
-		#else
-			#error  Must defined MANT_TC or MANT_TCC
-		#endif
-		
-		#define BAUD2CLK(x)						((u32)(MANT_GEN_CLK/(2*(x))+0.5)-1)
-
-		inline void MANT_ClockEnable()			{ HW::GCLK->PCHCTRL[GCLK_MANT] = MANT_GEN|GCLK_CHEN; HW::MCLK->ClockEnable(PID_MANT); }
-
-	#endif
-
-#endif // #ifdef MAN_SERCOM_NUM
+//#ifdef wqeqeMAN_SERCOM_NUMwerwer
+//
+//	#ifdef CPU_SAME53	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//
+//		#ifdef MAN_SERCOM_NUM
+//
+//			#define MANT_GEN					GEN_1M
+//			#define MANT_GEN_CLK				GEN_1M_CLK 
+//			#define GCLK_MANT					CONCAT3(GCLK_SERCOM,MAN_SERCOM_NUM,_CORE)
+//			#define PID_MANT					CONCAT2(PID_SERCOM,MAN_SERCOM_NUM)
+//
+//			#define MANTSPI						CONCAT2(HW::SPI,MAN_SERCOM_NUM)
+//
+//		#else
+//			#error  Must defined MANT_TC or MANT_TCC
+//		#endif
+//		
+//		#define BAUD2CLK(x)						((u32)(MANT_GEN_CLK/(2*(x))+0.5)-1)
+//
+//		inline void MANT_ClockEnable()			{ HW::GCLK->PCHCTRL[GCLK_MANT] = MANT_GEN|GCLK_CHEN; HW::MCLK->ClockEnable(PID_MANT); }
+//
+//	#endif
+//
+//#endif // #ifdef MAN_SERCOM_NUM
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -52,7 +45,7 @@
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#ifdef MAN_SERCOM_NUM
+#ifdef wqeqeMAN_SERCOM_NUMwerwer
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

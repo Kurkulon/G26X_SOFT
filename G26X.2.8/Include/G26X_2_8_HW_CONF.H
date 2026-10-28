@@ -6,7 +6,7 @@
 #include <types.h>
 #include <core.h>
 
-//#define MANCH_REQ
+#define MANCH_REQ
 
 #define MCK_MHz 200
 #define MCK (MCK_MHz*1000000)
@@ -15,6 +15,8 @@
 #define MS2CLK(x) ((x)*MCK_MHz*1000)
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#define REAL_TIME_CLOCK_DISABLE
+#define SYSTEM_TICK_TIMER_ENABLE
 
 #define FRAM_SPI_MAINVARS_ADR 0
 #define FRAM_SPI_SESSIONS_ADR 0x200
@@ -62,7 +64,7 @@
 	#define GEN_25M				2
 	#define GEN_1M				3
 	#define GEN_DAC				4
-	//#define GEN_500K			4
+	#define GEN_5M				5
 	//#define GEN_EXT32K		5
 
 	#define GEN_DAC_DIV			((u32)((MCK_MHz+6)/12))
@@ -70,17 +72,18 @@
 	#define GEN_MCK_CLK			MCK
 	#define GEN_32K_CLK			32768
 	#define GEN_25M_CLK			25000000
+	#define GEN_5M_CLK			5000000
 	#define GEN_1M_CLK			1000000
 	#define GEN_EXT32K_CLK		32768
 	#define GEN_DAC_CLK			(MCK/GEN_DAC_DIV)
 
 	// ++++++++++++++	SERCOM	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	//#define SERCOM_0			0
+	#define I2C_SERCOM_NUM			0
 	//#define SERCOM_1			1
-	#define I2C_SERCOM_NUM		2
+	//#define I2C_SERCOM_NUM		2
 	#define UART0_SERCOM_NUM	3
-	//#define SERCOM_4			4
+	#define MAN_SERCOM_NUM		4
 	//#define SERCOM_5			5
 	//#define SERCOM_6			6
 	//#define SERCOM_7			7
@@ -93,9 +96,9 @@
 	//#define	PWMLB_DMA				DMA_CH2
 	//#define	PWMHB_DMA				DMA_CH3
 	//#define	DACTC_DMA				DMA_CH4
-	#define	UART0_DMA				DMA_CH5
+	#define	UART0_DMA				5
 	//#define	NAND_MEMCOPY_DMA	DMA_CH6
-	#define	I2C_DMACH				DMA_CH7
+	#define	I2C_DMACH				7
 	//#define	DSP_DMATX			DMA_CH8
 	//#define	DSP_DMARX			DMA_CH9
 	#define	ADC_DMA					DMA_CH30
@@ -184,8 +187,8 @@
 
 //	#define I2C					CONCAT2(HW::I2C,I2C_SERCOM_NUM)
 	#define PIO_I2C				HW::PIOA 
-	#define PIN_SDA				12 
-	#define PIN_SCL				13 
+	#define PIN_SDA				8 
+	#define PIN_SCL				9 
 	#define SDA					(1<<PIN_SDA) 
 	#define SCL					(1<<PIN_SCL) 
 	#define I2C_PMUX_SDA		PORT_PMUX_C 
@@ -196,39 +199,41 @@
 
 	// ++++++++++++++	MANCH	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	//#define PIO_MANCH		HW::PIOB
-	//#define PIN_L1			14 
-	//#define PIN_L2			15 
-	//#define MANCH_PMUX		PORT_PMUX_F
-	//#define L1_WO_NUM		0
-	//#define L2_WO_NUM		1
+	#define MAN_TRANSMIT_SSC
+	
+	#define PIO_MANT_SPCK			HW::PIOA
+	#define PIO_MANTX				HW::PIOA	//MOSI
+	#define PIO_MANEN				HW::PIOA	//CS
 
-	//#define L1				(1UL<<PIN_L1)
-	//#define L2				(1UL<<PIN_L2)
-	//#define H1				0
-	//#define H2				0
+	#define PIN_MANT_SPCK			12
+	#define PIN_MANTX				13 
+	#define PIN_MANEN				14 
 
-	//#define PIO_RXD			HW::PIOB
-	//#define PIN_RXD			13
-	//#define RXD				(1UL<<PIN_RXD)
+	#define MANT_SPCK				(1UL<<PIN_MANT_SPCK) 
+	#define MANTX					(1UL<<PIN_MANTX)
+	#define MANEN					(1UL<<PIN_MANEN)
 
-	//#define Pin_ManRcvIRQ_Set()		HW::PIOB->BSET(11)
-	//#define Pin_ManRcvIRQ_Clr()		HW::PIOB->BCLR(11)
+	#define MANT_PMUX_SPCK			PORT_PMUX_D 
+	#define MANT_PMUX_MANTX			PORT_PMUX_D 
+	#define MANT_PMUX_MANEN			PORT_PMUX_D 
+	#define MANT_DOPO_BITS			SPI_DOPO(0) 
 
-	//#define Pin_ManTrmIRQ_Set()		HW::PIOB->BSET(10)		
-	//#define Pin_ManTrmIRQ_Clr()		HW::PIOB->BCLR(10)		
+	#define MANT_GEN				GEN_5M
+	#define MANT_GEN_CLK			GEN_5M_CLK 
 
-	//#define Pin_ManRcvSync_Set()	HW::PIOB->BSET(12)		
-	//#define Pin_ManRcvSync_Clr()	HW::PIOB->BCLR(12)		
+	#define PIO_RXD					HW::PIOB
+	#define PIN_RXD					14
+	#define RXD						(1UL<<PIN_RXD)
 
-	#define PIO_MANTX		HW::PIOA
-	#define PIO_MANEN		HW::PIOA
+	#define Pin_ManRcvIRQ_Set()		HW::PIOB->BSET(11)
+	#define Pin_ManRcvIRQ_Clr()		HW::PIOB->BCLR(11)
 
-	#define PIN_MANTX		21 
-	#define PIN_MANEN		20 
+	#define Pin_ManTrmIRQ_Set()		HW::PIOA->BSET(6)		
+	#define Pin_ManTrmIRQ_Clr()		HW::PIOA->BCLR(6)		
 
-	#define MANTX			(1UL<<PIN_MANTX)
-	#define MANEN			(1UL<<PIN_MANEN)
+	#define Pin_ManRcvSync_Set()	HW::PIOB->BSET(12)		
+	#define Pin_ManRcvSync_Clr()	HW::PIOB->BCLR(12)		
+
 	
 	// ++++++++++++++	VCORE	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
