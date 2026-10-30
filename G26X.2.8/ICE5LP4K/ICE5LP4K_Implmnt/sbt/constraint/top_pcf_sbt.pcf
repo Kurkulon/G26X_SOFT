@@ -1,0 +1,24 @@
+# ##############################################################################
+
+# iCEcube PCF
+
+# Version:            2020.12.27943
+
+# File Generated:     Sep 3 2025 14:47:07
+
+# Family & Device:    iCE5LP4K
+
+# Package:            SG48
+
+# ##############################################################################
+
+###IOSet List 8
+set_io clk 20
+set_io manrx 42
+set_io mantx 36
+set_io mantx1 18
+set_io manen 37
+set_io mantx2 19
+set_io rxd 2
+set_io testclk 25
+

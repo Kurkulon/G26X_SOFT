@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE		ispXCF	SYSTEM	"IspXCF.dtd" >
+<ispXCF version="3.14">
+	<Comment></Comment>
+	<Chain>
+		<Comm>Slave SPI</Comm>
+		<Device>
+			<SelectedProg value="TRUE"/>
+			<Pos>1</Pos>
+			<Vendor>ISSI</Vendor>
+			<Family>iCE5LP</Family>
+			<Name>iCE5LP4K</Name>
+			<Package>All</Package>
+			<PON>iCE5LP4K</PON>
+			<Bypass>
+				<InstrLen>8</InstrLen>
+				<InstrVal>11111111</InstrVal>
+				<BScanLen>1</BScanLen>
+				<BScanVal>0</BScanVal>
+			</Bypass>
+			<File>D:/Work/G26X_SOFT/G26X.2.8/ICE5LP4K/ICE5LP4K_Implmnt/sbt/outputs/bitmap/top_bitmap.bin</File>
+			<FileTime>10/29/26 14:12:23</FileTime>
+			<JedecChecksum>0xFF5E</JedecChecksum>
+			<Operation>Program,Verify</Operation>
+			<Option>
+				<SVFVendor>JTAG STANDARD</SVFVendor>
+				<IOState>HighZ</IOState>
+				<SVFProcessor>SVF Processor</SVFProcessor>
+				<AccessMode>CRAM</AccessMode>
+			</Option>
+		</Device>
+	</Chain>
+	<ProjectOptions>
+		<Program>SEQUENTIAL</Program>
+		<Process>ENTIRED CHAIN</Process>
+		<OperationOverride>No Override</OperationOverride>
+		<StartTAP>TLR</StartTAP>
+		<EndTAP>TLR</EndTAP>
+		<DisableCheckBoard value="TRUE"/>
+		<VerifyUsercode value="FALSE"/>
+		<TCKDelay>1</TCKDelay>
+	</ProjectOptions>
+	<CableOptions>
+		<CableName>USB</CableName>
+		<PortAdd>EzUSB-0</PortAdd>
+		<USBID>\\?\usb#vid_1134&amp;amp;pid_8001#6&amp;amp;7f235b7&amp;amp;0&amp;amp;1#</USBID>
+	</CableOptions>
+</ispXCF>

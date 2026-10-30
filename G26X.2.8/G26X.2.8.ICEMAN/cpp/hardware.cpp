@@ -130,7 +130,130 @@ static void WDT_Init()
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+u16 PTAT = 0;
+u16 CTAT = 0;
+i32 tempCPU = 0;
+
+static i32 temp_k1 = 0;
+static i32 temp_k2 = 0;
+static i16 temp_k3 = 0;
+static i16 temp_k4 = 0; 
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void UpdateADC()
+{
+	static byte i = 0;
+
+	switch (i)
+	{
+		case 0:
+
+			HW::ADC0->INPUTCTRL = ADC_MUXPOS_PTAT;
+			HW::ADC0->INTFLAG = ~0;
+			HW::ADC0->SWTRIG = ADC_START;
+
+			i++;
+
+			break;
+
+		case 1:
+
+			if (HW::ADC0->INTFLAG & ADC_RESRDY)
+			{
+				PTAT = HW::ADC0->RESULT;
+
+				HW::ADC0->INPUTCTRL = ADC_MUXPOS_CTAT;
+				HW::ADC0->INTFLAG = ~0;
+				HW::ADC0->SWTRIG = ADC_START;
+
+				i++;
+			};
+
+			break;
+
+		case 2:
+
+			if (HW::ADC0->INTFLAG & ADC_RESRDY)
+			{
+				CTAT = HW::ADC0->RESULT;
+
+				HW::ADC0->INTFLAG = ~0;
+
+				u16 TP	= PTAT;
+				u16 TC	= CTAT;
+
+				i32 a = SMUL64(temp_k1,TC)>>8;
+				i32 b = SMUL64(temp_k2,TP)>>8;
+				i32 c = (temp_k3*TP - temp_k4*TC)/256;
+				
+				if (c != 0) tempCPU = ((a-b)+c/2)/c;
+				
+				i = 0;
+			};
+
+			break;
+	};
+}
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+static void Init_ADC()
+{
+#ifdef CPU_SAME53
+
+	HW::GCLK->PCHCTRL[GCLK_ADC0] = GEN_MCK|GCLK_CHEN; 
+	//HW::GCLK->PCHCTRL[GCLK_ADC1] = GEN_MCK|GCLK_CHEN; 
+	HW::MCLK->ClockEnable(PID_ADC0); 
+	HW::MCLK->ClockEnable(PID_ADC1); 
+
+	HW::SUPC->VREF = VREF_ONDEMAND|VREF_TSEN;
+
+	//PIO_ARID->SetWRCONFIG(ARID,		PORT_PMUX_B|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
+	//PIO_AVMAN->SetWRCONFIG(AVMAN,	PORT_PMUX_B|PORT_WRPMUX|PORT_WRPINCFG|PORT_PMUXEN);
+
+	HW::ADC0->CTRLB = ADC_RESSEL_16BIT;//|ADC_FREERUN;
+	//HW::ADC1->CTRLB = ADC_RESSEL_16BIT|ADC_FREERUN;
+
+	HW::ADC0->REFCTRL = ADC_REFSEL_VDDANA|ADC_REFCOMP;
+	//HW::ADC1->REFCTRL = ADC_REFSEL_VDDANA|ADC_REFCOMP;
+
+	HW::ADC0->INPUTCTRL = ADC_MUXPOS_PTAT;
+	//HW::ADC1->INPUTCTRL = ADC_MUXPOS_CTAT;
+
+	HW::ADC0->AVGCTRL = ADC_SAMPLENUM_1024;
+	//HW::ADC1->AVGCTRL = ADC_SAMPLENUM_1024;
+
+	HW::ADC0->SAMPCTRL = ADC_SAMPLEN(26);
+	//HW::ADC1->SAMPCTRL = ADC_SAMPLEN(26);
+
+	HW::ADC0->CTRLA = ADC_PRESCALER_DIV32|ADC_ENABLE; 
+	//HW::ADC1->CTRLA = ADC_PRESCALER_DIV32|ADC_ENABLE; 
+
+	//HW::ADC0->SWTRIG = ADC_START;
+	//HW::ADC1->SWTRIG = ADC_START;
+
+	u16 TLI	= HW::TEMPCAL->TLI;
+	u16 TLD	= HW::TEMPCAL->TLD;
+	u16 THI	= HW::TEMPCAL->THI;
+	u16 THD	= HW::TEMPCAL->THD;
+	u16 VPL	= HW::TEMPCAL->VPL;
+	u16 VPH	= HW::TEMPCAL->VPH;
+	u16 VCL	= HW::TEMPCAL->VCL;
+	u16 VCH	= HW::TEMPCAL->VCH;
+
+	u16 TL = TLI*10+TLD;
+	u16 TH = THI*10+THD;
+
+	temp_k1 = TL*VPH - VPL*TH;
+	temp_k2 = TL*VCH - VCL*TH;
+	temp_k3 = VCL-VCH;
+	temp_k4 = VPL-VPH;
+
+#endif
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 void InitHardware()
 {
@@ -195,12 +318,12 @@ void InitHardware()
 
 #ifndef WIN32
 
-	#ifdef MANCH_REQ
-		InitManRecieve();
-		InitManTransmit();
-	#endif
+	InitManRecieve();
+	InitManTransmit();
 
 //	EnableVCORE();
+
+	Init_ADC();
 	
 	WDT_Init();
 
@@ -218,6 +341,7 @@ void UpdateHardware()
 #ifndef WIN32
 
 	I2C_Update();
+	UpdateADC();
 
 #endif
 }

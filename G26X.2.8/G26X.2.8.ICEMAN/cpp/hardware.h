@@ -43,6 +43,7 @@ extern void DisableFire();
 
 extern void InitHardware();
 extern void UpdateHardware();
+extern void UpdateADC();
 //extern u16 GetCurFireVoltage();
 
 //inline bool DacHvInverted() { extern bool dachvInverted; return dachvInverted; }

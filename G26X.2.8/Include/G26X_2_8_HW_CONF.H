@@ -6,8 +6,6 @@
 #include <types.h>
 #include <core.h>
 
-#define MANCH_REQ
-
 #define MCK_MHz 200
 #define MCK (MCK_MHz*1000000)
 #define NS2CLK(x) (((x)*MCK_MHz+500)/1000)
@@ -39,12 +37,11 @@
 	// 10	- PB07	
 	// 11	- PB08	
 	// 12	- PB09	
-	// 14	- PA05	
-	// 15	- PA06	
+	// 15	- PA06	- ManTrmIRQ2
 	// 16	- PA07	
 	// 46	- PA25	- main loop
-	// 50	- PB23
-	// 51	- PA27	
+	// 50	- PB23	- ManRcvIRQ
+	// 51	- PA27	- ManRcvIRQ sync true
 	// 59	- PB30
 	// 60	- PB31
 	// 61	- PB00
@@ -52,9 +49,9 @@
 	// 63	- PB02
 	// 64	- PB03
 
-	// 	- ManTrmIRQ2	
-	// 	- ManRcvIRQ	
-	// 	- ManRcvIRQ sync true	
+	// 		
+	// 		
+	// 		
 
 
 	// ++++++++++++++	GEN	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -80,10 +77,10 @@
 	// ++++++++++++++	SERCOM	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	#define I2C_SERCOM_NUM			0
-	//#define SERCOM_1			1
+	#define MAN_SERCOM_NUM			1
 	//#define I2C_SERCOM_NUM		2
 	#define UART0_SERCOM_NUM	3
-	#define MAN_SERCOM_NUM		4
+	//#define MAN_SERCOM_NUM		4
 	//#define SERCOM_5			5
 	//#define SERCOM_6			6
 	//#define SERCOM_7			7
@@ -205,17 +202,17 @@
 	#define PIO_MANTX				HW::PIOA	//MOSI
 	#define PIO_MANEN				HW::PIOA	//CS
 
-	#define PIN_MANT_SPCK			12
-	#define PIN_MANTX				13 
-	#define PIN_MANEN				14 
+	#define PIN_MANT_SPCK			17
+	#define PIN_MANTX				16 
+	#define PIN_MANEN				15 
 
 	#define MANT_SPCK				(1UL<<PIN_MANT_SPCK) 
 	#define MANTX					(1UL<<PIN_MANTX)
 	#define MANEN					(1UL<<PIN_MANEN)
 
-	#define MANT_PMUX_SPCK			PORT_PMUX_D 
-	#define MANT_PMUX_MANTX			PORT_PMUX_D 
-	#define MANT_PMUX_MANEN			PORT_PMUX_D 
+	#define MANT_PMUX_SPCK			PORT_PMUX_C 
+	#define MANT_PMUX_MANTX			PORT_PMUX_C 
+	//#define MANT_PMUX_MANEN		PORT_PMUX_C 
 	#define MANT_DOPO_BITS			SPI_DOPO(0) 
 
 	#define MANT_GEN				GEN_5M
@@ -225,14 +222,14 @@
 	#define PIN_RXD					14
 	#define RXD						(1UL<<PIN_RXD)
 
-	#define Pin_ManRcvIRQ_Set()		HW::PIOB->BSET(11)
-	#define Pin_ManRcvIRQ_Clr()		HW::PIOB->BCLR(11)
+	#define Pin_ManRcvIRQ_Set()		HW::PIOB->BSET(23)
+	#define Pin_ManRcvIRQ_Clr()		HW::PIOB->BCLR(23)
 
 	#define Pin_ManTrmIRQ_Set()		HW::PIOA->BSET(6)		
 	#define Pin_ManTrmIRQ_Clr()		HW::PIOA->BCLR(6)		
 
-	#define Pin_ManRcvSync_Set()	HW::PIOB->BSET(12)		
-	#define Pin_ManRcvSync_Clr()	HW::PIOB->BCLR(12)		
+	#define Pin_ManRcvSync_Set()	HW::PIOA->BSET(27)		
+	#define Pin_ManRcvSync_Clr()	HW::PIOA->BCLR(27)		
 
 	
 	// ++++++++++++++	VCORE	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
