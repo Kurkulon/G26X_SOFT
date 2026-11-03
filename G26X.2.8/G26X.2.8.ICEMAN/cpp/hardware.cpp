@@ -130,9 +130,10 @@ static void WDT_Init()
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+i32 tempCPU = 0;
 u16 PTAT = 0;
 u16 CTAT = 0;
-i32 tempCPU = 0;
+u16 coreVCC = 0;
 
 static i32 temp_k1 = 0;
 static i32 temp_k2 = 0;
@@ -189,10 +190,26 @@ void UpdateADC()
 				
 				if (c != 0) tempCPU = ((a-b)+c/2)/c;
 				
-				i = 0;
+				HW::ADC0->INPUTCTRL = ADC_MUXPOS_SCALEDCOREVCC;
+				HW::ADC0->INTFLAG = ~0;
+				HW::ADC0->SWTRIG = ADC_START;
+
+				i++;
 			};
 
 			break;
+
+		case 3:
+
+			if (HW::ADC0->INTFLAG & ADC_RESRDY)
+			{
+				u16 res = HW::ADC0->RESULT;
+				
+				coreVCC = (4125*res+1024)>>11;
+
+				i = 0;
+			};
+
 	};
 }
 
@@ -224,7 +241,7 @@ static void Init_ADC()
 	HW::ADC0->AVGCTRL = ADC_SAMPLENUM_1024;
 	//HW::ADC1->AVGCTRL = ADC_SAMPLENUM_1024;
 
-	HW::ADC0->SAMPCTRL = ADC_SAMPLEN(26);
+	HW::ADC0->SAMPCTRL = ADC_SAMPLEN(26)|ADC_OFFCOMP;
 	//HW::ADC1->SAMPCTRL = ADC_SAMPLEN(26);
 
 	HW::ADC0->CTRLA = ADC_PRESCALER_DIV32|ADC_ENABLE; 

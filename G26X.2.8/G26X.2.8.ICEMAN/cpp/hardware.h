@@ -46,7 +46,8 @@ extern void UpdateHardware();
 extern void UpdateADC();
 //extern u16 GetCurFireVoltage();
 
-//inline bool DacHvInverted() { extern bool dachvInverted; return dachvInverted; }
+inline i32 GetTempCPU() { extern i32 tempCPU; return tempCPU; }
+inline u16 GetCoreVCC() { extern u16 coreVCC; return coreVCC; }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
