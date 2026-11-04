@@ -676,7 +676,51 @@ static void UpdateTemp()
 
 static void InitMainVars()
 {
-	mv.numDevice		= 0;
+	mv.numDevice				= 11111;
+	mv.numMemDevice				= 11111;
+
+	mv.trans[0].gain			= 128;
+	mv.trans[0].st 				= 5;	
+	mv.trans[0].sl 				= 512;	
+	mv.trans[0].sd 				= 200;	
+	mv.trans[0].freq			= 16000;
+	mv.trans[0].duty			= 50;
+	mv.trans[0].amp				= 2100;
+	mv.trans[0].pulseCount		= 1;
+	mv.trans[0].packType		= 7;	// PACK_DCT3
+	mv.trans[0].math			= 0;
+
+	mv.trans[1].gain			= 128;
+	mv.trans[1].st 				= 10;	
+	mv.trans[1].sl 				= 512;	
+	mv.trans[1].sd 				= 200;	
+	mv.trans[1].freq			= 1000;
+	mv.trans[1].duty			= 50;
+	mv.trans[1].amp				= 2100;
+	mv.trans[1].pulseCount		= 1;
+	mv.trans[1].packType		= 7;	// PACK_DCT3
+	mv.trans[1].math			= 0;
+
+	mv.trans[2].gain			= 128;
+	mv.trans[2].st 				= 10;	
+	mv.trans[2].sl 				= 512;	
+	mv.trans[2].sd 				= 500;	
+	mv.trans[2].freq			= 3000;
+	mv.trans[2].duty			= 5000;
+	mv.trans[2].amp				= 1200;
+	mv.trans[2].pulseCount		= 2;
+	mv.trans[2].packType		= 7;	// PACK_DCT3
+	mv.trans[2].math			= 0;
+
+	mv.trmVoltage				= 600;
+	mv.disableFireNoVibration	= 0;
+	mv.levelNoVibration			= 100;
+	mv.firePeriod				= 1000;
+	mv.lfMnplEnabled			= 0;
+
+	mv.autoGain					= 0;
+
+	SEGGER_RTT_WriteString(0, RTT_CTRL_TEXT_BRIGHT_CYAN "Init Main Vars Vars ... OK\n");
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -870,7 +914,7 @@ int main()
 
 	InitHardware();
 
-	//LoadVars();
+	LoadVars();
 
 	InitTaskList();
 
